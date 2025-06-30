@@ -13,5 +13,9 @@ class SaleOrder(models.Model):
             'res_model': 'capitulo.wizard',
             'view_mode': 'form',
             'target': 'new',
-            'context': {'default_order_id': self.id}
+            'context': {
+                'default_order_id': self.id,
+                'active_id': self.id,
+                'active_model': 'sale.order'
+            }
         }

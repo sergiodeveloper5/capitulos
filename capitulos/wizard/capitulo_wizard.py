@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import UserError
 
 class CapituloWizardLine(models.TransientModel):
     _name = 'capitulo.wizard.line'
@@ -14,8 +15,17 @@ class CapituloWizard(models.TransientModel):
     _description = 'Configurador de capítulo'
 
     capitulo_id = fields.Many2one('capitulo.contrato', required=True, string='Capítulo')
-    order_id = fields.Many2one('sale.order', string='Pedido de Venta')
+    order_id = fields.Many2one('sale.order', string='Pedido de Venta', required=True)
     line_ids = fields.One2many('capitulo.wizard.line', 'wizard_id', string='Componentes')
+
+    @api.model
+    def default_get(self, fields):
+        res = super().default_get(fields)
+        # Obtener el pedido desde el contexto
+        order_id = self.env.context.get('default_order_id') or self.env.context.get('active_id')
+        if order_id and 'order_id' in fields:
+            res['order_id'] = order_id
+        return res
 
     @api.onchange('capitulo_id')
     def _onchange_capitulo(self):
@@ -34,12 +44,12 @@ class CapituloWizard(models.TransientModel):
 
     def add_to_order(self):
         if not self.order_id:
-            order_id = self.env.context.get('active_id')
-            if not order_id:
-                raise ValueError("No se encontró el pedido de venta")
-            order = self.env['sale.order'].browse(order_id)
-        else:
-            order = self.order_id
+            raise UserError("No se encontró el pedido de venta")
+
+        if not self.line_ids:
+            raise UserError("Debe seleccionar al menos un componente")
+
+        order = self.order_id
 
         # Crear líneas de pedido
         for line in self.line_ids:
@@ -60,6 +70,7 @@ class CapituloWizard(models.TransientModel):
 
         # Añadir condiciones legales si existen
         if self.capitulo_id.condiciones_legales:
-            order.note = (order.note or '') + f"\n\nCondiciones del capítulo {self.capitulo_id.codigo}:\n{self.capitulo_id.condiciones_legales}"
+            nota_capitulo = f"\n\nCondiciones del capítulo {self.capitulo_id.codigo}:\n{self.capitulo_id.condiciones_legales}"
+            order.note = (order.note or '') + nota_capitulo
 
         return {'type': 'ir.actions.act_window_close'}
