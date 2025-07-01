@@ -5,7 +5,7 @@ class CapituloComponente(models.Model):
     _description = 'Componente del Capítulo'
 
     capitulo_id = fields.Many2one('capitulo.contrato', required=True, ondelete='cascade')
-    name = fields.Char(required=True)
+    name = fields.Char(string = "nombre", required=True)
     type = fields.Selection([
         ('alquiler', 'Alquiler'),
         ('seguro', 'Seguro'),
@@ -14,7 +14,7 @@ class CapituloComponente(models.Model):
         ('transporte', 'Transporte'),
         ('otros', 'Otros'),
     ], default='otros')
-    precio_unitario = fields.Float(required=True)
+    precio_unitario = fields.Float(string = "precio unitario", required=True)
     cantidad = fields.Float(default=1)
     uom_id = fields.Many2one('uom.uom', string='Unidad de Medida', required=True,
         default=lambda self: self.env.ref('uom.product_uom_unit'))
