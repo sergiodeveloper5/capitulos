@@ -6,7 +6,7 @@ class CapituloComponente(models.Model):
 
     capitulo_id = fields.Many2one('capitulo.contrato', required=True, ondelete='cascade')
     name = fields.Char(required=True)
-    tipo = fields.Selection([
+    type = fields.Selection([
         ('alquiler', 'Alquiler'),
         ('seguro', 'Seguro'),
         ('montaje', 'Montaje'),
