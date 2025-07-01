@@ -1,20 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Menú principal -->
-    <menuitem id="menu_capitulos_root" 
-              name="Capítulos" 
-              sequence="30"/>
+    <!-- Menú principal: Capítulos, dentro de Ventas -->
+    <menuitem
+        id="menu_capitulos_root"
+        name="Capítulos"
+        parent="sale.menu_sale_root"
+        sequence="80"
+    />
 
     <!-- Submenú Configuración -->
-    <menuitem id="menu_capitulos_config" 
-              name="Configuración" 
-              parent="menu_capitulos_root" 
-              sequence="10"/>
+    <menuitem
+        id="menu_capitulos_config"
+        name="Configuración"
+        parent="menu_capitulos_root"
+        sequence="10"
+    />
 
-    <!-- Menú de Capítulos -->
-    <menuitem id="menu_capitulo_contrato" 
-              name="Capítulos Contratados" 
-              parent="menu_capitulos_config" 
-              action="action_capitulo_contrato" 
-              sequence="10"/>
+    <!-- Menú de Capítulos Contratados -->
+    <menuitem
+        id="menu_capitulo_contrato"
+        name="Capítulos Contratados"
+        parent="menu_capitulos_config"
+        action="action_capitulo_contrato"
+        sequence="10"
+    />
 </odoo>
