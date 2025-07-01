@@ -8,4 +8,5 @@ class CapituloContrato(models.Model):
     codigo = fields.Char(required=True)
     descripcion = fields.Text()
     condiciones_legales = fields.Html(string="Condiciones Legales")
-    componente_ids = fields.One2many('capitulo.componente', 'capitulo_id')
+    componente_ids = fields.One2many('capitulo.componente', 'capitulo_id',
+    string='Componentes')
