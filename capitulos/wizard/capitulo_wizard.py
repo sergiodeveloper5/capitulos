@@ -55,7 +55,7 @@ class CapituloWizard(models.TransientModel):
         for line in self.line_ids:
             vals = {
                 'order_id': order.id,
-                'name': f"[{self.capitulo_id.codigo}] {line.componente_id.nombre}",
+                'name': f"[{self.capitulo_id.codigo}] {line.componente_id.name}",
                 'price_unit': line.precio_unitario,
                 'product_uom_qty': line.cantidad,
                 'product_uom': line.componente_id.uom_id.id,
