@@ -10,7 +10,7 @@
                     <group>
                         <group>
                             <field name="name"/>
-                            <field name="código"/>
+                            <field name="codigo"/>
                         </group>
                         <group>
                             <field name="descripcion"/>
@@ -20,7 +20,7 @@
                         <page string="Componentes">
                             <field name="componente_ids">
                                 <tree editable="bottom">
-                                    <field name="nombre"/>
+                                    <field name="name"/>
                                     <field name="type"/>
                                     <field name="precio_unitario"/>
                                     <field name="cantidad"/>
@@ -59,7 +59,7 @@
         <field name="arch" type="xml">
             <search string="Buscar Capítulos">
                 <field name="name"/>
-                <field name="código"/>
+                <field name="codigo"/>
                 <field name="descripcion"/>
                 <group expand="0" string="Agrupar por">
                     <filter string="Código" name="group_codigo" context="{'group_by': 'codigo'}"/>
