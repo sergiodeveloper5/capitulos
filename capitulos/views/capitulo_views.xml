@@ -21,7 +21,8 @@
                                         <field name="type"/>
                                         <field name="precio_unitario"/>
                                         <field name="cantidad"/>
-                                        <field name="total_linea"/> </tree>
+                                        <field name="total_linea"/>
+                                    </tree>
                                     <form>
                                         <group>
                                             <field name="name"/>
@@ -67,7 +68,8 @@
         <record id="action_capitulo_contrato" model="ir.actions.act_window">
             <field name="name">Capítulos de Contrato</field>
             <field name="res_model">capitulo.contrato</field>
-            <field name="view_mode">tree,form</field> <field name="help" type="html">
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
                     Crea tu primer Capítulo de Contrato
                 </p>
@@ -76,7 +78,9 @@
 
         <menuitem id="menu_capitulos_root"
                   name="Gestión de Capítulos"
-                  sequence="10"/> <menuitem id="menu_capitulos_main"
+                  sequence="10"/>
+
+        <menuitem id="menu_capitulos_main"
                   name="Capítulos"
                   parent="menu_capitulos_root"
                   action="action_capitulo_contrato"
