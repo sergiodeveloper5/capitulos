@@ -18,7 +18,7 @@
                     </group>
                     <notebook>
                         <page string="Componentes">
-                            <field name="componente_ids">
+                            <field name="componente_ids" context="{'default_capitulo_id': active_id}">
                                 <tree editable="bottom">
                                     <field name="name"/>
                                     <field name="type"/>
@@ -26,8 +26,23 @@
                                     <field name="cantidad"/>
                                     <field name="uom_id"/>
                                     <field name="incluir_por_defecto"/>
-                                    <field name="product_id"/>
+                                    <field name="product_id" optional="hide"/>
                                 </tree>
+                                <form>
+                                    <group>
+                                        <group>
+                                            <field name="name"/>
+                                            <field name="type"/>
+                                            <field name="precio_unitario"/>
+                                        </group>
+                                        <group>
+                                            <field name="cantidad"/>
+                                            <field name="uom_id"/>
+                                            <field name="incluir_por_defecto"/>
+                                            <field name="product_id"/>
+                                        </group>
+                                    </group>
+                                </form>
                             </field>
                         </page>
                         <page string="Condiciones Legales">
