@@ -4,7 +4,7 @@
     <menuitem
         id="menu_capitulos_root"
         name="Capítulos"
-        parent="sale.menu_sale_root"
+        parent="sale_management.menu_sale_management"
         sequence="80"
     />
 
