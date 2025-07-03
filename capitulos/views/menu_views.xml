@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Menú principal: Capítulos, dentro de Ventas -->
+    <!-- Menú principal: Capítulos, como menú raíz independiente -->
     <menuitem
         id="menu_capitulos_root"
         name="Capítulos"
-        parent="sale_management.menu_sale_management"
+        web_icon="capitulos,static/description/icon.png"
         sequence="80"
     />
 
@@ -26,3 +26,4 @@
         sequence="20"
     />
 </odoo>
+
