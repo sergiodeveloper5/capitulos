@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vista de formulario para componentes -->
+    <record id="view_componente_form" model="ir.ui.view">
+        <field name="name">capitulo.componente.form</field>
+        <field name="model">capitulo.componente</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="type"/>
+                        <field name="precio_unitario"/>
+                        <field name="cantidad"/>
+                        <field name="uom_id"/>
+                        <field name="incluir_por_defecto"/>
+                        <field name="product_id"/>
+                        <field name="capitulo_id" invisible="context.get('hide_capitulo', False)"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vista de árbol para componentes -->
+    <record id="view_componente_tree" model="ir.ui.view">
+        <field name="name">capitulo.componente.tree</field>
+        <field name="model">capitulo.componente</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="type"/>
+                <field name="precio_unitario"/>
+                <field name="cantidad"/>
+                <field name="incluir_por_defecto"/>
+                <field name="product_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vista de búsqueda para componentes -->
+    <record id="view_componente_search" model="ir.ui.view">
+        <field name="name">capitulo.componente.search</field>
+        <field name="model">capitulo.componente</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="type"/>
+                <field name="product_id"/>
+                <filter string="Incluir por defecto" name="incluir_por_defecto" domain="[('incluir_por_defecto', '=', True)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter string="Tipo" name="group_by_type" context="{'group_by': 'type'}"/>
+                    <filter string="Capítulo" name="group_by_capitulo" context="{'group_by': 'capitulo_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Acción para componentes -->
+    <record id="action_componente" model="ir.actions.act_window">
+        <field name="name">Componentes</field>
+        <field name="res_model">capitulo.componente</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea tu primer componente
+            </p>
+        </field>
+    </record>
+
+
+</odoo>

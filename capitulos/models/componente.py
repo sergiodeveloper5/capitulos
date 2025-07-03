@@ -3,7 +3,6 @@ from odoo import models, fields
 class CapituloComponente(models.Model):
     _name = 'capitulo.componente'
     _description = 'Componente del Capítulo'
-    _rec_name = 'name'
 
     capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo', required=True, ondelete='cascade')
     name = fields.Char(string="Nombre", required=True)

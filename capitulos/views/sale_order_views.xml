@@ -13,14 +13,7 @@
                         attrs="{'invisible': [('state', 'in', ['sale', 'done', 'cancel'])]}"/>
             </xpath>
             <xpath expr="//field[@name='order_line']" position="after">
-                <group string="Capítulos Aplicados" attrs="{'invisible': [('capitulo_ids', '=', [])]}">
-                    <field name="capitulo_ids" nolabel="1">
-                        <tree>
-                            <field name="codigo"/>
-                            <field name="name"/>
-                        </tree>
-                    </field>
-                </group>
+                <field name="capitulo_ids" attrs="{'invisible': [('capitulo_ids', '=', [])]}" widget="many2many_tags"/>
             </xpath>
         </field>
     </record>

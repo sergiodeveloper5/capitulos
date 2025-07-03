@@ -8,20 +8,21 @@
         sequence="80"
     />
 
-    <!-- Submenú Configuración -->
-    <menuitem
-        id="menu_capitulos_config"
-        name="Configuración"
-        parent="menu_capitulos_root"
-        sequence="10"
-    />
-
-    <!-- Menú de Capítulos Contratados -->
+    <!-- Menú de Capítulos -->
     <menuitem
         id="menu_capitulo_contrato"
-        name="Capítulos Contratados"
-        parent="menu_capitulos_config"
+        name="Capítulos"
+        parent="menu_capitulos_root"
         action="action_capitulo_contrato"
         sequence="10"
+    />
+    
+    <!-- Menú de Componentes -->
+    <menuitem
+        id="menu_componente"
+        name="Componentes"
+        parent="menu_capitulos_root"
+        action="action_componente"
+        sequence="20"
     />
 </odoo>

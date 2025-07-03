@@ -1,38 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data>
         <record id="view_capitulo_contrato_form" model="ir.ui.view">
             <field name="name">capitulo.contrato.form</field>
             <field name="model">capitulo.contrato</field>
-            <field name="arch">
+            <field name="arch" type="xml">
                 <form>
                     <sheet>
                         <group>
+                            <field name="codigo"/>
                             <field name="name"/>
                             <field name="description"/>
-                            <field name="value"/>
-                            <field name="value2"/>
                         </group>
                         <notebook>
-                            <page string="Detalle de Capítulos">
-                                <field name="chapter_line_ids">
+                            <page string="Componentes">
+                                <field name="componente_ids">
                                     <tree editable="bottom">
                                         <field name="name"/>
                                         <field name="type"/>
                                         <field name="precio_unitario"/>
                                         <field name="cantidad"/>
-                                        <field name="total_linea"/>
+                                        <field name="incluir_por_defecto"/>
+                                        <field name="product_id"/>
                                     </tree>
-                                    <form>
-                                        <group>
-                                            <field name="name"/>
-                                            <field name="type"/>
-                                            <field name="precio_unitario"/>
-                                            <field name="cantidad"/>
-                                            <field name="total_linea"/>
-                                        </group>
-                                    </form>
                                 </field>
+                            </page>
+                            <page string="Condiciones Legales">
+                                <field name="condiciones_legales" nolabel="1"/>
                             </page>
                         </notebook>
                     </sheet>
@@ -43,12 +36,11 @@
         <record id="view_capitulo_contrato_tree" model="ir.ui.view">
             <field name="name">capitulo.contrato.tree</field>
             <field name="model">capitulo.contrato</field>
-            <field name="arch">
-                <tree string="Capítulos de Contrato">
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="codigo"/>
                     <field name="name"/>
                     <field name="description"/>
-                    <field name="value"/>
-                    <field name="value2"/>
                 </tree>
             </field>
         </record>
@@ -56,11 +48,11 @@
         <record id="view_capitulo_contrato_search" model="ir.ui.view">
             <field name="name">capitulo.contrato.search</field>
             <field name="model">capitulo.contrato</field>
-            <field name="arch">
-                <search string="Buscar Capítulos">
+            <field name="arch" type="xml">
+                <search>
+                    <field name="codigo"/>
                     <field name="name"/>
                     <field name="description"/>
-                    <field name="value"/>
                 </search>
             </field>
         </record>
@@ -76,15 +68,6 @@
             </field>
         </record>
 
-        <menuitem id="menu_capitulos_root"
-                  name="Gestión de Capítulos"
-                  sequence="10"/>
 
-        <menuitem id="menu_capitulos_main"
-                  name="Capítulos"
-                  parent="menu_capitulos_root"
-                  action="action_capitulo_contrato"
-                  sequence="10"/>
 
-    </data>
 </odoo>
