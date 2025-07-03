@@ -10,10 +10,10 @@
                 <button name="action_add_capitulo" type="object" 
                         string="Añadir Capítulo" 
                         class="btn-secondary"
-                        attrs="{'invisible': [('state', 'in', ['sale', 'done', 'cancel'])]}"/>
+                        invisible="state in ['sale', 'done', 'cancel']"/>
             </xpath>
             <xpath expr="//field[@name='order_line']" position="after">
-                <field name="capitulo_ids" attrs="{'invisible': [('capitulo_ids', '=', [])]}" widget="many2many_tags"/>
+                <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
             </xpath>
         </field>
     </record>
