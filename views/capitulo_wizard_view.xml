@@ -13,12 +13,12 @@
                     <notebook>
                         <page string="Secciones y Productos">
                             <field name="seccion_ids">
-                                <tree>
+                                <list>
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                     <field name="es_fija" readonly="1"/>
                                     <field name="incluir"/>
-                                </tree>
+                                </list>
                                 <form>
                                     <sheet>
                                         <group>
@@ -30,7 +30,7 @@
                                         <notebook>
                                             <page string="Productos">
                                                 <field name="line_ids">
-                                                    <tree editable="bottom">
+                                                    <list editable="bottom">
                                                         <field name="sequence" widget="handle"/>
                                                         <field name="product_id"/>
                                                         <field name="descripcion_personalizada"/>
@@ -38,7 +38,7 @@
                                                         <field name="precio_unitario"/>
                                                         <field name="incluir"/>
                                                         <field name="es_opcional"/>
-                                                    </tree>
+                                                    </list>
                                                 </field>
                                             </page>
                                         </notebook>

@@ -27,12 +27,12 @@
                         <notebook>
                             <page string="Secciones">
                                 <field name="seccion_ids">
-                                    <tree>
+                                    <list>
                                         <field name="sequence" widget="handle"/>
                                         <field name="name"/>
                                         <field name="es_fija"/>
                                         <field name="descripcion"/>
-                                    </tree>
+                                    </list>
                                     <form>
                                         <sheet>
                                             <group>
@@ -44,7 +44,7 @@
                                             <notebook>
                                                 <page string="Productos">
                                                     <field name="product_line_ids">
-                                                        <tree editable="bottom">
+                                                        <list editable="bottom">
                                                             <field name="sequence" widget="handle"/>
                                                             <field name="product_id"/>
                                                             <field name="descripcion_personalizada"/>
@@ -52,7 +52,7 @@
                                                             <field name="precio_unitario"/>
                                                             <field name="subtotal"/>
                                                             <field name="es_opcional"/>
-                                                        </tree>
+                                                        </list>
                                                     </field>
                                                 </page>
                                             </notebook>
