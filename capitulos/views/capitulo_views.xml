@@ -14,7 +14,6 @@
                         </div>
                         <group>
                             <group>
-                                <field name="codigo"/>
                                 <field name="name"/>
                                 <field name="es_plantilla"/>
                             </group>
@@ -64,7 +63,6 @@
             <field name="model">capitulo.contrato</field>
             <field name="arch" type="xml">
                 <list>
-                    <field name="codigo"/>
                     <field name="name"/>
                     <field name="description"/>
                     <field name="es_plantilla" widget="boolean_toggle"/>
@@ -78,7 +76,6 @@
             <field name="model">capitulo.contrato</field>
             <field name="arch" type="xml">
                 <search>
-                    <field name="codigo"/>
                     <field name="name"/>
                     <field name="description"/>
                     <field name="plantilla_id"/>
