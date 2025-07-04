@@ -6,10 +6,24 @@
             <field name="arch" type="xml">
                 <form>
                     <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_crear_desde_plantilla" type="object" 
+                                    class="oe_stat_button" icon="fa-copy"
+                                    string="Crear desde Plantilla"
+                                    invisible="not id"/>
+                        </div>
                         <group>
-                            <field name="codigo"/>
-                            <field name="name"/>
-                            <field name="description"/>
+                            <group>
+                                <field name="codigo"/>
+                                <field name="name"/>
+                                <field name="es_plantilla"/>
+                            </group>
+                            <group>
+                                <field name="plantilla_id" domain="[('es_plantilla', '=', True), ('id', '!=', id)]"
+                                       options="{'no_create': True}"
+                                       invisible="context.get('default_plantilla_id', False)"/>
+                                <field name="description"/>
+                            </group>
                         </group>
                         <notebook>
                             <page string="Componentes">
@@ -53,6 +67,8 @@
                     <field name="codigo"/>
                     <field name="name"/>
                     <field name="description"/>
+                    <field name="es_plantilla" widget="boolean_toggle"/>
+                    <field name="plantilla_id" optional="hide"/>
                 </list>
             </field>
         </record>
@@ -65,6 +81,15 @@
                     <field name="codigo"/>
                     <field name="name"/>
                     <field name="description"/>
+                    <field name="plantilla_id"/>
+                    <filter string="Plantillas" name="es_plantilla" domain="[('es_plantilla', '=', True)]"/>
+                    <filter string="Capítulos Normales" name="no_plantilla" domain="[('es_plantilla', '=', False)]"/>
+                    <separator/>
+                    <filter string="Basados en Plantilla" name="con_plantilla" domain="[('plantilla_id', '!=', False)]"/>
+                    <group expand="0" string="Agrupar por">
+                        <filter string="Tipo" name="group_by_tipo" context="{'group_by': 'es_plantilla'}"/>
+                        <filter string="Plantilla Base" name="group_by_plantilla" context="{'group_by': 'plantilla_id'}"/>
+                    </group>
                 </search>
             </field>
         </record>
@@ -73,11 +98,42 @@
             <field name="name">Capítulos de Contrato</field>
             <field name="res_model">capitulo.contrato</field>
             <field name="view_mode">list,form</field>
+            <field name="context">{'search_default_no_plantilla': 1}</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
                     Crea tu primer Capítulo de Contrato
                 </p>
+                <p>
+                    Los capítulos te permiten agrupar componentes relacionados para crear presupuestos más organizados.
+                    Puedes crear un capítulo desde cero o basarte en una plantilla existente.
+                </p>
             </field>
+        </record>
+
+        <!-- Acción para plantillas -->
+        <record id="action_capitulo_plantillas" model="ir.actions.act_window">
+            <field name="name">Plantillas de Capítulos</field>
+            <field name="res_model">capitulo.contrato</field>
+            <field name="view_mode">list,form</field>
+            <field name="context">{'search_default_es_plantilla': 1, 'default_es_plantilla': True}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Crea tu primera Plantilla de Capítulo
+                </p>
+                <p>
+                    Las plantillas te permiten crear capítulos predefinidos que pueden ser reutilizados.
+                    Marca un capítulo como "Es Plantilla" para que aparezca aquí.
+                </p>
+            </field>
+        </record>
+
+        <!-- Acción para crear desde plantilla -->
+        <record id="action_crear_desde_plantilla" model="ir.actions.act_window">
+            <field name="name">Crear Capítulo desde Plantilla</field>
+            <field name="res_model">capitulo.contrato</field>
+            <field name="view_mode">form</field>
+            <field name="target">current</field>
+            <field name="context">{'form_view_initial_mode': 'edit'}</field>
         </record>
 
         <!-- Vista de formulario para componentes -->

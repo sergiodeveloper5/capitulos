@@ -17,6 +17,15 @@
         sequence="10"
     />
     
+    <!-- Menú de Plantillas -->
+    <menuitem
+        id="menu_capitulo_plantillas"
+        name="Plantillas"
+        parent="menu_capitulos_root"
+        action="action_capitulo_plantillas"
+        sequence="15"
+    />
+    
     <!-- Menú de Componentes -->
     <menuitem
         id="menu_componente"
