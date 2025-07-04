@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menú de Capítulos bajo Ventas -->
+    <menuitem
+        id="menu_capitulo_contrato"
+        name="Capítulos"
+        parent="sale.sale_menu_root"
+        action="action_capitulo_contrato"
+        sequence="50"
+    />
+    
+    <!-- Menú de Plantillas bajo Ventas -->
+    <menuitem
+        id="menu_capitulo_plantillas"
+        name="Plantillas de Capítulos"
+        parent="sale.sale_menu_root"
+        action="action_capitulo_plantillas"
+        sequence="51"
+    />
+    
+
+</odoo>
+

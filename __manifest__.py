@@ -3,7 +3,7 @@
     'version': '18.0.1.0.0',
     'category': 'Sales',
     'summary': 'Gestión de capítulos técnicos y contratación de servicios agrupados',
-    'description': "Gestión de capítulos técnicos como servicios completos con componentes configurables para presupuestos de venta.",
+    'description': "Gestión de capítulos técnicos como servicios completos con productos configurables para presupuestos de venta.",
     'author': 'Sergio Vadillo',
     'website': 'https://github.com/sergiodeveloper5/capitulos.git',
     'depends': [
