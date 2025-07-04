@@ -47,22 +47,26 @@ class CapituloWizard(models.TransientModel):
 
     @api.onchange('capitulo_id')
     def onchange_capitulo_id(self):
-        """Carga las secciones fijas y productos del capítulo seleccionado"""
+        """Carga las secciones del capítulo seleccionado"""
         self.seccion_ids = [(5, 0, 0)]
         self.condiciones_particulares = ''
         
         if not self.capitulo_id:
             return
             
-        # Cargar condiciones legales si es una plantilla
-        if self.capitulo_id.es_plantilla and self.capitulo_id.condiciones_legales:
+        # Cargar condiciones legales
+        if self.capitulo_id.condiciones_legales:
             self.condiciones_particulares = self.capitulo_id.condiciones_legales
             
-        # Crear secciones fijas predefinidas
-        self._crear_secciones_fijas()
+        # Cargar secciones del capítulo
+        if self.capitulo_id.seccion_ids:
+            self._cargar_secciones_existentes()
+        else:
+            # Si no hay secciones, crear secciones predefinidas
+            self._crear_secciones_predefinidas()
     
-    def _crear_secciones_fijas(self):
-        """Crea las secciones fijas predefinidas"""
+    def _crear_secciones_predefinidas(self):
+        """Crea secciones predefinidas básicas"""
         secciones_predefinidas = [
             {'name': 'Alquiler', 'sequence': 10, 'es_fija': True},
             {'name': 'Montaje', 'sequence': 20, 'es_fija': True},
@@ -72,22 +76,35 @@ class CapituloWizard(models.TransientModel):
         
         secciones_vals = []
         for seccion_data in secciones_predefinidas:
-            # Crear líneas de productos para cada sección si hay productos en el capítulo
-            lineas_vals = []
-            if seccion_data['name'] == 'Otros Conceptos':
-                # En "Otros Conceptos" añadir todos los productos del capítulo
-                for product in self.capitulo_id.product_ids:
-                    lineas_vals.append((0, 0, {
-                        'product_id': product.id,
-                        'cantidad': 1,
-                        'incluir': True,
-                        'es_opcional': False,
-                    }))
-            
             secciones_vals.append((0, 0, {
                 'name': seccion_data['name'],
                 'sequence': seccion_data['sequence'],
                 'es_fija': seccion_data['es_fija'],
+                'incluir': True,
+                'line_ids': [],
+            }))
+        
+        self.seccion_ids = secciones_vals
+    
+    def _cargar_secciones_existentes(self):
+        """Carga las secciones existentes del capítulo"""
+        secciones_vals = []
+        for seccion in self.capitulo_id.seccion_ids:
+            lineas_vals = []
+            for linea in seccion.product_line_ids:
+                lineas_vals.append((0, 0, {
+                    'product_id': linea.product_id.id,
+                    'descripcion_personalizada': linea.descripcion_personalizada,
+                    'cantidad': linea.cantidad,
+                    'sequence': linea.sequence,
+                    'incluir': True,
+                    'es_opcional': linea.es_opcional,
+                }))
+            
+            secciones_vals.append((0, 0, {
+                'name': seccion.name,
+                'sequence': seccion.sequence,
+                'es_fija': seccion.es_fija,
                 'incluir': True,
                 'line_ids': lineas_vals,
             }))
@@ -109,14 +126,18 @@ class CapituloWizard(models.TransientModel):
             # Solo añadir sección si tiene productos
             productos_incluidos = seccion.line_ids.filtered('incluir')
             if productos_incluidos:
-                # Añadir línea de sección como separador
-                SaleOrderLine.create({
+                # Añadir línea de sección como separador (no modificable)
+                section_line = SaleOrderLine.create({
                     'order_id': order.id,
                     'name': f"=== {seccion.name.upper()} ===",
                     'product_uom_qty': 0,
                     'price_unit': 0,
                     'display_type': 'line_section',
                 })
+                
+                # Si la sección es fija, marcar la línea como no editable
+                if seccion.es_fija:
+                    section_line.write({'name': f"🔒 === {seccion.name.upper()} === (SECCIÓN FIJA)"})
                 
                 # Añadir productos de la sección
                 for line in productos_incluidos:
@@ -131,7 +152,11 @@ class CapituloWizard(models.TransientModel):
                         'product_uom': line.product_id.uom_id.id,
                     }
                     
-                    SaleOrderLine.create(vals)
+                    product_line = SaleOrderLine.create(vals)
+                    
+                    # Si la sección es fija, añadir una nota indicativa
+                    if seccion.es_fija:
+                        product_line.write({'name': f"🔒 {descripcion} (No modificable)"})
 
         # Añadir capítulo a la lista de capítulos aplicados
         order.write({'capitulo_ids': [(4, self.capitulo_id.id)]})

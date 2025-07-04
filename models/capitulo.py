@@ -8,7 +8,7 @@ class CapituloContrato(models.Model):
 
     name = fields.Char(string='Nombre del Capítulo', required=True)
     description = fields.Text(string='Descripción')
-    product_ids = fields.Many2many('product.product', string='Productos')
+    seccion_ids = fields.One2many('capitulo.seccion', 'capitulo_id', string='Secciones')
     condiciones_legales = fields.Text(string='Condiciones Legales')
     plantilla_id = fields.Many2one('capitulo.contrato', string='Basado en Plantilla', 
                                    help='Selecciona un capítulo existente como plantilla')
@@ -17,14 +17,36 @@ class CapituloContrato(models.Model):
 
     @api.onchange('plantilla_id')
     def _onchange_plantilla_id(self):
-        """Carga los productos de la plantilla seleccionada"""
-        if self.plantilla_id and not self.product_ids:
-            # Copiar información básica de la plantilla
-            self.description = self.plantilla_id.description
-            self.condiciones_legales = self.plantilla_id.condiciones_legales
+        """Copia las secciones y productos de la plantilla seleccionada"""
+        if self.plantilla_id:
+            # Limpiar secciones existentes
+            self.seccion_ids = [(5, 0, 0)]
             
-            # Copiar productos de la plantilla
-            self.product_ids = [(6, 0, self.plantilla_id.product_ids.ids)]
+            # Copiar secciones de la plantilla
+            secciones_vals = []
+            for seccion in self.plantilla_id.seccion_ids:
+                # Copiar líneas de productos de la sección
+                lineas_vals = []
+                for linea in seccion.product_line_ids:
+                    lineas_vals.append((0, 0, {
+                        'product_id': linea.product_id.id,
+                        'cantidad': linea.cantidad,
+                        'precio_unitario': linea.precio_unitario,
+                        'sequence': linea.sequence,
+                        'descripcion_personalizada': linea.descripcion_personalizada,
+                        'es_opcional': linea.es_opcional,
+                    }))
+                
+                secciones_vals.append((0, 0, {
+                    'name': seccion.name,
+                    'sequence': seccion.sequence,
+                    'descripcion': seccion.descripcion,
+                    'es_fija': seccion.es_fija,
+                    'product_line_ids': lineas_vals,
+                }))
+            
+            self.seccion_ids = secciones_vals
+            self.condiciones_legales = self.plantilla_id.condiciones_legales
 
     def action_crear_desde_plantilla(self):
         """Acción para crear un nuevo capítulo desde una plantilla"""
