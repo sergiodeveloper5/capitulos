@@ -208,6 +208,16 @@ class CapituloWizard(models.TransientModel):
         order = self.order_id
         SaleOrderLine = self.env['sale.order.line']
         
+        # Añadir título del capítulo como encabezado principal
+        nombre_capitulo = capitulo.name if self.modo_creacion == 'existente' else self.nuevo_capitulo_nombre
+        SaleOrderLine.create({
+            'order_id': order.id,
+            'name': f"📋 ═══ {nombre_capitulo.upper()} ═══",
+            'product_uom_qty': 0,
+            'price_unit': 0,
+            'display_type': 'line_section',
+        })
+        
         # Crear líneas de pedido organizadas por secciones
         for seccion in self.seccion_ids.filtered('incluir'):
             # Solo añadir sección si tiene productos

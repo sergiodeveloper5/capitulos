@@ -55,7 +55,6 @@
                                     <field name="name" readonly="es_fija" decoration-bf="es_fija"/>
                                     <field name="es_fija" readonly="1" string="Fija" widget="boolean_toggle"/>
                                     <field name="incluir" widget="boolean_toggle"/>
-                                    <button name="unlink_seccion" string="🗑️" type="object" invisible="es_fija" class="btn-link" title="Eliminar sección" confirm="¿Está seguro de que desea eliminar esta sección?"/>
                                 </list>
                                 <form>
                                     <sheet>
