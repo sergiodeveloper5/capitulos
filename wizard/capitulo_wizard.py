@@ -12,6 +12,12 @@ class CapituloWizardSeccion(models.TransientModel):
     es_fija = fields.Boolean(string='Sección Fija', default=False)
     incluir = fields.Boolean(string='Incluir en Presupuesto', default=True)
     line_ids = fields.One2many('capitulo.wizard.line', 'seccion_id', string='Productos')
+    
+    def unlink_seccion(self):
+        """Elimina la sección si no es fija"""
+        if self.es_fija:
+            raise UserError("No se pueden eliminar secciones fijas")
+        return self.unlink()
 
 class CapituloWizardLine(models.TransientModel):
     _name = 'capitulo.wizard.line'
@@ -263,3 +269,54 @@ class CapituloWizard(models.TransientModel):
             })
 
         return {'type': 'ir.actions.act_window_close'}
+    
+    def add_seccion(self):
+        """Añade una nueva sección al wizard"""
+        self.ensure_one()
+        
+        # Obtener la siguiente secuencia
+        max_sequence = max([s.sequence for s in self.seccion_ids] or [0])
+        
+        # Añadir nueva sección directamente a la lista
+        self.write({
+            'seccion_ids': [(0, 0, {
+                'name': 'Nueva Sección',
+                'sequence': max_sequence + 10,
+                'es_fija': False,
+                'incluir': True,
+            })]
+        })
+        
+        # Retornar acción para refrescar la vista
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'capitulo.wizard',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'new',
+            'context': self.env.context
+        }
+    
+
+    
+    def add_another_chapter(self):
+        """Añade el capítulo actual y abre el wizard para añadir otro"""
+        self.ensure_one()
+        
+        # Primero añadir el capítulo actual
+        self.add_to_order()
+        
+        # Crear un nuevo wizard para añadir otro capítulo
+        new_wizard = self.create({
+            'order_id': self.order_id.id,
+            'modo_creacion': 'existente',
+        })
+        
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'capitulo.wizard',
+            'res_id': new_wizard.id,
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_order_id': self.order_id.id}
+        }

@@ -7,7 +7,7 @@
             <form>
                 <sheet>
                     <div class="alert alert-info" role="alert">
-                        <strong>Gestión de Capítulos:</strong> Puede usar un capítulo existente, crear uno nuevo desde cero, o basarse en una plantilla.
+                        <strong>Gestión de Capítulos:</strong> Puede usar un capítulo existente o crear uno nuevo desde cero.
                     </div>
                     
                     <group>
@@ -30,25 +30,48 @@
                         <field name="nuevo_capitulo_descripcion" placeholder="Descripción del capítulo..."/>
                     </group>
                     
+                    <!-- Mostrar nombre del capítulo seleccionado -->
+                    <div invisible="modo_creacion != 'existente' or not capitulo_id" class="alert alert-success" role="alert">
+                        <strong>Capítulo Seleccionado:</strong> <field name="capitulo_id" readonly="1" nolabel="1" style="display: inline; font-weight: bold;"/>
+                    </div>
+                    
+                    <!-- Mostrar nombre del nuevo capítulo -->
+                    <div invisible="modo_creacion != 'nuevo' or not nuevo_capitulo_nombre" class="alert alert-success" role="alert">
+                        <strong>Nuevo Capítulo:</strong> <field name="nuevo_capitulo_nombre" readonly="1" nolabel="1" style="display: inline; font-weight: bold;"/>
+                    </div>
+                    
                     <notebook>
                         <page string="Secciones y Productos">
+                            <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
+                                <strong>📋 Gestión de Secciones:</strong> Las secciones fijas (en negrita) no pueden modificarse. Puede añadir nuevas secciones personalizadas y eliminar las que no sean fijas.
+                            </div>
+                            <div class="oe_button_box" style="margin-bottom: 10px;">
+                                <button name="add_seccion" string="➕ Añadir Sección" type="object" class="btn-secondary"/>
+                            </div>
                             <field name="seccion_ids">
                                 <list>
                                     <field name="sequence" widget="handle"/>
-                                    <field name="name"/>
-                                    <field name="es_fija" readonly="1"/>
-                                    <field name="incluir"/>
+                                    <field name="name" readonly="es_fija" decoration-bf="es_fija"/>
+                                    <field name="es_fija" readonly="1" string="Fija" widget="boolean_toggle"/>
+                                    <field name="incluir" widget="boolean_toggle"/>
+                                    <button name="unlink_seccion" string="🗑️" type="object" invisible="es_fija" class="btn-link" title="Eliminar sección" confirm="¿Está seguro de que desea eliminar esta sección?"/>
                                 </list>
                                 <form>
                                     <sheet>
+                                        <div class="alert alert-warning" invisible="not es_fija" role="alert">
+                                            <strong>⚠️ Sección Fija:</strong> Esta sección no puede ser modificada ya que es parte de la estructura básica del capítulo.
+                                        </div>
                                         <group>
-                                            <field name="name" placeholder="Nombre de la sección..."/>
+                                            <field name="name" placeholder="Nombre de la sección..." readonly="es_fija"/>
                                             <field name="sequence" readonly="1"/>
                                             <field name="es_fija" readonly="1"/>
                                             <field name="incluir"/>
                                         </group>
                                         <notebook>
                                             <page string="Productos">
+                                                <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
+                                                    <strong>💡 Consejo:</strong> Haga clic en "Añadir una línea" para agregar productos a esta sección.
+                                                </div>
                                                 <field name="line_ids">
                                                     <list editable="bottom">
                                                         <field name="sequence" widget="handle"/>
@@ -73,7 +96,8 @@
                     </notebook>
                 </sheet>
                 <footer>
-                    <button name="add_to_order" string="Crear y Añadir al Presupuesto" type="object" class="btn-primary"/>
+                    <button name="add_to_order" string="Añadir al Presupuesto" type="object" class="btn-primary"/>
+                    <button name="add_another_chapter" string="➕ Añadir Otro Capítulo" type="object" class="btn-secondary"/>
                     <button string="Cancelar" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
