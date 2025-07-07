@@ -11,6 +11,15 @@
                                     class="oe_stat_button" icon="fa-copy"
                                     string="Crear desde Plantilla"
                                     invisible="not id"/>
+                            <button name="action_mostrar_dependencias" type="object" 
+                                    class="oe_stat_button" icon="fa-search"
+                                    string="Ver Dependencias"
+                                    invisible="not es_plantilla or not id"/>
+                            <button name="action_eliminar_plantilla_forzado" type="object" 
+                                    class="oe_stat_button" icon="fa-trash"
+                                    string="Eliminar Plantilla"
+                                    invisible="not es_plantilla or not id"
+                                    confirm="¿Está seguro de que desea eliminar esta plantilla? Se desvinculará de todos los capítulos que la utilicen."/>
                         </div>
                         <group>
                             <group>
@@ -78,6 +87,16 @@
                     <field name="description"/>
                     <field name="es_plantilla" widget="boolean_toggle"/>
                     <field name="plantilla_id" optional="hide"/>
+                    <field name="capitulos_dependientes_count" string="Dependencias" invisible="not es_plantilla"/>
+                    <button name="action_mostrar_dependencias" type="object" 
+                            string="Ver Dependencias" 
+                            icon="fa-search" 
+                            invisible="not es_plantilla or capitulos_dependientes_count == 0"/>
+                    <button name="action_eliminar_plantilla_forzado" type="object" 
+                            string="Eliminar Plantilla" 
+                            icon="fa-trash" 
+                            invisible="not es_plantilla"
+                            confirm="¿Está seguro de que desea eliminar esta plantilla? Se desvinculará de todos los capítulos que la utilicen."/>
                 </list>
             </field>
         </record>

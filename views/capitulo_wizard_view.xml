@@ -62,7 +62,7 @@
                                             <strong>⚠️ Sección Fija:</strong> Esta sección no puede ser modificada ya que es parte de la estructura básica del capítulo.
                                         </div>
                                         <group>
-                                            <field name="name" placeholder="Nombre de la sección..." readonly="es_fija"/>
+                                            <field name="name" placeholder="Escriba el nombre de la sección..." readonly="es_fija" required="1"/>
                                             <field name="sequence" readonly="1"/>
                                             <field name="es_fija" readonly="1"/>
                                             <field name="incluir"/>

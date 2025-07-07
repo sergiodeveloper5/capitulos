@@ -1,5 +1,8 @@
 from odoo import models, fields, api
 from odoo.exceptions import UserError
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class CapituloWizardSeccion(models.TransientModel):
     _name = 'capitulo.wizard.seccion'
@@ -12,6 +15,26 @@ class CapituloWizardSeccion(models.TransientModel):
     es_fija = fields.Boolean(string='Sección Fija', default=False)
     incluir = fields.Boolean(string='Incluir en Presupuesto', default=True)
     line_ids = fields.One2many('capitulo.wizard.line', 'seccion_id', string='Productos')
+    
+    @api.constrains('name')
+    def _check_name(self):
+        """Valida que el nombre de la sección no esté vacío"""
+        for record in self:
+            if not record.name or not record.name.strip():
+                raise UserError("El nombre de la sección es obligatorio y no puede estar vacío.")
+    
+    @api.model
+    def create(self, vals):
+        """Asegura que se establezcan valores por defecto apropiados"""
+        if not vals.get('name'):
+            vals['name'] = 'Nueva Sección'
+        if not vals.get('sequence'):
+            vals['sequence'] = 10
+        if 'incluir' not in vals:
+            vals['incluir'] = True
+        if 'es_fija' not in vals:
+            vals['es_fija'] = False
+        return super().create(vals)
     
     def unlink_seccion(self):
         """Elimina la sección si no es fija"""
@@ -201,6 +224,9 @@ class CapituloWizard(models.TransientModel):
         
         if not self.order_id:
             raise UserError("No se encontró el pedido de venta")
+        
+        # Validar datos del wizard antes de proceder
+        self._validate_wizard_data()
 
         # Crear o obtener el capítulo según el modo
         capitulo = self._obtener_o_crear_capitulo()
@@ -216,6 +242,7 @@ class CapituloWizard(models.TransientModel):
             'product_uom_qty': 0,
             'price_unit': 0,
             'display_type': 'line_section',
+            'es_encabezado_capitulo': True,
         })
         
         # Crear líneas de pedido organizadas por secciones
@@ -230,6 +257,7 @@ class CapituloWizard(models.TransientModel):
                     'product_uom_qty': 0,
                     'price_unit': 0,
                     'display_type': 'line_section',
+                    'es_encabezado_seccion': True,
                 })
                 
                 # Si la sección es fija, marcar la línea como no editable
@@ -267,6 +295,7 @@ class CapituloWizard(models.TransientModel):
                 'product_uom_qty': 0,
                 'price_unit': 0,
                 'display_type': 'line_section',
+                'es_encabezado_seccion': True,
             })
             
             # Añadir las condiciones como nota
@@ -284,34 +313,63 @@ class CapituloWizard(models.TransientModel):
         """Añade una nueva sección al wizard"""
         self.ensure_one()
         
-        # Obtener la siguiente secuencia
-        max_sequence = max([s.sequence for s in self.seccion_ids] or [0])
-        
-        # Añadir nueva sección directamente a la lista
-        self.write({
-            'seccion_ids': [(0, 0, {
+        try:
+            _logger.info(f"Añadiendo nueva sección al wizard {self.id}")
+            
+            # Obtener la siguiente secuencia
+            max_sequence = max([s.sequence for s in self.seccion_ids] or [0])
+            _logger.info(f"Secuencia máxima actual: {max_sequence}")
+            
+            # Crear la nueva sección con todos los campos requeridos
+            nueva_seccion_vals = {
+                'wizard_id': self.id,
                 'name': 'Nueva Sección',
                 'sequence': max_sequence + 10,
                 'es_fija': False,
                 'incluir': True,
-            })]
-        })
-        
-        # Retornar acción para refrescar la vista
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'capitulo.wizard',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'new',
-            'context': self.env.context
-        }
+            }
+            
+            _logger.info(f"Valores para nueva sección: {nueva_seccion_vals}")
+            
+            # Crear la sección directamente en el modelo
+            nueva_seccion = self.env['capitulo.wizard.seccion'].create(nueva_seccion_vals)
+            _logger.info(f"Nueva sección creada con ID: {nueva_seccion.id}")
+            
+            # Refrescar el wizard para mostrar la nueva sección
+            return {
+                'type': 'ir.actions.act_window',
+                'res_model': 'capitulo.wizard',
+                'res_id': self.id,
+                'view_mode': 'form',
+                'target': 'new',
+                'context': self.env.context
+            }
+            
+        except Exception as e:
+            _logger.error(f"Error al crear nueva sección: {str(e)}")
+            raise UserError(f"Error al crear la nueva sección: {str(e)}\n\nPor favor, asegúrese de que todos los campos requeridos estén completados correctamente.")
     
 
+    
+    def _validate_wizard_data(self):
+        """Valida que los datos del wizard sean correctos antes de proceder"""
+        if self.modo_creacion == 'existente' and not self.capitulo_id:
+            raise UserError("Debe seleccionar un capítulo existente.")
+        
+        if self.modo_creacion == 'nuevo' and not self.nuevo_capitulo_nombre:
+            raise UserError("Debe especificar un nombre para el nuevo capítulo.")
+        
+        # Validar que las secciones tengan nombres válidos
+        for seccion in self.seccion_ids:
+            if not seccion.name or not seccion.name.strip():
+                raise UserError(f"La sección en la posición {seccion.sequence} no tiene un nombre válido.")
     
     def add_another_chapter(self):
         """Añade el capítulo actual y abre el wizard para añadir otro"""
         self.ensure_one()
+        
+        # Validar datos antes de proceder
+        self._validate_wizard_data()
         
         # Primero añadir el capítulo actual
         self.add_to_order()

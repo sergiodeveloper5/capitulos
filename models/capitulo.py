@@ -2,6 +2,9 @@
 
 from odoo import models, fields, api
 from odoo.exceptions import UserError
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class CapituloContrato(models.Model):
     _name = 'capitulo.contrato'
@@ -15,6 +18,20 @@ class CapituloContrato(models.Model):
                                    help='Selecciona un capítulo existente como plantilla')
     es_plantilla = fields.Boolean(string='Es Plantilla', default=False,
                                   help='Marca este capítulo como plantilla para ser usado por otros')
+    capitulos_dependientes_count = fields.Integer(
+        string='Capítulos Dependientes', 
+        compute='_compute_capitulos_dependientes_count',
+        help='Número de capítulos que usan esta plantilla'
+    )
+    
+    @api.depends('es_plantilla')
+    def _compute_capitulos_dependientes_count(self):
+        """Calcula el número de capítulos que dependen de esta plantilla"""
+        for record in self:
+            if record.es_plantilla:
+                record.capitulos_dependientes_count = self.search_count([('plantilla_id', '=', record.id)])
+            else:
+                record.capitulos_dependientes_count = 0
 
     @api.onchange('plantilla_id')
     def _onchange_plantilla_id(self):
@@ -64,14 +81,93 @@ class CapituloContrato(models.Model):
         }
     
     def unlink(self):
-        """Permite eliminar plantillas solo si no están siendo utilizadas"""
+        """Permite eliminar plantillas con validaciones mejoradas"""
         for record in self:
             if record.es_plantilla:
                 # Verificar si la plantilla está siendo utilizada
                 capitulos_usando_plantilla = self.search([('plantilla_id', '=', record.id)])
                 if capitulos_usando_plantilla:
-                    raise UserError(
-                        f"No se puede eliminar la plantilla '{record.name}' porque está siendo utilizada por los siguientes capítulos:\n"
-                        + "\n".join([f"- {cap.name}" for cap in capitulos_usando_plantilla])
+                    # En lugar de bloquear completamente, limpiar las referencias
+                    capitulos_usando_plantilla.write({'plantilla_id': False})
+                    # Mostrar mensaje informativo
+                    _logger.info(
+                        f"Plantilla '{record.name}' eliminada. Se han desvinculado {len(capitulos_usando_plantilla)} capítulos que la utilizaban."
                     )
         return super().unlink()
+    
+    def action_eliminar_plantilla_forzado(self):
+        """Acción para eliminar una plantilla forzadamente, desvinculando capítulos dependientes"""
+        self.ensure_one()
+        if not self.es_plantilla:
+            raise UserError("Este registro no es una plantilla.")
+        
+        # Buscar capítulos que usan esta plantilla
+        capitulos_dependientes = self.search([('plantilla_id', '=', self.id)])
+        
+        if capitulos_dependientes:
+            # Desvincular capítulos dependientes
+            capitulos_dependientes.write({'plantilla_id': False})
+            
+            # Log de la operación
+            _logger.info(
+                f"Plantilla '{self.name}' eliminada. Capítulos desvinculados: {', '.join(capitulos_dependientes.mapped('name'))}"
+            )
+            
+            # Eliminar la plantilla
+            nombre_plantilla = self.name
+            self.unlink()
+            
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': 'Plantilla Eliminada',
+                    'message': f'La plantilla "{nombre_plantilla}" ha sido eliminada. Se han desvinculado {len(capitulos_dependientes)} capítulos que la utilizaban: {', '.join(capitulos_dependientes.mapped("name"))}',
+                    'type': 'success',
+                    'sticky': True,
+                }
+            }
+        
+        # Eliminar la plantilla (sin dependencias)
+        nombre_plantilla = self.name
+        self.unlink()
+        
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Plantilla Eliminada',
+                'message': f'La plantilla "{nombre_plantilla}" ha sido eliminada exitosamente.',
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+    
+    def action_mostrar_dependencias(self):
+        """Muestra los capítulos que dependen de esta plantilla"""
+        self.ensure_one()
+        if not self.es_plantilla:
+            raise UserError("Este registro no es una plantilla.")
+        
+        capitulos_dependientes = self.search([('plantilla_id', '=', self.id)])
+        
+        if not capitulos_dependientes:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': 'Sin Dependencias',
+                    'message': f'La plantilla "{self.name}" no está siendo utilizada por ningún capítulo. Puede eliminarla de forma segura.',
+                    'type': 'info',
+                    'sticky': False,
+                }
+            }
+        
+        return {
+            'type': 'ir.actions.act_window',
+            'name': f'Capítulos que usan la plantilla: {self.name}',
+            'res_model': 'capitulo.contrato',
+            'view_mode': 'list,form',
+            'domain': [('plantilla_id', '=', self.id)],
+            'context': {'search_default_plantilla_id': self.id},
+        }
