@@ -52,14 +52,22 @@ class CapituloWizardSeccion(models.TransientModel):
     @api.model
     def create(self, vals):
         """Asegura que se establezcan valores por defecto apropiados"""
-        if not vals.get('name'):
+        original_name = vals.get('name')
+        _logger.info(f"Creando sección con nombre original: '{original_name}'")
+        
+        # Solo establecer 'Nueva Sección' si realmente no hay nombre
+        if not vals.get('name') or vals.get('name').strip() == '':
             vals['name'] = 'Nueva Sección'
+            _logger.warning(f"Nombre vacío detectado, estableciendo 'Nueva Sección'. Nombre original: '{original_name}'")
+        
         if not vals.get('sequence'):
             vals['sequence'] = 10
         if 'incluir' not in vals:
             vals['incluir'] = True
         if 'es_fija' not in vals:
             vals['es_fija'] = False
+            
+        _logger.info(f"Creando sección final con nombre: '{vals['name']}', es_fija: {vals['es_fija']}")
         return super().create(vals)
     
     def unlink_seccion(self):
@@ -110,48 +118,88 @@ class CapituloWizard(models.TransientModel):
         order_id = self.env.context.get('default_order_id') or self.env.context.get('active_id')
         if order_id and 'order_id' in fields:
             res['order_id'] = order_id
+        
+        _logger.info("default_get: inicializando wizard")
         return res
+    
+    def write(self, vals):
+        """Override write para verificar integridad después de cambios"""
+        result = super().write(vals)
+        # Verificar integridad de secciones después de cualquier cambio
+        if 'seccion_ids' in vals or 'modo_creacion' in vals:
+            self._verificar_integridad_secciones()
+        return result
 
     @api.onchange('modo_creacion')
     def onchange_modo_creacion(self):
         """Limpiar campos cuando cambia el modo de creación"""
+        _logger.info(f"Cambiando modo de creación a: {self.modo_creacion}")
+        
         if self.modo_creacion == 'existente':
             self.nuevo_capitulo_nombre = False
             self.nuevo_capitulo_descripcion = False
             # Limpiar secciones al cambiar a modo existente
             self.seccion_ids = [(5, 0, 0)]
+            _logger.info("Modo existente: secciones limpiadas")
         elif self.modo_creacion == 'nuevo':
             self.capitulo_id = False
-            # Crear secciones predefinidas para nuevo capítulo (todas fijas)
-            self._crear_secciones_predefinidas()
+            # Solo crear secciones predefinidas si no existen ya
+            if not self.seccion_ids:
+                _logger.info("Modo nuevo: creando secciones predefinidas")
+                self._crear_secciones_predefinidas()
+            else:
+                _logger.info(f"Modo nuevo: ya existen {len(self.seccion_ids)} secciones, no recreando")
     
     @api.onchange('capitulo_id')
     def onchange_capitulo_id(self):
         """Carga las secciones del capítulo seleccionado"""
         if self.modo_creacion != 'existente':
+            _logger.info("onchange_capitulo_id: no es modo existente, saliendo")
             return
             
+        _logger.info(f"onchange_capitulo_id: capitulo_id = {self.capitulo_id}")
+        
         self.seccion_ids = [(5, 0, 0)]
         self.condiciones_particulares = ''
         
         if not self.capitulo_id:
+            _logger.info("onchange_capitulo_id: no hay capítulo seleccionado")
             return
             
         # Cargar condiciones legales
         if self.capitulo_id.condiciones_legales:
             self.condiciones_particulares = self.capitulo_id.condiciones_legales
+            _logger.info("onchange_capitulo_id: condiciones legales cargadas")
             
         # Cargar secciones del capítulo
         if self.capitulo_id.seccion_ids:
+            _logger.info(f"onchange_capitulo_id: cargando {len(self.capitulo_id.seccion_ids)} secciones existentes")
             self._cargar_secciones_existentes()
         else:
             # Si no hay secciones, crear secciones predefinidas
+            _logger.info("onchange_capitulo_id: no hay secciones, creando predefinidas")
             self._crear_secciones_predefinidas()
     
 
     
+    def _verificar_integridad_secciones(self):
+        """Verifica y restaura la integridad de las secciones predefinidas"""
+        secciones_esperadas = ['Alquiler', 'Montaje', 'Portes', 'Otros Conceptos']
+        secciones_actuales = [s.name for s in self.seccion_ids if s.name and s.name.strip()]
+        
+        _logger.info(f"Verificando integridad - Esperadas: {secciones_esperadas}, Actuales: {secciones_actuales}")
+        
+        # Si faltan secciones o hay secciones con nombres vacíos, recrear
+        if len(secciones_actuales) != len(secciones_esperadas) or any(name == 'Nueva Sección' for name in secciones_actuales):
+            _logger.warning("Integridad de secciones comprometida, recreando...")
+            self._crear_secciones_predefinidas()
+            return True
+        return False
+    
     def _crear_secciones_predefinidas(self):
         """Crea secciones predefinidas básicas (todas fijas)"""
+        _logger.info("Creando secciones predefinidas")
+        
         secciones_predefinidas = [
             {'name': 'Alquiler', 'sequence': 10},
             {'name': 'Montaje', 'sequence': 20},
@@ -159,19 +207,66 @@ class CapituloWizard(models.TransientModel):
             {'name': 'Otros Conceptos', 'sequence': 40},
         ]
         
+        # Limpiar secciones existentes primero
+        self.seccion_ids = [(5, 0, 0)]
+        
         secciones_vals = []
         for seccion_data in secciones_predefinidas:
-            secciones_vals.append((0, 0, {
+            vals = {
                 'name': seccion_data['name'],
                 'sequence': seccion_data['sequence'],
                 'es_fija': True,  # Todas las secciones son fijas
                 'incluir': True,
                 'line_ids': [],
-            }))
+            }
+            _logger.info(f"Creando sección: {vals['name']}")
+            secciones_vals.append((0, 0, vals))
         
         self.seccion_ids = secciones_vals
+        _logger.info(f"Secciones creadas: {len(secciones_vals)}")
+        
+        # Verificar que se crearon correctamente
+        try:
+            # Forzar flush para asegurar que los datos se escriban
+            self.env.flush_all()
+            _logger.info("Secciones predefinidas creadas y confirmadas")
+        except Exception as e:
+            _logger.error(f"Error al confirmar secciones: {e}")
+            # Intentar recrear si hay error
+            self._recrear_secciones_seguro()
     
-
+    def _recrear_secciones_seguro(self):
+        """Método seguro para recrear secciones en caso de error"""
+        _logger.info("Recreando secciones de forma segura")
+        try:
+            # Crear secciones una por una para mayor control
+            secciones_predefinidas = [
+                {'name': 'Alquiler', 'sequence': 10},
+                {'name': 'Montaje', 'sequence': 20},
+                {'name': 'Portes', 'sequence': 30},
+                {'name': 'Otros Conceptos', 'sequence': 40},
+            ]
+            
+            # Limpiar completamente
+            self.seccion_ids = [(5, 0, 0)]
+            
+            # Crear cada sección individualmente
+            for seccion_data in secciones_predefinidas:
+                try:
+                    seccion_vals = (0, 0, {
+                        'name': seccion_data['name'],
+                        'sequence': seccion_data['sequence'],
+                        'es_fija': True,
+                        'incluir': True,
+                        'line_ids': [],
+                    })
+                    self.seccion_ids = [(4, 0, 0)] + [seccion_vals]
+                    _logger.info(f"Sección '{seccion_data['name']}' creada de forma segura")
+                except Exception as e:
+                    _logger.error(f"Error creando sección '{seccion_data['name']}': {e}")
+                    
+        except Exception as e:
+            _logger.error(f"Error en recreación segura: {e}")
     
     def _cargar_secciones_existentes(self):
         """Carga las secciones existentes del capítulo"""
@@ -251,6 +346,11 @@ class CapituloWizard(models.TransientModel):
         
         if not self.order_id:
             raise UserError("No se encontró el pedido de venta")
+        
+        # Verificar integridad de secciones antes de proceder
+        _logger.info("add_to_order: verificando integridad de secciones")
+        if self._verificar_integridad_secciones():
+            _logger.info("add_to_order: secciones restauradas, continuando")
         
         # Validar datos del wizard antes de proceder
         self._validate_wizard_data()

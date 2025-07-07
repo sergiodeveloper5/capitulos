@@ -44,34 +44,5 @@
             </list>
         </field>
     </record>
-    
-    <!-- Vista de formulario personalizada para líneas de pedido con restricciones -->
-    <record id="view_order_line_form_inherit_capitulo" model="ir.ui.view">
-        <field name="name">sale.order.line.form.inherit.capitulo</field>
-        <field name="model">sale.order.line</field>
-        <field name="inherit_id" ref="sale.view_order_line_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//sheet" position="before">
-                <div class="alert alert-warning" role="alert" invisible="not es_encabezado_capitulo and not es_encabezado_seccion">
-                    <strong>🔒 Elemento Estructural:</strong> Esta línea es un encabezado de <span invisible="not es_encabezado_capitulo">capítulo</span><span invisible="not es_encabezado_seccion">sección</span> y no puede ser modificada.
-                </div>
-            </xpath>
-            <xpath expr="//field[@name='name']" position="attributes">
-                <attribute name="readonly">es_encabezado_capitulo or es_encabezado_seccion</attribute>
-            </xpath>
-            <xpath expr="//field[@name='product_id']" position="attributes">
-                <attribute name="readonly">es_encabezado_capitulo or es_encabezado_seccion</attribute>
-            </xpath>
-            <xpath expr="//field[@name='product_uom_qty']" position="attributes">
-                <attribute name="readonly">es_encabezado_capitulo or es_encabezado_seccion</attribute>
-            </xpath>
-            <xpath expr="//field[@name='price_unit']" position="attributes">
-                <attribute name="readonly">es_encabezado_capitulo or es_encabezado_seccion</attribute>
-            </xpath>
-            <xpath expr="//field[@name='product_id']" position="after">
-                <field name="es_encabezado_capitulo" invisible="1"/>
-                <field name="es_encabezado_seccion" invisible="1"/>
-            </xpath>
-        </field>
-    </record>
+
 </odoo>
