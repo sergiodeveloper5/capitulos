@@ -8,8 +8,9 @@
         <field name="arch" type="xml">
             <xpath expr="//button[@name='action_quotation_send']" position="after">
                 <button name="action_add_capitulo" type="object" 
-                        string="Añadir Capítulo" 
-                        class="btn-secondary"
+                        string="Gestionar Capítulos" 
+                        class="btn-primary"
+                        help="Crear nuevos capítulos o añadir capítulos existentes al presupuesto"
                         invisible="state in ['sale', 'done', 'cancel']"/>
             </xpath>
             <xpath expr="//field[@name='order_line']" position="after">

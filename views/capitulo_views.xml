@@ -144,7 +144,22 @@
             <field name="context">{'form_view_initial_mode': 'edit'}</field>
         </record>
 
-
-
+        <!-- Acción para presupuestos con capítulos -->
+        <record id="action_presupuestos_con_capitulos" model="ir.actions.act_window">
+            <field name="name">Presupuestos con Capítulos</field>
+            <field name="res_model">sale.order</field>
+            <field name="view_mode">list,form</field>
+            <field name="domain">[('capitulo_ids', '!=', False)]</field>
+            <field name="context">{}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    No hay presupuestos con capítulos aún
+                </p>
+                <p>
+                    Los presupuestos con capítulos aparecerán aquí una vez que añadas capítulos a tus presupuestos.
+                    Ve a un presupuesto y usa el botón "Añadir Capítulo" para empezar.
+                </p>
+            </field>
+        </record>
 
 </odoo>

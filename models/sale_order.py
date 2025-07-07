@@ -15,7 +15,7 @@ class SaleOrder(models.Model):
         
         return {
             'type': 'ir.actions.act_window',
-            'name': 'Añadir Capítulo',
+            'name': 'Gestionar Capítulos del Presupuesto',
             'res_model': 'capitulo.wizard',
             'view_mode': 'form',
             'target': 'new',

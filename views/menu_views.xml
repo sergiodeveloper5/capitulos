@@ -1,15 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Menú de Capítulos bajo Ventas -->
-    <menuitem
-        id="menu_capitulo_contrato"
-        name="Capítulos"
-        parent="sale.sale_menu_root"
-        action="action_capitulo_contrato"
-        sequence="50"
-    />
-    
-    <!-- Menú de Plantillas bajo Ventas -->
+    <!-- Menú de Plantillas bajo Ventas (solo para gestión de plantillas) -->
     <menuitem
         id="menu_capitulo_plantillas"
         name="Plantillas de Capítulos"
@@ -18,8 +9,14 @@
         sequence="51"
     />
     
-
-    
+    <!-- Menú para ver presupuestos con capítulos -->
+    <menuitem
+        id="menu_presupuestos_con_capitulos"
+        name="Presupuestos con Capítulos"
+        parent="sale.sale_menu_root"
+        action="action_presupuestos_con_capitulos"
+        sequence="52"
+    />
 
 </odoo>
 

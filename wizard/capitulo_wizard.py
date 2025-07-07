@@ -31,7 +31,22 @@ class CapituloWizard(models.TransientModel):
     _name = 'capitulo.wizard'
     _description = 'Añadir Capítulo'
 
-    capitulo_id = fields.Many2one('capitulo.contrato', required=True, string='Capítulo')
+    # Modo de operación
+    modo_creacion = fields.Selection([
+        ('existente', 'Usar Capítulo Existente'),
+        ('nuevo', 'Crear Nuevo Capítulo'),
+        ('plantilla', 'Crear desde Plantilla')
+    ], string='Modo', default='existente', required=True)
+    
+    # Campos para capítulo existente
+    capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo')
+    
+    # Campos para crear nuevo capítulo
+    nuevo_capitulo_nombre = fields.Char(string='Nombre del Nuevo Capítulo')
+    nuevo_capitulo_descripcion = fields.Text(string='Descripción')
+    plantilla_id = fields.Many2one('capitulo.contrato', string='Plantilla Base', 
+                                   domain="[('es_plantilla', '=', True)]")
+    
     order_id = fields.Many2one('sale.order', string='Pedido de Venta', required=True)
     seccion_ids = fields.One2many('capitulo.wizard.seccion', 'wizard_id', string='Secciones')
     condiciones_particulares = fields.Text(string='Condiciones Particulares')
@@ -45,9 +60,26 @@ class CapituloWizard(models.TransientModel):
             res['order_id'] = order_id
         return res
 
+    @api.onchange('modo_creacion')
+    def onchange_modo_creacion(self):
+        """Limpia campos al cambiar el modo de creación"""
+        self.capitulo_id = False
+        self.nuevo_capitulo_nombre = ''
+        self.nuevo_capitulo_descripcion = ''
+        self.plantilla_id = False
+        self.seccion_ids = [(5, 0, 0)]
+        self.condiciones_particulares = ''
+        
+        if self.modo_creacion == 'nuevo':
+            # Crear secciones predefinidas para nuevo capítulo
+            self._crear_secciones_predefinidas()
+    
     @api.onchange('capitulo_id')
     def onchange_capitulo_id(self):
         """Carga las secciones del capítulo seleccionado"""
+        if self.modo_creacion != 'existente':
+            return
+            
         self.seccion_ids = [(5, 0, 0)]
         self.condiciones_particulares = ''
         
@@ -61,6 +93,29 @@ class CapituloWizard(models.TransientModel):
         # Cargar secciones del capítulo
         if self.capitulo_id.seccion_ids:
             self._cargar_secciones_existentes()
+        else:
+            # Si no hay secciones, crear secciones predefinidas
+            self._crear_secciones_predefinidas()
+    
+    @api.onchange('plantilla_id')
+    def onchange_plantilla_id(self):
+        """Carga las secciones de la plantilla seleccionada"""
+        if self.modo_creacion != 'plantilla':
+            return
+            
+        self.seccion_ids = [(5, 0, 0)]
+        self.condiciones_particulares = ''
+        
+        if not self.plantilla_id:
+            return
+            
+        # Cargar condiciones legales de la plantilla
+        if self.plantilla_id.condiciones_legales:
+            self.condiciones_particulares = self.plantilla_id.condiciones_legales
+            
+        # Cargar secciones de la plantilla
+        if self.plantilla_id.seccion_ids:
+            self._cargar_secciones_desde_plantilla()
         else:
             # Si no hay secciones, crear secciones predefinidas
             self._crear_secciones_predefinidas()
@@ -82,6 +137,31 @@ class CapituloWizard(models.TransientModel):
                 'es_fija': seccion_data['es_fija'],
                 'incluir': True,
                 'line_ids': [],
+            }))
+        
+        self.seccion_ids = secciones_vals
+    
+    def _cargar_secciones_desde_plantilla(self):
+        """Carga las secciones existentes de la plantilla"""
+        secciones_vals = []
+        for seccion in self.plantilla_id.seccion_ids:
+            lineas_vals = []
+            for linea in seccion.product_line_ids:
+                lineas_vals.append((0, 0, {
+                    'product_id': linea.product_id.id,
+                    'descripcion_personalizada': linea.descripcion_personalizada,
+                    'cantidad': linea.cantidad,
+                    'sequence': linea.sequence,
+                    'incluir': True,
+                    'es_opcional': linea.es_opcional,
+                }))
+            
+            secciones_vals.append((0, 0, {
+                'name': seccion.name,
+                'sequence': seccion.sequence,
+                'es_fija': seccion.es_fija,
+                'incluir': True,
+                'line_ids': lineas_vals,
             }))
         
         self.seccion_ids = secciones_vals
@@ -110,6 +190,93 @@ class CapituloWizard(models.TransientModel):
             }))
         
         self.seccion_ids = secciones_vals
+    
+    def _obtener_o_crear_capitulo(self):
+        """Obtiene un capítulo existente o crea uno nuevo según el modo"""
+        if self.modo_creacion == 'existente':
+            if not self.capitulo_id:
+                raise UserError("Debe seleccionar un capítulo existente")
+            return self.capitulo_id
+        
+        elif self.modo_creacion == 'nuevo':
+            if not self.nuevo_capitulo_nombre:
+                raise UserError("Debe especificar un nombre para el nuevo capítulo")
+            
+            # Crear nuevo capítulo
+            capitulo_vals = {
+                'name': self.nuevo_capitulo_nombre,
+                'description': self.nuevo_capitulo_descripcion,
+                'condiciones_legales': self.condiciones_particulares,
+                'es_plantilla': False,
+            }
+            
+            # Crear secciones del capítulo
+            secciones_vals = []
+            for seccion_wizard in self.seccion_ids.filtered('incluir'):
+                lineas_vals = []
+                for linea_wizard in seccion_wizard.line_ids.filtered('incluir'):
+                    lineas_vals.append((0, 0, {
+                        'product_id': linea_wizard.product_id.id,
+                        'cantidad': linea_wizard.cantidad,
+                        'precio_unitario': linea_wizard.precio_unitario,
+                        'sequence': linea_wizard.sequence,
+                        'descripcion_personalizada': linea_wizard.descripcion_personalizada,
+                        'es_opcional': linea_wizard.es_opcional,
+                    }))
+                
+                if lineas_vals:  # Solo crear sección si tiene productos
+                    secciones_vals.append((0, 0, {
+                        'name': seccion_wizard.name,
+                        'sequence': seccion_wizard.sequence,
+                        'es_fija': seccion_wizard.es_fija,
+                        'product_line_ids': lineas_vals,
+                    }))
+            
+            capitulo_vals['seccion_ids'] = secciones_vals
+            return self.env['capitulo.contrato'].create(capitulo_vals)
+        
+        elif self.modo_creacion == 'plantilla':
+            if not self.plantilla_id:
+                raise UserError("Debe seleccionar una plantilla")
+            if not self.nuevo_capitulo_nombre:
+                raise UserError("Debe especificar un nombre para el capítulo basado en plantilla")
+            
+            # Crear capítulo desde plantilla
+            capitulo_vals = {
+                'name': self.nuevo_capitulo_nombre,
+                'description': self.nuevo_capitulo_descripcion,
+                'condiciones_legales': self.condiciones_particulares,
+                'plantilla_id': self.plantilla_id.id,
+                'es_plantilla': False,
+            }
+            
+            # Crear secciones del capítulo (modificadas desde la plantilla)
+            secciones_vals = []
+            for seccion_wizard in self.seccion_ids.filtered('incluir'):
+                lineas_vals = []
+                for linea_wizard in seccion_wizard.line_ids.filtered('incluir'):
+                    lineas_vals.append((0, 0, {
+                        'product_id': linea_wizard.product_id.id,
+                        'cantidad': linea_wizard.cantidad,
+                        'precio_unitario': linea_wizard.precio_unitario,
+                        'sequence': linea_wizard.sequence,
+                        'descripcion_personalizada': linea_wizard.descripcion_personalizada,
+                        'es_opcional': linea_wizard.es_opcional,
+                    }))
+                
+                if lineas_vals:  # Solo crear sección si tiene productos
+                    secciones_vals.append((0, 0, {
+                        'name': seccion_wizard.name,
+                        'sequence': seccion_wizard.sequence,
+                        'es_fija': seccion_wizard.es_fija,
+                        'product_line_ids': lineas_vals,
+                    }))
+            
+            capitulo_vals['seccion_ids'] = secciones_vals
+            return self.env['capitulo.contrato'].create(capitulo_vals)
+        
+        else:
+            raise UserError("Modo de creación no válido")
 
     def add_to_order(self):
         """Añade las secciones y productos seleccionados al pedido de venta"""
@@ -118,6 +285,9 @@ class CapituloWizard(models.TransientModel):
         if not self.order_id:
             raise UserError("No se encontró el pedido de venta")
 
+        # Crear o obtener el capítulo según el modo
+        capitulo = self._obtener_o_crear_capitulo()
+        
         order = self.order_id
         SaleOrderLine = self.env['sale.order.line']
         
@@ -159,7 +329,7 @@ class CapituloWizard(models.TransientModel):
                         product_line.write({'name': f"🔒 {descripcion} (No modificable)"})
 
         # Añadir capítulo a la lista de capítulos aplicados
-        order.write({'capitulo_ids': [(4, self.capitulo_id.id)]})
+        order.write({'capitulo_ids': [(4, capitulo.id)]})
 
         # Añadir condiciones particulares si existen
         if self.condiciones_particulares:
