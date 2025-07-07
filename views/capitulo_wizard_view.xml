@@ -30,18 +30,19 @@
                         <field name="nuevo_capitulo_descripcion" placeholder="Descripción del capítulo..."/>
                     </group>
                     
-                    <!-- Mostrar nombre del capítulo seleccionado -->
-                    <div invisible="modo_creacion != 'existente' or not capitulo_id" class="alert alert-success" role="alert">
-                        <strong>Capítulo Seleccionado:</strong> <field name="capitulo_id" readonly="1" nolabel="1" style="display: inline; font-weight: bold;"/>
-                    </div>
-                    
-                    <!-- Mostrar nombre del nuevo capítulo -->
-                    <div invisible="modo_creacion != 'nuevo' or not nuevo_capitulo_nombre" class="alert alert-success" role="alert">
-                        <strong>Nuevo Capítulo:</strong> <field name="nuevo_capitulo_nombre" readonly="1" nolabel="1" style="display: inline; font-weight: bold;"/>
-                    </div>
+
                     
                     <notebook>
                         <page string="Secciones y Productos">
+                            <!-- Título prominente del capítulo -->
+                            <div invisible="modo_creacion != 'existente' or not capitulo_id" class="alert alert-primary" role="alert" style="margin-bottom: 15px; text-align: center; font-size: 18px; border: 2px solid #007bff;">
+                                <strong>📋 CAPÍTULO: </strong><field name="capitulo_id" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
+                            </div>
+                            
+                            <div invisible="modo_creacion != 'nuevo' or not nuevo_capitulo_nombre" class="alert alert-primary" role="alert" style="margin-bottom: 15px; text-align: center; font-size: 18px; border: 2px solid #007bff;">
+                                <strong>📋 NUEVO CAPÍTULO: </strong><field name="nuevo_capitulo_nombre" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
+                            </div>
+                            
                             <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
                                 <strong>📋 Gestión de Secciones:</strong> Las secciones fijas (en negrita) no pueden modificarse. Puede añadir nuevas secciones personalizadas y eliminar las que no sean fijas.
                             </div>
