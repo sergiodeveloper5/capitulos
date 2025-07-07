@@ -18,14 +18,7 @@
         sequence="51"
     />
     
-    <!-- Menú para crear nuevo capítulo -->
-    <menuitem
-        id="menu_crear_capitulo_nuevo"
-        name="Crear Nuevo Capítulo"
-        parent="sale.sale_menu_root"
-        action="action_crear_capitulo_nuevo"
-        sequence="49"
-    />
+
     
 
 </odoo>
