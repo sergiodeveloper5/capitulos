@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Los menús de capítulos ya no son necesarios -->
-    <!-- La gestión se hace directamente desde los presupuestos -->
+    <!-- Menú principal de Capítulos -->
+    <menuitem id="menu_capitulos_root" name="Capítulos" sequence="50"/>
+    
+    <!-- Submenús -->
+    <menuitem id="menu_capitulos_contrato" 
+              name="Capítulos" 
+              parent="menu_capitulos_root" 
+              action="action_capitulo_contrato" 
+              sequence="10"/>
+              
+    <menuitem id="menu_capitulos_plantillas" 
+              name="Plantillas" 
+              parent="menu_capitulos_root" 
+              action="action_capitulo_plantillas" 
+              sequence="20"/>
 
 </odoo>
 

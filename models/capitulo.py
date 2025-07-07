@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api
+from odoo.exceptions import UserError
 
 class CapituloContrato(models.Model):
     _name = 'capitulo.contrato'
@@ -61,3 +62,16 @@ class CapituloContrato(models.Model):
                 'form_view_initial_mode': 'edit',
             }
         }
+    
+    def unlink(self):
+        """Permite eliminar plantillas solo si no están siendo utilizadas"""
+        for record in self:
+            if record.es_plantilla:
+                # Verificar si la plantilla está siendo utilizada
+                capitulos_usando_plantilla = self.search([('plantilla_id', '=', record.id)])
+                if capitulos_usando_plantilla:
+                    raise UserError(
+                        f"No se puede eliminar la plantilla '{record.name}' porque está siendo utilizada por los siguientes capítulos:\n"
+                        + "\n".join([f"- {cap.name}" for cap in capitulos_usando_plantilla])
+                    )
+        return super().unlink()
