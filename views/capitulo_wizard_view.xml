@@ -30,18 +30,6 @@
                         <field name="nuevo_capitulo_descripcion" placeholder="Descripción del capítulo..."/>
                     </group>
                     
-                    <!-- Campos para capítulo desde plantilla -->
-                    <group invisible="modo_creacion != 'plantilla'">
-                        <field name="plantilla_id" options="{'no_create': True, 'no_edit': True}" 
-                               placeholder="Seleccione una plantilla base..." 
-                               help="Seleccione una plantilla como base para el nuevo capítulo"
-                               required="modo_creacion == 'plantilla'"/>
-                        <field name="nuevo_capitulo_nombre" placeholder="Nombre del capítulo basado en plantilla..." 
-                               help="Especifique el nombre para el capítulo basado en la plantilla"
-                               required="modo_creacion == 'plantilla'"/>
-                        <field name="nuevo_capitulo_descripcion" placeholder="Descripción del capítulo..."/>
-                    </group>
-                    
                     <notebook>
                         <page string="Secciones y Productos">
                             <field name="seccion_ids">
