@@ -43,29 +43,26 @@
                                 <strong>📋 NUEVO CAPÍTULO: </strong><field name="nuevo_capitulo_nombre" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
                             </div>
                             
-                            <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
-                                <strong>📋 Gestión de Secciones:</strong> Las secciones fijas (en negrita) no pueden modificarse. Puede añadir nuevas secciones personalizadas y eliminar las que no sean fijas.
-                            </div>
-                            <div class="oe_button_box" style="margin-bottom: 10px;">
-                                <button name="add_seccion" string="➕ Añadir Sección" type="object" class="btn-secondary"/>
+                            <div class="alert alert-warning" role="alert" style="margin-bottom: 10px;">
+                                <strong>🔒 Secciones Fijas:</strong> Las secciones están predefinidas y no se pueden modificar, eliminar o añadir nuevas. Esta estructura garantiza la consistencia del capítulo.
                             </div>
                             <field name="seccion_ids">
-                                <list>
-                                    <field name="sequence" widget="handle"/>
-                                    <field name="name" readonly="es_fija" decoration-bf="es_fija"/>
+                                <list create="false" delete="false" edit="false">
+                                    <field name="sequence" readonly="1"/>
+                                    <field name="name" readonly="1" decoration-bf="es_fija"/>
                                     <field name="es_fija" readonly="1" string="Fija" widget="boolean_toggle"/>
-                                    <field name="incluir" widget="boolean_toggle"/>
+                                    <field name="incluir" readonly="es_fija" widget="boolean_toggle"/>
                                 </list>
                                 <form>
                                     <sheet>
-                                        <div class="alert alert-warning" invisible="not es_fija" role="alert">
-                                            <strong>⚠️ Sección Fija:</strong> Esta sección no puede ser modificada ya que es parte de la estructura básica del capítulo.
+                                        <div class="alert alert-warning" role="alert">
+                                            <strong>🔒 Sección Bloqueada:</strong> Las secciones están predefinidas y no pueden ser modificadas para mantener la estructura del capítulo.
                                         </div>
                                         <group>
-                                            <field name="name" placeholder="Escriba el nombre de la sección..." readonly="es_fija" required="1"/>
+                                            <field name="name" placeholder="Escriba el nombre de la sección..." readonly="1" required="1"/>
                                             <field name="sequence" readonly="1"/>
                                             <field name="es_fija" readonly="1"/>
-                                            <field name="incluir"/>
+                                            <field name="incluir" readonly="es_fija"/>
                                         </group>
                                         <notebook>
                                             <page string="Productos">

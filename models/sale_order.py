@@ -59,7 +59,7 @@ class SaleOrderLine(models.Model):
     
     def write(self, vals):
         """Previene la modificación de campos críticos en encabezados"""
-        protected_fields = ['name', 'product_id', 'product_uom_qty', 'price_unit', 'sequence']
+        protected_fields = ['name', 'product_id', 'product_uom_qty', 'price_unit', 'sequence', 'display_type']
         
         for line in self:
             if (line.es_encabezado_capitulo or line.es_encabezado_seccion):
@@ -73,3 +73,25 @@ class SaleOrderLine(models.Model):
                         )
         
         return super().write(vals)
+    
+    @api.model
+    def create(self, vals):
+        """Controla la creación de nuevas líneas cuando hay capítulos estructurados"""
+        # Si se está creando desde el wizard de capítulos, permitir la creación
+        if self.env.context.get('from_capitulo_wizard'):
+            return super().create(vals)
+        
+        # Si hay un order_id, verificar si tiene encabezados de capítulos
+        if vals.get('order_id'):
+            order = self.env['sale.order'].browse(vals['order_id'])
+            existing_headers = order.order_line.filtered(
+                lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion
+            )
+            
+            if existing_headers and not vals.get('es_encabezado_capitulo') and not vals.get('es_encabezado_seccion'):
+                raise UserError(
+                    "No se pueden añadir líneas manualmente cuando el presupuesto tiene capítulos estructurados.\n"
+                    "Use el botón 'Gestionar Capítulos' para añadir productos a las secciones correspondientes."
+                )
+        
+        return super().create(vals)

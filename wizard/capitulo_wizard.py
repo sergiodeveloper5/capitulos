@@ -16,6 +16,32 @@ class CapituloWizardSeccion(models.TransientModel):
     incluir = fields.Boolean(string='Incluir en Presupuesto', default=True)
     line_ids = fields.One2many('capitulo.wizard.line', 'seccion_id', string='Productos')
     
+    def unlink(self):
+        """Previene la eliminación de secciones fijas"""
+        for seccion in self:
+            if seccion.es_fija:
+                raise UserError(
+                    f"No se puede eliminar la sección '{seccion.name}' porque es una sección fija.\n"
+                    "Las secciones fijas son elementos estructurales del capítulo."
+                )
+        return super().unlink()
+    
+    def write(self, vals):
+        """Previene la modificación de secciones fijas"""
+        protected_fields = ['name', 'sequence']
+        
+        for seccion in self:
+            if seccion.es_fija:
+                # Verificar si se está intentando modificar campos protegidos
+                for field in protected_fields:
+                    if field in vals:
+                        raise UserError(
+                            f"No se puede modificar la sección fija '{seccion.name}'.\n"
+                            f"Las secciones fijas son elementos estructurales del capítulo."
+                        )
+        
+        return super().write(vals)
+    
     @api.constrains('name')
     def _check_name(self):
         """Valida que el nombre de la sección no esté vacío"""
@@ -92,11 +118,12 @@ class CapituloWizard(models.TransientModel):
         if self.modo_creacion == 'existente':
             self.nuevo_capitulo_nombre = False
             self.nuevo_capitulo_descripcion = False
+            # Limpiar secciones al cambiar a modo existente
+            self.seccion_ids = [(5, 0, 0)]
         elif self.modo_creacion == 'nuevo':
             self.capitulo_id = False
-        
-        # Limpiar secciones en todos los casos
-        self.seccion_ids = [(5, 0, 0)]
+            # Crear secciones predefinidas para nuevo capítulo (todas fijas)
+            self._crear_secciones_predefinidas()
     
     @api.onchange('capitulo_id')
     def onchange_capitulo_id(self):
@@ -124,12 +151,12 @@ class CapituloWizard(models.TransientModel):
 
     
     def _crear_secciones_predefinidas(self):
-        """Crea secciones predefinidas básicas"""
+        """Crea secciones predefinidas básicas (todas fijas)"""
         secciones_predefinidas = [
-            {'name': 'Alquiler', 'sequence': 10, 'es_fija': True},
-            {'name': 'Montaje', 'sequence': 20, 'es_fija': True},
-            {'name': 'Portes', 'sequence': 30, 'es_fija': True},
-            {'name': 'Otros Conceptos', 'sequence': 40, 'es_fija': False},
+            {'name': 'Alquiler', 'sequence': 10},
+            {'name': 'Montaje', 'sequence': 20},
+            {'name': 'Portes', 'sequence': 30},
+            {'name': 'Otros Conceptos', 'sequence': 40},
         ]
         
         secciones_vals = []
@@ -137,7 +164,7 @@ class CapituloWizard(models.TransientModel):
             secciones_vals.append((0, 0, {
                 'name': seccion_data['name'],
                 'sequence': seccion_data['sequence'],
-                'es_fija': seccion_data['es_fija'],
+                'es_fija': True,  # Todas las secciones son fijas
                 'incluir': True,
                 'line_ids': [],
             }))
@@ -164,7 +191,7 @@ class CapituloWizard(models.TransientModel):
             secciones_vals.append((0, 0, {
                 'name': seccion.name,
                 'sequence': seccion.sequence,
-                'es_fija': seccion.es_fija,
+                'es_fija': True,  # Todas las secciones de capítulos existentes son fijas
                 'incluir': True,
                 'line_ids': lineas_vals,
             }))
@@ -234,9 +261,13 @@ class CapituloWizard(models.TransientModel):
         order = self.order_id
         SaleOrderLine = self.env['sale.order.line']
         
+        # Marcar todas las secciones como fijas después de añadir al pedido
+        for seccion in self.seccion_ids:
+            seccion.es_fija = True
+        
         # Añadir título del capítulo como encabezado principal
         nombre_capitulo = capitulo.name if self.modo_creacion == 'existente' else self.nuevo_capitulo_nombre
-        SaleOrderLine.create({
+        SaleOrderLine.with_context(from_capitulo_wizard=True).create({
             'order_id': order.id,
             'name': f"📋 ═══ {nombre_capitulo.upper()} ═══",
             'product_uom_qty': 0,
@@ -251,7 +282,7 @@ class CapituloWizard(models.TransientModel):
             productos_incluidos = seccion.line_ids.filtered('incluir')
             if productos_incluidos:
                 # Añadir línea de sección como separador (no modificable)
-                section_line = SaleOrderLine.create({
+                section_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                     'order_id': order.id,
                     'name': f"=== {seccion.name.upper()} ===",
                     'product_uom_qty': 0,
@@ -277,7 +308,7 @@ class CapituloWizard(models.TransientModel):
                         'product_uom': line.product_id.uom_id.id,
                     }
                     
-                    product_line = SaleOrderLine.create(vals)
+                    product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
                     
                     # Si la sección es fija, añadir una nota indicativa
                     if seccion.es_fija:
@@ -289,7 +320,7 @@ class CapituloWizard(models.TransientModel):
         # Añadir condiciones particulares si existen
         if self.condiciones_particulares:
             # Añadir sección de condiciones particulares
-            SaleOrderLine.create({
+            SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
                 'name': "=== CONDICIONES PARTICULARES ===",
                 'product_uom_qty': 0,
@@ -299,7 +330,7 @@ class CapituloWizard(models.TransientModel):
             })
             
             # Añadir las condiciones como nota
-            SaleOrderLine.create({
+            SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
                 'name': self.condiciones_particulares,
                 'product_uom_qty': 0,
@@ -310,44 +341,11 @@ class CapituloWizard(models.TransientModel):
         return {'type': 'ir.actions.act_window_close'}
     
     def add_seccion(self):
-        """Añade una nueva sección al wizard"""
-        self.ensure_one()
-        
-        try:
-            _logger.info(f"Añadiendo nueva sección al wizard {self.id}")
-            
-            # Obtener la siguiente secuencia
-            max_sequence = max([s.sequence for s in self.seccion_ids] or [0])
-            _logger.info(f"Secuencia máxima actual: {max_sequence}")
-            
-            # Crear la nueva sección con todos los campos requeridos
-            nueva_seccion_vals = {
-                'wizard_id': self.id,
-                'name': 'Nueva Sección',
-                'sequence': max_sequence + 10,
-                'es_fija': False,
-                'incluir': True,
-            }
-            
-            _logger.info(f"Valores para nueva sección: {nueva_seccion_vals}")
-            
-            # Crear la sección directamente en el modelo
-            nueva_seccion = self.env['capitulo.wizard.seccion'].create(nueva_seccion_vals)
-            _logger.info(f"Nueva sección creada con ID: {nueva_seccion.id}")
-            
-            # Refrescar el wizard para mostrar la nueva sección
-            return {
-                'type': 'ir.actions.act_window',
-                'res_model': 'capitulo.wizard',
-                'res_id': self.id,
-                'view_mode': 'form',
-                'target': 'new',
-                'context': self.env.context
-            }
-            
-        except Exception as e:
-            _logger.error(f"Error al crear nueva sección: {str(e)}")
-            raise UserError(f"Error al crear la nueva sección: {str(e)}\n\nPor favor, asegúrese de que todos los campos requeridos estén completados correctamente.")
+        """Función deshabilitada - No se pueden añadir más secciones"""
+        raise UserError(
+            "No se pueden añadir nuevas secciones.\n"
+            "Las secciones están predefinidas y son fijas para mantener la estructura del capítulo."
+        )
     
 
     
@@ -363,6 +361,17 @@ class CapituloWizard(models.TransientModel):
         for seccion in self.seccion_ids:
             if not seccion.name or not seccion.name.strip():
                 raise UserError(f"La sección en la posición {seccion.sequence} no tiene un nombre válido.")
+        
+        # Validar que no se hayan eliminado secciones fijas
+        secciones_fijas_requeridas = ['Alquiler', 'Montaje', 'Portes', 'Otros Conceptos']
+        secciones_actuales = [s.name for s in self.seccion_ids]
+        
+        for seccion_requerida in secciones_fijas_requeridas:
+            if seccion_requerida not in secciones_actuales:
+                raise UserError(
+                    f"La sección '{seccion_requerida}' es obligatoria y no puede ser eliminada.\n"
+                    "Las secciones fijas son elementos estructurales del capítulo."
+                )
     
     def add_another_chapter(self):
         """Añade el capítulo actual y abre el wizard para añadir otro"""
