@@ -42,7 +42,7 @@
                                 <form>
                                     <sheet>
                                         <group>
-                                            <field name="name" readonly="1"/>
+                                            <field name="name" placeholder="Nombre de la sección..."/>
                                             <field name="sequence" readonly="1"/>
                                             <field name="es_fija" readonly="1"/>
                                             <field name="incluir"/>
