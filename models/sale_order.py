@@ -92,8 +92,8 @@ class SaleOrderLine(models.Model):
                 "Use el botón 'Gestionar Capítulos' para añadir capítulos estructurados."
             )
         
-        # Bloquear solo líneas de sección/nota manuales cuando hay capítulos estructurados
-        if vals.get('display_type') in ['line_section', 'line_note']:
+        # Bloquear la creación de líneas de tipo 'line_section' que no sean productos normales
+        if vals.get('display_type') in ['line_section', 'line_note'] and not vals.get('product_id'):
             order_id = vals.get('order_id')
             if order_id:
                 order = self.env['sale.order'].browse(order_id)
@@ -106,5 +106,4 @@ class SaleOrderLine(models.Model):
                         "Use el botón 'Gestionar Capítulos' para gestionar la estructura."
                     )
         
-        # Permitir la creación de líneas normales (productos)
         return super().create(vals)

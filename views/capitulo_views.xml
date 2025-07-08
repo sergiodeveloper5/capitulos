@@ -121,6 +121,36 @@
             </field>
         </record>
 
+        <record id="action_capitulo_contrato" model="ir.actions.act_window">
+            <field name="name">Capítulos de Contrato</field>
+            <field name="res_model">capitulo.contrato</field>
+            <field name="view_mode">list,form</field>
+            <field name="context">{'search_default_no_plantilla': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Crea tu primer Capítulo de Contrato
+                </p>
+                <p>
+                    Los capítulos te permiten agrupar productos relacionados para crear presupuestos más organizados.
+                    Puedes crear un capítulo desde cero o basarte en una plantilla existente.
+                </p>
+            </field>
+        </record>
 
+        <record id="action_capitulo_plantillas" model="ir.actions.act_window">
+            <field name="name">Plantillas de Capítulos</field>
+            <field name="res_model">capitulo.contrato</field>
+            <field name="view_mode">list,form</field>
+            <field name="context">{'search_default_es_plantilla': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Crea tu primera Plantilla de Capítulo
+                </p>
+                <p>
+                    Las plantillas te permiten crear capítulos reutilizables con configuraciones predefinidas.
+                    Puedes crear, editar y eliminar plantillas según tus necesidades.
+                </p>
+            </field>
+        </record>
 
 </odoo>
