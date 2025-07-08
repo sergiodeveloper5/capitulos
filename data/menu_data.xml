@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menú principal de Capítulos -->
+    <menuitem id="menu_capitulos_main"
+              name="Capítulos"
+              sequence="50"/>
+
+    <!-- Submenú para Plantillas -->
+    <menuitem id="menu_capitulos_plantillas"
+              name="Plantillas"
+              parent="menu_capitulos_main"
+              action="action_capitulo_plantillas"
+              sequence="10"/>
+
+    <!-- Submenú para Capítulos -->
+    <menuitem id="menu_capitulos_contratos"
+              name="Capítulos"
+              parent="menu_capitulos_main"
+              action="action_capitulo_contrato"
+              sequence="20"/>
+</odoo>

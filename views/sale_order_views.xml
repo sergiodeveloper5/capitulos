@@ -26,7 +26,7 @@
         <field name="name">sale.order.line.tree.inherit.capitulo</field>
         <field name="model">sale.order.line</field>
         <field name="arch" type="xml">
-            <list create="false" delete="false" edit="false">
+            <list create="true" delete="true" edit="true">
                 <field name="sequence" widget="handle"/>
                 <field name="product_id"/>
                 <field name="name" decoration-bf="es_encabezado_capitulo or es_encabezado_seccion" decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion"/>

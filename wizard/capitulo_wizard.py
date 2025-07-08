@@ -137,52 +137,39 @@ class CapituloWizard(models.TransientModel):
     @api.onchange('modo_creacion')
     def onchange_modo_creacion(self):
         """Limpiar campos cuando cambia el modo de creación"""
-        _logger.info(f"Cambiando modo de creación a: {self.modo_creacion}")
-        
         if self.modo_creacion == 'existente':
             self.nuevo_capitulo_nombre = False
             self.nuevo_capitulo_descripcion = False
             # Limpiar secciones al cambiar a modo existente usando contexto para evitar recursión
             self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
-            _logger.info("Modo existente: secciones limpiadas")
         elif self.modo_creacion == 'nuevo':
             self.capitulo_id = False
             # Solo crear secciones predefinidas si no existen ya
             if not self.seccion_ids:
-                _logger.info("Modo nuevo: creando secciones predefinidas")
                 self._crear_secciones_predefinidas()
-            else:
-                _logger.info(f"Modo nuevo: ya existen {len(self.seccion_ids)} secciones, no recreando")
     
     @api.onchange('capitulo_id')
     def onchange_capitulo_id(self):
         """Carga las secciones del capítulo seleccionado"""
         if self.modo_creacion != 'existente':
-            _logger.info("onchange_capitulo_id: no es modo existente, saliendo")
             return
             
-        _logger.info(f"onchange_capitulo_id: capitulo_id = {self.capitulo_id}")
-        
         # Limpiar secciones usando contexto para evitar recursión
         self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
         self.condiciones_particulares = ''
         
         if not self.capitulo_id:
-            _logger.info("onchange_capitulo_id: no hay capítulo seleccionado")
             return
             
         # Cargar condiciones legales
         if self.capitulo_id.condiciones_legales:
             self.condiciones_particulares = self.capitulo_id.condiciones_legales
-            _logger.info("onchange_capitulo_id: condiciones legales cargadas")
             
         # Cargar secciones del capítulo
         if self.capitulo_id.seccion_ids:
-            _logger.info(f"onchange_capitulo_id: cargando {len(self.capitulo_id.seccion_ids)} secciones existentes")
             self._cargar_secciones_existentes()
         else:
             # Si no hay secciones, crear secciones predefinidas
-            _logger.info("onchange_capitulo_id: no hay secciones, creando predefinidas")
             self._crear_secciones_predefinidas()
     
 
@@ -192,19 +179,81 @@ class CapituloWizard(models.TransientModel):
         secciones_esperadas = ['Alquiler', 'Montaje', 'Portes', 'Otros Conceptos']
         secciones_actuales = [s.name for s in self.seccion_ids if s.name and s.name.strip()]
         
-        _logger.info(f"Verificando integridad - Esperadas: {secciones_esperadas}, Actuales: {secciones_actuales}")
-        
         # Si faltan secciones o hay secciones con nombres vacíos, recrear
         if len(secciones_actuales) != len(secciones_esperadas) or any(name == 'Nueva Sección' for name in secciones_actuales):
-            _logger.warning("Integridad de secciones comprometida, recreando...")
             self._crear_secciones_predefinidas()
             return True
         return False
     
+    def action_open_templates(self):
+        """Abre la lista de plantillas disponibles"""
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Plantillas de Capítulos',
+            'res_model': 'capitulo.contrato',
+            'view_mode': 'list,form',
+            'domain': [('es_plantilla', '=', True)],
+            'context': {'search_default_es_plantilla': 1},
+            'target': 'new',
+        }
+    
+    def action_create_template(self):
+        """Crea una nueva plantilla"""
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Crear Nueva Plantilla',
+            'res_model': 'capitulo.contrato',
+            'view_mode': 'form',
+            'context': {'default_es_plantilla': True},
+            'target': 'new',
+        }
+    
+    def action_delete_template(self):
+        """Elimina la plantilla seleccionada"""
+        if not self.capitulo_id or not self.capitulo_id.es_plantilla:
+            raise UserError("Solo se pueden eliminar plantillas.")
+        
+        # Llamar al método de eliminación de la plantilla
+        result = self.capitulo_id.action_eliminar_plantilla_forzado()
+        
+        # Limpiar el campo capitulo_id después de la eliminación
+        self.capitulo_id = False
+        
+        return {
+              'type': 'ir.actions.client',
+              'tag': 'display_notification',
+              'params': {
+                  'title': 'Plantilla Eliminada',
+                  'message': 'La plantilla ha sido eliminada correctamente.',
+                  'type': 'success',
+                  'sticky': False,
+              }
+          }
+    
+    def action_convert_to_template(self):
+        """Convierte el capítulo seleccionado en plantilla"""
+        if not self.capitulo_id:
+            raise UserError("Debe seleccionar un capítulo para convertir en plantilla.")
+        
+        if self.capitulo_id.es_plantilla:
+            raise UserError("El capítulo seleccionado ya es una plantilla.")
+        
+        # Convertir en plantilla
+        self.capitulo_id.write({'es_plantilla': True})
+        
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Capítulo Convertido',
+                'message': f'El capítulo "{self.capitulo_id.name}" ha sido convertido en plantilla correctamente.',
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+    
     def _crear_secciones_predefinidas(self):
         """Crea secciones predefinidas básicas"""
-        _logger.info("Creando secciones predefinidas")
-        
         secciones_predefinidas = [
             {'name': 'Alquiler', 'sequence': 10},
             {'name': 'Montaje', 'sequence': 20},
@@ -227,18 +276,15 @@ class CapituloWizard(models.TransientModel):
                 'incluir': True,
                 'line_ids': [],
             }
-            _logger.info(f"Creando sección: {vals['name']} (fija: {es_fija})")
             secciones_vals.append((0, 0, vals))
         
         # Crear secciones usando contexto para evitar recursión
         self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
-        _logger.info(f"Secciones creadas: {len(secciones_vals)} (modo: {self.modo_creacion})")
         
         # Verificar que se crearon correctamente
         try:
             # Forzar flush para asegurar que los datos se escriban
             self.env.flush_all()
-            _logger.info("Secciones predefinidas creadas y confirmadas")
         except Exception as e:
             _logger.error(f"Error al confirmar secciones: {e}")
             # Intentar recrear si hay error
@@ -246,7 +292,6 @@ class CapituloWizard(models.TransientModel):
     
     def _recrear_secciones_seguro(self):
         """Método seguro para recrear secciones en caso de error"""
-        _logger.info("Recreando secciones de forma segura")
         try:
             # Crear secciones una por una para mayor control
             secciones_predefinidas = [
@@ -274,7 +319,6 @@ class CapituloWizard(models.TransientModel):
                         'line_ids': [],
                     })
                     secciones_vals.append(seccion_vals)
-                    _logger.info(f"Sección '{seccion_data['name']}' preparada para creación segura (fija: {es_fija})")
                 except Exception as e:
                     _logger.error(f"Error preparando sección '{seccion_data['name']}': {e}")
             
@@ -365,22 +409,8 @@ class CapituloWizard(models.TransientModel):
         if not self.order_id:
             raise UserError("No se encontró el pedido de venta")
         
-        # Log inicial del estado del wizard
-        _logger.info(f"add_to_order: INICIANDO - Modo: {self.modo_creacion}")
-        _logger.info(f"add_to_order: Capítulo ID: {self.capitulo_id.name if self.capitulo_id else 'N/A'}")
-        _logger.info(f"add_to_order: Nuevo capítulo: {self.nuevo_capitulo_nombre or 'N/A'}")
-        _logger.info(f"add_to_order: Total secciones en wizard: {len(self.seccion_ids)}")
-        
-        # Log detallado del estado de cada sección
-        for i, seccion in enumerate(self.seccion_ids):
-            _logger.info(f"add_to_order: Sección {i+1}: '{seccion.name}' - incluir: {seccion.incluir}, es_fija: {seccion.es_fija}, productos: {len(seccion.line_ids)}")
-            for j, line in enumerate(seccion.line_ids):
-                _logger.info(f"add_to_order:   Producto {j+1}: {line.product_id.name if line.product_id else 'Sin producto'} - incluir: {line.incluir}, cantidad: {line.cantidad}")
-        
         # Verificar integridad de secciones antes de proceder
-        _logger.info("add_to_order: verificando integridad de secciones")
-        if self._verificar_integridad_secciones():
-            _logger.info("add_to_order: secciones restauradas, continuando")
+        self._verificar_integridad_secciones()
         
         # Validar datos del wizard antes de proceder
         self._validate_wizard_data()
@@ -424,12 +454,10 @@ class CapituloWizard(models.TransientModel):
             
             # Añadir productos de la sección que estén marcados para incluir y tengan producto seleccionado
             productos_incluidos = seccion.line_ids.filtered(lambda l: l.incluir and l.product_id)
-            _logger.info(f"add_to_order: Procesando sección '{seccion.name}' con {len(productos_incluidos)} productos incluidos de {len(seccion.line_ids)} totales")
             
             if productos_incluidos:
                 for line in productos_incluidos:
                     descripcion = line.descripcion_personalizada or line.product_id.name
-                    _logger.info(f"add_to_order: Creando línea para producto: {descripcion}, cantidad: {line.cantidad}, precio: {line.precio_unitario}")
                     
                     vals = {
                         'order_id': order.id,
@@ -441,7 +469,6 @@ class CapituloWizard(models.TransientModel):
                     }
                     
                     product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
-                    _logger.info(f"add_to_order: Línea de producto creada con ID: {product_line.id}")
                     
                     # Si la sección es fija, añadir una nota indicativa
                     if seccion.es_fija:

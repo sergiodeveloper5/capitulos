@@ -22,6 +22,32 @@
                                required="modo_creacion == 'existente'"/>
                     </group>
                     
+                    <!-- Gestión de Plantillas -->
+                    <group string="Gestión de Plantillas" invisible="modo_creacion != 'existente'">
+                        <div class="oe_button_box" name="template_buttons">
+                            <button name="action_open_templates" type="object" 
+                                    class="oe_stat_button" icon="fa-list"
+                                    string="Ver Plantillas"
+                                    help="Abrir lista de plantillas disponibles"/>
+                            <button name="action_create_template" type="object" 
+                                    class="oe_stat_button" icon="fa-plus"
+                                    string="Nueva Plantilla"
+                                    help="Crear una nueva plantilla"/>
+                            <button name="action_delete_template" type="object" 
+                                    class="oe_stat_button" icon="fa-trash"
+                                    string="Eliminar Plantilla"
+                                    invisible="not capitulo_id or not capitulo_id.es_plantilla"
+                                    confirm="¿Está seguro de que desea eliminar esta plantilla? Se desvinculará de todos los capítulos que la utilicen."
+                                    help="Eliminar la plantilla seleccionada"/>
+                            <button name="action_convert_to_template" type="object" 
+                                    class="oe_stat_button" icon="fa-star"
+                                    string="Convertir en Plantilla"
+                                    invisible="not capitulo_id or capitulo_id.es_plantilla"
+                                    confirm="¿Desea convertir este capítulo en una plantilla reutilizable?"
+                                    help="Convertir el capítulo seleccionado en plantilla"/>
+                        </div>
+                    </group>
+                    
                     <!-- Campos para nuevo capítulo -->
                     <group invisible="modo_creacion != 'nuevo'">
                         <field name="nuevo_capitulo_nombre" placeholder="Nombre del nuevo capítulo..." 

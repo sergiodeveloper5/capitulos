@@ -85,17 +85,25 @@ class SaleOrderLine(models.Model):
         if self.env.context.get('from_capitulo_wizard'):
             return super().create(vals)
         
-        # Si hay un order_id, verificar si tiene encabezados de capítulos
-        if vals.get('order_id'):
-            order = self.env['sale.order'].browse(vals['order_id'])
-            existing_headers = order.order_line.filtered(
-                lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion
+        # Bloquear la creación manual de encabezados de capítulos y secciones
+        if vals.get('es_encabezado_capitulo') or vals.get('es_encabezado_seccion'):
+            raise UserError(
+                "No se pueden crear encabezados de capítulos o secciones manualmente.\n"
+                "Use el botón 'Gestionar Capítulos' para añadir capítulos estructurados."
             )
-            
-            if existing_headers and not vals.get('es_encabezado_capitulo') and not vals.get('es_encabezado_seccion'):
-                raise UserError(
-                    "No se pueden añadir líneas manualmente cuando el presupuesto tiene capítulos estructurados.\n"
-                    "Use el botón 'Gestionar Capítulos' para añadir productos a las secciones correspondientes."
+        
+        # Bloquear la creación de líneas de tipo 'line_section' que no sean productos normales
+        if vals.get('display_type') in ['line_section', 'line_note'] and not vals.get('product_id'):
+            order_id = vals.get('order_id')
+            if order_id:
+                order = self.env['sale.order'].browse(order_id)
+                existing_headers = order.order_line.filtered(
+                    lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion
                 )
+                if existing_headers:
+                    raise UserError(
+                        "No se pueden añadir secciones o notas manualmente cuando el presupuesto tiene capítulos estructurados.\n"
+                        "Use el botón 'Gestionar Capítulos' para gestionar la estructura."
+                    )
         
         return super().create(vals)
