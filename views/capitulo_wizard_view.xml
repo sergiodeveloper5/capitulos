@@ -75,7 +75,7 @@
                             <field name="seccion_ids">
                                 <list create="false" delete="false" edit="true">
                                     <field name="sequence" readonly="1"/>
-                                    <field name="name" readonly="1" decoration-bf="es_fija"/>
+                                    <field name="name" decoration-bf="es_fija"/>
                                     <field name="es_fija" readonly="1" string="Fija" widget="boolean_toggle"/>
                                     <field name="incluir" widget="boolean_toggle"/>
                                 </list>
@@ -121,6 +121,10 @@
                 <footer>
                     <button name="add_to_order" string="Añadir al Presupuesto" type="object" class="btn-primary"/>
                     <button name="add_another_chapter" string="➕ Añadir Otro Capítulo" type="object" class="btn-secondary"/>
+                    <button name="debug_wizard_state" string="🔍 Debug Estado" type="object" class="btn-info"/>
+                    <button name="action_reset_sections" string="🔄 Resetear Secciones" type="object" class="btn-warning"/>
+                    <button name="action_force_refresh_sections" string="🔧 Corregir Nombres" type="object" class="btn-info"/>
+                    <button name="_fix_wizard_relations" string="🔗 Corregir Relaciones" type="object" class="btn-warning"/>
                     <button string="Cancelar" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
