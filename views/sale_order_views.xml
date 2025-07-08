@@ -13,7 +13,6 @@
                 <attribute name="context">{
                     'tree_view_ref': 'capitulos.view_order_line_tree_inherit_capitulo'
                 }</attribute>
-                <attribute name="widget">section_and_note_one2many</attribute>
             </xpath>
             <xpath expr="//field[@name='order_line']" position="after">
                 <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
@@ -26,14 +25,14 @@
         <field name="name">sale.order.line.tree.inherit.capitulo</field>
         <field name="model">sale.order.line</field>
         <field name="arch" type="xml">
-            <list create="true" delete="true" edit="true">
-                <field name="sequence" widget="handle"/>
-                <field name="product_id"/>
-                <field name="name" decoration-bf="es_encabezado_capitulo or es_encabezado_seccion" decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion"/>
-                <field name="product_uom_qty"/>
-                <field name="product_uom" groups="uom.group_uom"/>
-                <field name="price_unit"/>
-                <field name="tax_id" widget="many2many_tags"/>
+            <list create="true" delete="true" edit="true" editable="bottom">
+                <field name="sequence" widget="handle" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                <field name="product_id" required="not (es_encabezado_capitulo or es_encabezado_seccion)" domain="[('sale_ok', '=', True)]" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                <field name="name" decoration-bf="es_encabezado_capitulo or es_encabezado_seccion" decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                <field name="product_uom_qty" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                <field name="product_uom" groups="uom.group_uom" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                <field name="price_unit" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                <field name="tax_id" widget="many2many_tags" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
                 <field name="price_subtotal"/>
                 <field name="es_encabezado_capitulo" invisible="1"/>
                 <field name="es_encabezado_seccion" invisible="1"/>
