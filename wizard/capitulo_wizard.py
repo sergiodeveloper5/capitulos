@@ -85,10 +85,18 @@ class CapituloWizardLine(models.TransientModel):
     product_id = fields.Many2one('product.product', string='Producto')
     descripcion_personalizada = fields.Char(string='Descripción Personalizada')
     cantidad = fields.Float(string='Cantidad', default=1, required=True)
-    precio_unitario = fields.Float(string='Precio', related='product_id.list_price', readonly=False)
+    precio_unitario = fields.Float(string='Precio', default=0.0)
     incluir = fields.Boolean(string='Incluir', default=True)
     es_opcional = fields.Boolean(string='Opcional', default=False)
     sequence = fields.Integer(string='Secuencia', default=10)
+    
+    @api.onchange('product_id')
+    def _onchange_product_id(self):
+        """Actualiza el precio unitario cuando se selecciona un producto"""
+        if self.product_id:
+            self.precio_unitario = self.product_id.list_price
+        else:
+            self.precio_unitario = 0.0
 
 class CapituloWizard(models.TransientModel):
     _name = 'capitulo.wizard'
@@ -175,12 +183,12 @@ class CapituloWizard(models.TransientModel):
 
     
     def _verificar_integridad_secciones(self):
-        """Verifica y restaura la integridad de las secciones predefinidas"""
-        secciones_esperadas = ['Alquiler', 'Montaje', 'Portes', 'Otros Conceptos']
+        """Verifica y restaura la integridad de las secciones predefinidas solo si es necesario"""
+        # Solo verificar si hay secciones con nombres vacíos o inválidos
         secciones_actuales = [s.name for s in self.seccion_ids if s.name and s.name.strip()]
         
-        # Si faltan secciones o hay secciones con nombres vacíos, recrear
-        if len(secciones_actuales) != len(secciones_esperadas) or any(name == 'Nueva Sección' for name in secciones_actuales):
+        # Si hay secciones con nombres vacíos o "Nueva Sección", recrear solo si no hay secciones válidas
+        if any(name == 'Nueva Sección' for name in secciones_actuales) or len(secciones_actuales) == 0:
             self._crear_secciones_predefinidas()
             return True
         return False
@@ -339,6 +347,7 @@ class CapituloWizard(models.TransientModel):
                     'product_id': linea.product_id.id,
                     'descripcion_personalizada': linea.descripcion_personalizada,
                     'cantidad': linea.cantidad,
+                    'precio_unitario': linea.precio_unitario,
                     'sequence': linea.sequence,
                     'incluir': True,
                     'es_opcional': linea.es_opcional,
@@ -531,16 +540,10 @@ class CapituloWizard(models.TransientModel):
             if not seccion.name or not seccion.name.strip():
                 raise UserError(f"La sección en la posición {seccion.sequence} no tiene un nombre válido.")
         
-        # Validar que no se hayan eliminado secciones fijas
-        secciones_fijas_requeridas = ['Alquiler', 'Montaje', 'Portes', 'Otros Conceptos']
-        secciones_actuales = [s.name for s in self.seccion_ids]
-        
-        for seccion_requerida in secciones_fijas_requeridas:
-            if seccion_requerida not in secciones_actuales:
-                raise UserError(
-                    f"La sección '{seccion_requerida}' es obligatoria y no puede ser eliminada.\n"
-                    "Las secciones fijas son elementos estructurales del capítulo."
-                )
+        # Validar que al menos una sección esté marcada para incluir
+        secciones_incluidas = self.seccion_ids.filtered('incluir')
+        if not secciones_incluidas:
+            raise UserError("Debe seleccionar al menos una sección para incluir en el presupuesto.")
     
     def add_another_chapter(self):
         """Añade el capítulo actual y abre el wizard para añadir otro"""
