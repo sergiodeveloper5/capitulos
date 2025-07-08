@@ -47,11 +47,11 @@
                                 <strong>🔒 Secciones Fijas:</strong> Las secciones están predefinidas y no se pueden modificar, eliminar o añadir nuevas. Esta estructura garantiza la consistencia del capítulo.
                             </div>
                             <field name="seccion_ids">
-                                <list create="false" delete="false" edit="false">
+                                <list create="false" delete="false" edit="true">
                                     <field name="sequence" readonly="1"/>
                                     <field name="name" readonly="1" decoration-bf="es_fija"/>
                                     <field name="es_fija" readonly="1" string="Fija" widget="boolean_toggle"/>
-                                    <field name="incluir" readonly="es_fija" widget="boolean_toggle"/>
+                                    <field name="incluir" widget="boolean_toggle"/>
                                 </list>
                                 <form>
                                     <sheet>
@@ -59,10 +59,10 @@
                                             <strong>🔒 Sección Bloqueada:</strong> Las secciones están predefinidas y no pueden ser modificadas para mantener la estructura del capítulo.
                                         </div>
                                         <group>
-                                            <field name="name" placeholder="Escriba el nombre de la sección..." readonly="1" required="1"/>
+                                            <field name="name" placeholder="Escriba el nombre de la sección..." readonly="es_fija" required="1"/>
                                             <field name="sequence" readonly="1"/>
                                             <field name="es_fija" readonly="1"/>
-                                            <field name="incluir" readonly="es_fija"/>
+                                            <field name="incluir" widget="boolean_toggle"/>
                                         </group>
                                         <notebook>
                                             <page string="Productos">

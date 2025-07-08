@@ -82,7 +82,7 @@ class CapituloWizardLine(models.TransientModel):
 
     wizard_id = fields.Many2one('capitulo.wizard', ondelete='cascade')
     seccion_id = fields.Many2one('capitulo.wizard.seccion', string='Sección', ondelete='cascade')
-    product_id = fields.Many2one('product.product', required=True, string='Producto')
+    product_id = fields.Many2one('product.product', string='Producto')
     descripcion_personalizada = fields.Char(string='Descripción Personalizada')
     cantidad = fields.Float(string='Cantidad', default=1, required=True)
     precio_unitario = fields.Float(string='Precio', related='product_id.list_price', readonly=False)
@@ -124,6 +124,10 @@ class CapituloWizard(models.TransientModel):
     
     def write(self, vals):
         """Override write para verificar integridad después de cambios"""
+        # Evitar recursión infinita con una bandera de contexto
+        if self.env.context.get('skip_integrity_check'):
+            return super().write(vals)
+            
         result = super().write(vals)
         # Verificar integridad de secciones después de cualquier cambio
         if 'seccion_ids' in vals or 'modo_creacion' in vals:
@@ -138,8 +142,8 @@ class CapituloWizard(models.TransientModel):
         if self.modo_creacion == 'existente':
             self.nuevo_capitulo_nombre = False
             self.nuevo_capitulo_descripcion = False
-            # Limpiar secciones al cambiar a modo existente
-            self.seccion_ids = [(5, 0, 0)]
+            # Limpiar secciones al cambiar a modo existente usando contexto para evitar recursión
+            self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
             _logger.info("Modo existente: secciones limpiadas")
         elif self.modo_creacion == 'nuevo':
             self.capitulo_id = False
@@ -159,7 +163,8 @@ class CapituloWizard(models.TransientModel):
             
         _logger.info(f"onchange_capitulo_id: capitulo_id = {self.capitulo_id}")
         
-        self.seccion_ids = [(5, 0, 0)]
+        # Limpiar secciones usando contexto para evitar recursión
+        self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
         self.condiciones_particulares = ''
         
         if not self.capitulo_id:
@@ -197,7 +202,7 @@ class CapituloWizard(models.TransientModel):
         return False
     
     def _crear_secciones_predefinidas(self):
-        """Crea secciones predefinidas básicas (todas fijas)"""
+        """Crea secciones predefinidas básicas"""
         _logger.info("Creando secciones predefinidas")
         
         secciones_predefinidas = [
@@ -207,23 +212,27 @@ class CapituloWizard(models.TransientModel):
             {'name': 'Otros Conceptos', 'sequence': 40},
         ]
         
-        # Limpiar secciones existentes primero
-        self.seccion_ids = [(5, 0, 0)]
+        # Limpiar secciones existentes primero usando contexto para evitar recursión
+        self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
+        
+        # Determinar si las secciones deben ser fijas según el modo
+        es_fija = self.modo_creacion == 'existente'
         
         secciones_vals = []
         for seccion_data in secciones_predefinidas:
             vals = {
                 'name': seccion_data['name'],
                 'sequence': seccion_data['sequence'],
-                'es_fija': True,  # Todas las secciones son fijas
+                'es_fija': es_fija,  # Fijas solo en modo existente
                 'incluir': True,
                 'line_ids': [],
             }
-            _logger.info(f"Creando sección: {vals['name']}")
+            _logger.info(f"Creando sección: {vals['name']} (fija: {es_fija})")
             secciones_vals.append((0, 0, vals))
         
-        self.seccion_ids = secciones_vals
-        _logger.info(f"Secciones creadas: {len(secciones_vals)}")
+        # Crear secciones usando contexto para evitar recursión
+        self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
+        _logger.info(f"Secciones creadas: {len(secciones_vals)} (modo: {self.modo_creacion})")
         
         # Verificar que se crearon correctamente
         try:
@@ -247,23 +256,31 @@ class CapituloWizard(models.TransientModel):
                 {'name': 'Otros Conceptos', 'sequence': 40},
             ]
             
-            # Limpiar completamente
-            self.seccion_ids = [(5, 0, 0)]
+            # Limpiar completamente usando contexto para evitar recursión
+            self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
             
-            # Crear cada sección individualmente
+            # Determinar si las secciones deben ser fijas según el modo
+            es_fija = self.modo_creacion == 'existente'
+            
+            # Crear todas las secciones de una vez
+            secciones_vals = []
             for seccion_data in secciones_predefinidas:
                 try:
                     seccion_vals = (0, 0, {
                         'name': seccion_data['name'],
                         'sequence': seccion_data['sequence'],
-                        'es_fija': True,
+                        'es_fija': es_fija,
                         'incluir': True,
                         'line_ids': [],
                     })
-                    self.seccion_ids = [(4, 0, 0)] + [seccion_vals]
-                    _logger.info(f"Sección '{seccion_data['name']}' creada de forma segura")
+                    secciones_vals.append(seccion_vals)
+                    _logger.info(f"Sección '{seccion_data['name']}' preparada para creación segura (fija: {es_fija})")
                 except Exception as e:
-                    _logger.error(f"Error creando sección '{seccion_data['name']}': {e}")
+                    _logger.error(f"Error preparando sección '{seccion_data['name']}': {e}")
+            
+            # Crear todas las secciones usando contexto para evitar recursión
+            if secciones_vals:
+                self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
                     
         except Exception as e:
             _logger.error(f"Error en recreación segura: {e}")
@@ -291,7 +308,8 @@ class CapituloWizard(models.TransientModel):
                 'line_ids': lineas_vals,
             }))
         
-        self.seccion_ids = secciones_vals
+        # Cargar secciones usando contexto para evitar recursión
+        self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
     
     def _obtener_o_crear_capitulo(self):
         """Obtiene un capítulo existente o crea uno nuevo según el modo"""
@@ -326,13 +344,13 @@ class CapituloWizard(models.TransientModel):
                         'es_opcional': linea_wizard.es_opcional,
                     }))
                 
-                if lineas_vals:  # Solo crear sección si tiene productos
-                    secciones_vals.append((0, 0, {
-                        'name': seccion_wizard.name,
-                        'sequence': seccion_wizard.sequence,
-                        'es_fija': seccion_wizard.es_fija,
-                        'product_line_ids': lineas_vals,
-                    }))
+                # Crear sección siempre (incluso si no tiene productos)
+                secciones_vals.append((0, 0, {
+                    'name': seccion_wizard.name,
+                    'sequence': seccion_wizard.sequence,
+                    'es_fija': seccion_wizard.es_fija,
+                    'product_line_ids': lineas_vals,
+                }))
             
             capitulo_vals['seccion_ids'] = secciones_vals
             return self.env['capitulo.contrato'].create(capitulo_vals)
@@ -346,6 +364,18 @@ class CapituloWizard(models.TransientModel):
         
         if not self.order_id:
             raise UserError("No se encontró el pedido de venta")
+        
+        # Log inicial del estado del wizard
+        _logger.info(f"add_to_order: INICIANDO - Modo: {self.modo_creacion}")
+        _logger.info(f"add_to_order: Capítulo ID: {self.capitulo_id.name if self.capitulo_id else 'N/A'}")
+        _logger.info(f"add_to_order: Nuevo capítulo: {self.nuevo_capitulo_nombre or 'N/A'}")
+        _logger.info(f"add_to_order: Total secciones en wizard: {len(self.seccion_ids)}")
+        
+        # Log detallado del estado de cada sección
+        for i, seccion in enumerate(self.seccion_ids):
+            _logger.info(f"add_to_order: Sección {i+1}: '{seccion.name}' - incluir: {seccion.incluir}, es_fija: {seccion.es_fija}, productos: {len(seccion.line_ids)}")
+            for j, line in enumerate(seccion.line_ids):
+                _logger.info(f"add_to_order:   Producto {j+1}: {line.product_id.name if line.product_id else 'Sin producto'} - incluir: {line.incluir}, cantidad: {line.cantidad}")
         
         # Verificar integridad de secciones antes de proceder
         _logger.info("add_to_order: verificando integridad de secciones")
@@ -378,26 +408,28 @@ class CapituloWizard(models.TransientModel):
         
         # Crear líneas de pedido organizadas por secciones
         for seccion in self.seccion_ids.filtered('incluir'):
-            # Solo añadir sección si tiene productos
-            productos_incluidos = seccion.line_ids.filtered('incluir')
+            # Añadir línea de sección como separador (siempre, incluso si no tiene productos)
+            section_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
+                'order_id': order.id,
+                'name': f"=== {seccion.name.upper()} ===",
+                'product_uom_qty': 0,
+                'price_unit': 0,
+                'display_type': 'line_section',
+                'es_encabezado_seccion': True,
+            })
+            
+            # Si la sección es fija, marcar la línea como no editable
+            if seccion.es_fija:
+                section_line.write({'name': f"🔒 === {seccion.name.upper()} === (SECCIÓN FIJA)"})
+            
+            # Añadir productos de la sección que estén marcados para incluir y tengan producto seleccionado
+            productos_incluidos = seccion.line_ids.filtered(lambda l: l.incluir and l.product_id)
+            _logger.info(f"add_to_order: Procesando sección '{seccion.name}' con {len(productos_incluidos)} productos incluidos de {len(seccion.line_ids)} totales")
+            
             if productos_incluidos:
-                # Añadir línea de sección como separador (no modificable)
-                section_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
-                    'order_id': order.id,
-                    'name': f"=== {seccion.name.upper()} ===",
-                    'product_uom_qty': 0,
-                    'price_unit': 0,
-                    'display_type': 'line_section',
-                    'es_encabezado_seccion': True,
-                })
-                
-                # Si la sección es fija, marcar la línea como no editable
-                if seccion.es_fija:
-                    section_line.write({'name': f"🔒 === {seccion.name.upper()} === (SECCIÓN FIJA)"})
-                
-                # Añadir productos de la sección
                 for line in productos_incluidos:
                     descripcion = line.descripcion_personalizada or line.product_id.name
+                    _logger.info(f"add_to_order: Creando línea para producto: {descripcion}, cantidad: {line.cantidad}, precio: {line.precio_unitario}")
                     
                     vals = {
                         'order_id': order.id,
@@ -409,10 +441,20 @@ class CapituloWizard(models.TransientModel):
                     }
                     
                     product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
+                    _logger.info(f"add_to_order: Línea de producto creada con ID: {product_line.id}")
                     
                     # Si la sección es fija, añadir una nota indicativa
                     if seccion.es_fija:
                         product_line.write({'name': f"🔒 {descripcion} (No modificable)"})
+            else:
+                # Si no hay productos, añadir una línea informativa
+                SaleOrderLine.with_context(from_capitulo_wizard=True).create({
+                    'order_id': order.id,
+                    'name': "(Sin productos añadidos en esta sección)",
+                    'product_uom_qty': 0,
+                    'price_unit': 0,
+                    'display_type': 'line_note',
+                })
 
         # Añadir capítulo a la lista de capítulos aplicados
         order.write({'capitulo_ids': [(4, capitulo.id)]})

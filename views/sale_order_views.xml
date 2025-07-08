@@ -7,11 +7,7 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//button[@name='action_quotation_send']" position="after">
-                <button name="action_add_capitulo" type="object" 
-                        string="Gestionar Capítulos" 
-                        class="btn-primary"
-                        help="Crear nuevos capítulos o añadir capítulos existentes al presupuesto"
-                        invisible="state in ['sale', 'done', 'cancel']"/>
+                <button name="action_add_capitulo" string="Gestionar Capítulos" type="object" class="btn-secondary" groups="sales_team.group_sale_salesman" invisible="state not in ['draft', 'sent']"/>
             </xpath>
             <xpath expr="//field[@name='order_line']" position="attributes">
                 <attribute name="context">{

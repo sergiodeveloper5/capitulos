@@ -59,6 +59,10 @@ class SaleOrderLine(models.Model):
     
     def write(self, vals):
         """Previene la modificación de campos críticos en encabezados"""
+        # Si se está modificando desde el wizard de capítulos, permitir la modificación
+        if self.env.context.get('from_capitulo_wizard'):
+            return super().write(vals)
+            
         protected_fields = ['name', 'product_id', 'product_uom_qty', 'price_unit', 'sequence', 'display_type']
         
         for line in self:
