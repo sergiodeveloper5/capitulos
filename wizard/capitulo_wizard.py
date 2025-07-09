@@ -91,7 +91,6 @@ class CapituloWizardLine(models.TransientModel):
     wizard_id = fields.Many2one('capitulo.wizard', ondelete='cascade')
     seccion_id = fields.Many2one('capitulo.wizard.seccion', string='Sección', ondelete='cascade')
     product_id = fields.Many2one('product.product', string='Producto')
-    descripcion_personalizada = fields.Char(string='Descripción Personalizada')
     cantidad = fields.Float(string='Cantidad', default=1, required=True)
     precio_unitario = fields.Float(string='Precio', default=0.0)
     incluir = fields.Boolean(string='Incluir', default=False)
@@ -406,7 +405,7 @@ class CapituloWizard(models.TransientModel):
                         'incluir': line.incluir,
                         'cantidad': line.cantidad,
                         'precio_unitario': line.precio_unitario,
-                        'descripcion_personalizada': line.descripcion_personalizada,
+
                     })
         
         # Recrear secciones predefinidas
@@ -430,7 +429,7 @@ class CapituloWizard(models.TransientModel):
                                 'incluir': producto_data['incluir'],
                                 'cantidad': producto_data['cantidad'],
                                 'precio_unitario': producto_data['precio_unitario'],
-                                'descripcion_personalizada': producto_data['descripcion_personalizada'],
+
                             })
                         else:
                             # Crear nueva línea de producto
@@ -440,7 +439,7 @@ class CapituloWizard(models.TransientModel):
                                 'incluir': producto_data['incluir'],
                                 'cantidad': producto_data['cantidad'],
                                 'precio_unitario': producto_data['precio_unitario'],
-                                'descripcion_personalizada': producto_data['descripcion_personalizada'],
+
                             })
         
         return {
@@ -574,7 +573,7 @@ class CapituloWizard(models.TransientModel):
             for linea in seccion.product_line_ids:
                 lineas_vals.append((0, 0, {
                     'product_id': linea.product_id.id,
-                    'descripcion_personalizada': linea.descripcion_personalizada,
+
                     'cantidad': linea.cantidad,
                     'precio_unitario': linea.precio_unitario,
                     'sequence': linea.sequence,
@@ -625,7 +624,7 @@ class CapituloWizard(models.TransientModel):
                             'cantidad': linea_wizard.cantidad,
                             'precio_unitario': linea_wizard.precio_unitario,
                             'sequence': linea_wizard.sequence,
-                            'descripcion_personalizada': linea_wizard.descripcion_personalizada,
+
                             'es_opcional': linea_wizard.es_opcional,
                         }))
                     
@@ -736,7 +735,7 @@ class CapituloWizard(models.TransientModel):
             
             if productos_incluidos:
                 for line in productos_incluidos:
-                    descripcion = line.descripcion_personalizada or line.product_id.name
+                    descripcion = ""
                     
                     vals = {
                         'order_id': order.id,
