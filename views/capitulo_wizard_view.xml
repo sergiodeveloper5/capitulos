@@ -126,12 +126,7 @@
                 </sheet>
                 <footer>
                     <button name="add_to_order" string="Añadir al Presupuesto" type="object" class="btn-primary"/>
-                    <button name="action_auto_include_products" string="✅ Marcar Todas las Secciones" type="object" class="btn-success"/>
                     <button name="add_another_chapter" string="➕ Añadir Otro Capítulo" type="object" class="btn-secondary"/>
-                    <button name="debug_wizard_state" string="🔍 Debug Estado" type="object" class="btn-info"/>
-                    <button name="action_reset_sections" string="🔄 Resetear Secciones" type="object" class="btn-warning"/>
-                    <button name="action_force_refresh_sections" string="🔧 Corregir Nombres" type="object" class="btn-info"/>
-                    <button name="action_fix_wizard_relations" string="🔗 Corregir Relaciones" type="object" class="btn-warning"/>
                     <button string="Cancelar" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
