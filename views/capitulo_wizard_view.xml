@@ -72,17 +72,9 @@
                             <div class="alert alert-warning" role="alert" style="margin-bottom: 10px;">
                                 <strong>🔒 Secciones Fijas:</strong> Las secciones están predefinidas y no se pueden modificar, eliminar o añadir nuevas. Esta estructura garantiza la consistencia del capítulo.
                             </div>
-                            
-                            <div class="alert alert-info" role="alert" style="margin-bottom: 15px;">
-                                <strong>📋 Proceso para añadir productos:</strong><br/>
-                                <strong>1.</strong> Marque las secciones que desea incluir usando el toggle "Incluir"<br/>
-                                <strong>2.</strong> Haga clic en cada sección marcada para abrirla<br/>
-                                <strong>3.</strong> En la pestaña "Productos", haga clic en "Añadir una línea" para añadir productos<br/>
-                                <strong>4.</strong> Seleccione el producto, cantidad y precio<br/>
-                                <strong>5.</strong> Haga clic en "Añadir al Presupuesto" - solo las secciones marcadas se añadirán
-                            </div>
+
                             <field name="seccion_ids">
-                                <list create="false" delete="false" edit="true">
+                                <list create="false" delete="false" edit="true" default_order="sequence, name">
                                     <field name="sequence" readonly="1"/>
                                     <field name="name" decoration-bf="es_fija"/>
                                     <field name="incluir" string="Incluir" widget="boolean_toggle"/>

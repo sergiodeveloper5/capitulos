@@ -16,14 +16,6 @@ class CapituloWizardSeccion(models.TransientModel):
     incluir = fields.Boolean(string='Incluir en Presupuesto', default=False)
     line_ids = fields.One2many('capitulo.wizard.line', 'seccion_id', string='Productos')
     
-    @api.model
-    def create(self, vals):
-        """Asegurar que siempre se cree con un nombre válido"""
-        if not vals.get('name') or not vals.get('name').strip():
-            vals['name'] = 'Nueva Sección'
-        _logger.info(f"Creando sección: {vals.get('name')}")
-        return super().create(vals)
-    
     def unlink(self):
         """Previene la eliminación de secciones fijas"""
         for seccion in self:
@@ -71,11 +63,11 @@ class CapituloWizardSeccion(models.TransientModel):
         if not vals.get('sequence'):
             vals['sequence'] = 10
         if 'incluir' not in vals:
-            vals['incluir'] = True
+            vals['incluir'] = False  # Por defecto no incluir
         if 'es_fija' not in vals:
             vals['es_fija'] = False
             
-        _logger.info(f"Creando sección final con nombre: '{vals['name']}', es_fija: {vals['es_fija']}")
+        _logger.info(f"Creando sección final con nombre: '{vals['name']}', sequence: {vals.get('sequence')}, es_fija: {vals['es_fija']}")
         return super().create(vals)
     
     def unlink_seccion(self):
@@ -348,20 +340,49 @@ class CapituloWizard(models.TransientModel):
         _logger.info(f"Creando {len(secciones_vals)} secciones...")
         self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
         
+        # Forzar el orden correcto después de crear las secciones
+        self._forzar_orden_secciones()
+        
         # Verificar que se crearon correctamente
         try:
             # Forzar flush para asegurar que los datos se escriban
             self.env.flush_all()
             _logger.info(f"Secciones creadas exitosamente. Total: {len(self.seccion_ids)}")
             
-            # Verificar nombres
+            # Verificar nombres y orden
             for seccion in self.seccion_ids:
-                _logger.info(f"Sección creada: ID={seccion.id}, Nombre='{seccion.name}', Fija={seccion.es_fija}")
+                _logger.info(f"Sección creada: ID={seccion.id}, Nombre='{seccion.name}', Sequence={seccion.sequence}, Fija={seccion.es_fija}")
                 
         except Exception as e:
             _logger.error(f"Error al confirmar secciones: {e}")
             # Intentar recrear si hay error
             self._recrear_secciones_seguro()
+    
+    def _forzar_orden_secciones(self):
+        """Fuerza el orden correcto de las secciones según su secuencia"""
+        try:
+            # Obtener secciones ordenadas por secuencia y nombre
+            secciones_ordenadas = self.seccion_ids.sorted(lambda s: (s.sequence, s.name))
+            
+            # Verificar si el orden actual es correcto
+            orden_actual = [s.name for s in self.seccion_ids]
+            orden_esperado = [s.name for s in secciones_ordenadas]
+            
+            _logger.info(f"Orden actual: {orden_actual}")
+            _logger.info(f"Orden esperado: {orden_esperado}")
+            
+            # Si el orden no es correcto, reordenar
+            if orden_actual != orden_esperado:
+                _logger.info("Reordenando secciones...")
+                # Actualizar la relación seccion_ids con el orden correcto
+                seccion_ids_ordenados = [(6, 0, [s.id for s in secciones_ordenadas])]
+                self.with_context(skip_integrity_check=True).write({'seccion_ids': seccion_ids_ordenados})
+                _logger.info("Secciones reordenadas correctamente")
+            else:
+                _logger.info("Las secciones ya están en el orden correcto")
+                
+        except Exception as e:
+            _logger.error(f"Error al forzar orden de secciones: {e}")
     
     def _recrear_secciones_seguro(self):
         """Método seguro para recrear secciones en caso de error"""
@@ -398,6 +419,8 @@ class CapituloWizard(models.TransientModel):
             # Crear todas las secciones usando contexto para evitar recursión
             if secciones_vals:
                 self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
+                # Forzar el orden correcto
+                self._forzar_orden_secciones()
                     
         except Exception as e:
             _logger.error(f"Error en recreación segura: {e}")
@@ -428,6 +451,8 @@ class CapituloWizard(models.TransientModel):
         
         # Cargar secciones usando contexto para evitar recursión
         self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
+        # Forzar el orden correcto
+        self._forzar_orden_secciones()
     
     def _obtener_o_crear_capitulo(self):
         """Obtiene un capítulo existente o crea uno nuevo según el modo"""
@@ -510,7 +535,10 @@ class CapituloWizard(models.TransientModel):
         total_productos_a_añadir = 0
         secciones_con_productos = []
         
-        for seccion in self.seccion_ids.filtered(lambda s: s.incluir):
+        # Asegurar que las secciones se procesen en el orden correcto
+        secciones_incluidas_ordenadas = self.seccion_ids.filtered(lambda s: s.incluir).sorted(lambda s: (s.sequence, s.name))
+        
+        for seccion in secciones_incluidas_ordenadas:
             productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
             if productos_con_producto:
                 total_productos_a_añadir += len(productos_con_producto)
@@ -552,7 +580,15 @@ class CapituloWizard(models.TransientModel):
         })
         
         # Crear líneas de pedido organizadas por secciones (solo secciones que tienen productos)
-        for seccion in secciones_con_productos:
+        # Asegurar que las secciones se procesen en el orden correcto por secuencia
+        secciones_con_productos_ordenadas = sorted(secciones_con_productos, key=lambda s: (s.sequence, s.name))
+        
+        # Debug: Verificar el orden de procesamiento
+        _logger.info(f"Orden de procesamiento de secciones:")
+        for i, seccion in enumerate(secciones_con_productos_ordenadas):
+            _logger.info(f"  {i+1}. {seccion.name} (sequence: {seccion.sequence})")
+        
+        for seccion in secciones_con_productos_ordenadas:
             # Añadir línea de sección como separador (siempre, incluso si no tiene productos)
             section_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
