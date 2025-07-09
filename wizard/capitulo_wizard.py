@@ -117,9 +117,12 @@ class CapituloWizardLine(models.TransientModel):
         """Actualiza el precio unitario cuando se selecciona un producto"""
         if self.product_id:
             self.precio_unitario = self.product_id.list_price
-            _logger.info(f"Producto seleccionado: {self.product_id.name}, Precio: {self.precio_unitario}")
+            # Automáticamente marcar como incluido (aunque no sea visible en la interfaz)
+            self.incluir = True
+            _logger.info(f"Producto seleccionado: {self.product_id.name}, Precio: {self.precio_unitario}, Auto-incluido: True")
         else:
             self.precio_unitario = 0.0
+            self.incluir = False
 
 class CapituloWizard(models.TransientModel):
     _name = 'capitulo.wizard'
@@ -198,8 +201,8 @@ class CapituloWizard(models.TransientModel):
             }
         }
     
-    def _fix_wizard_relations(self):
-        """Corrige las relaciones wizard_id en todas las líneas de productos"""
+    def action_fix_wizard_relations(self):
+        """Método público para corregir las relaciones wizard_id en todas las líneas de productos"""
         self.ensure_one()
         _logger.info("=== Corrigiendo relaciones wizard_id ===")
         
@@ -231,6 +234,47 @@ class CapituloWizard(models.TransientModel):
                 'sticky': False,
             }
         }
+    
+    def action_auto_include_products(self):
+        """Marca todas las secciones como incluir para facilitar la selección"""
+        self.ensure_one()
+        
+        secciones_marcadas = 0
+        for seccion in self.seccion_ids:
+            if not seccion.incluir:
+                seccion.incluir = True
+                secciones_marcadas += 1
+        
+        if secciones_marcadas > 0:
+            mensaje = f"Se han marcado {secciones_marcadas} secciones como 'Incluir'.\n\nAhora puede añadir productos a las secciones marcadas y hacer clic en 'Añadir al Presupuesto'."
+            tipo = 'success'
+        else:
+            mensaje = "Todas las secciones ya están marcadas como 'Incluir'."
+            tipo = 'info'
+        
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Secciones Marcadas',
+                'message': mensaje,
+                'type': tipo,
+                'sticky': False,
+            }
+        }
+    
+    def _fix_wizard_relations(self):
+        """Método privado para corregir relaciones - usado internamente"""
+        correcciones = 0
+        for seccion in self.seccion_ids:
+            for line in seccion.line_ids:
+                if not line.wizard_id:
+                    line.write({'wizard_id': self.id})
+                    correcciones += 1
+                elif line.wizard_id.id != self.id:
+                    line.write({'wizard_id': self.id})
+                    correcciones += 1
+        return correcciones
     
     def write(self, vals):
         """Override write para verificar integridad después de cambios"""
@@ -568,27 +612,30 @@ class CapituloWizard(models.TransientModel):
                 'es_plantilla': False,
             }
             
-            # Crear secciones del capítulo
+            # Crear secciones del capítulo (solo las marcadas como incluir y que tienen productos)
             secciones_vals = []
-            for seccion_wizard in self.seccion_ids.filtered('incluir'):
-                lineas_vals = []
-                for linea_wizard in seccion_wizard.line_ids.filtered('incluir'):
-                    lineas_vals.append((0, 0, {
-                        'product_id': linea_wizard.product_id.id,
-                        'cantidad': linea_wizard.cantidad,
-                        'precio_unitario': linea_wizard.precio_unitario,
-                        'sequence': linea_wizard.sequence,
-                        'descripcion_personalizada': linea_wizard.descripcion_personalizada,
-                        'es_opcional': linea_wizard.es_opcional,
+            for seccion_wizard in self.seccion_ids.filtered(lambda s: s.incluir):
+                # Solo incluir secciones marcadas como incluir y que tienen productos
+                productos_con_producto = seccion_wizard.line_ids.filtered(lambda l: l.product_id)
+                if productos_con_producto:
+                    lineas_vals = []
+                    for linea_wizard in productos_con_producto:
+                        lineas_vals.append((0, 0, {
+                            'product_id': linea_wizard.product_id.id,
+                            'cantidad': linea_wizard.cantidad,
+                            'precio_unitario': linea_wizard.precio_unitario,
+                            'sequence': linea_wizard.sequence,
+                            'descripcion_personalizada': linea_wizard.descripcion_personalizada,
+                            'es_opcional': linea_wizard.es_opcional,
+                        }))
+                    
+                    # Crear sección con productos
+                    secciones_vals.append((0, 0, {
+                        'name': seccion_wizard.name,
+                        'sequence': seccion_wizard.sequence,
+                        'es_fija': seccion_wizard.es_fija,
+                        'product_line_ids': lineas_vals,
                     }))
-                
-                # Crear sección siempre (incluso si no tiene productos)
-                secciones_vals.append((0, 0, {
-                    'name': seccion_wizard.name,
-                    'sequence': seccion_wizard.sequence,
-                    'es_fija': seccion_wizard.es_fija,
-                    'product_line_ids': lineas_vals,
-                }))
             
             capitulo_vals['seccion_ids'] = secciones_vals
             return self.env['capitulo.contrato'].create(capitulo_vals)
@@ -608,23 +655,44 @@ class CapituloWizard(models.TransientModel):
         _logger.info(f"Wizard ID: {self.id}")
         _logger.info(f"Número de secciones: {len(self.seccion_ids)}")
         
-        secciones_incluidas = self.seccion_ids.filtered('incluir')
-        _logger.info(f"Secciones marcadas para incluir: {len(secciones_incluidas)}")
-        
         for seccion in self.seccion_ids:
-            _logger.info(f"Sección: {seccion.name} (ID: {seccion.id}), Incluir: {seccion.incluir}, Productos: {len(seccion.line_ids)}")
-            productos_incluidos = seccion.line_ids.filtered(lambda l: l.incluir and l.product_id)
-            _logger.info(f"  - Productos incluidos con producto seleccionado: {len(productos_incluidos)}")
+            productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
+            _logger.info(f"Sección: {seccion.name} (ID: {seccion.id}), Productos: {len(seccion.line_ids)}")
+            _logger.info(f"  - Productos con producto seleccionado: {len(productos_con_producto)}")
             
             for line in seccion.line_ids:
                 producto_nombre = line.product_id.name if line.product_id else 'Sin producto'
-                _logger.info(f"    * ID: {line.id} | {producto_nombre}, Incluir: {line.incluir}, Wizard ID: {line.wizard_id.id if line.wizard_id else 'NO ESTABLECIDO'}")
+                _logger.info(f"    * ID: {line.id} | {producto_nombre}, Wizard ID: {line.wizard_id.id if line.wizard_id else 'NO ESTABLECIDO'}")
         
         # NO verificar integridad de secciones para preservar selecciones del usuario
         # self._verificar_integridad_secciones()
         
         # Validar datos del wizard antes de proceder
         self._validate_wizard_data()
+        
+        # Verificar si hay productos para añadir (solo secciones marcadas como incluir)
+        total_productos_a_añadir = 0
+        secciones_con_productos = []
+        
+        for seccion in self.seccion_ids.filtered(lambda s: s.incluir):
+            productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
+            if productos_con_producto:
+                total_productos_a_añadir += len(productos_con_producto)
+                secciones_con_productos.append(seccion)
+        
+        _logger.info(f"Secciones con productos: {len(secciones_con_productos)}")
+        
+        _logger.info(f"Total de productos que se van a añadir: {total_productos_a_añadir}")
+        
+        if total_productos_a_añadir == 0:
+            raise UserError(
+                "No hay productos seleccionados para añadir al presupuesto.\n\n"
+                "Para añadir productos:\n"
+                "1. Marque las secciones que desea incluir usando el toggle 'Incluir'\n"
+                "2. Abra cada sección y añada productos usando 'Añadir una línea'\n"
+                "3. Seleccione el producto, cantidad y precio\n"
+                "4. Haga clic en 'Añadir al Presupuesto'"
+            )
 
         # Crear o obtener el capítulo según el modo
         capitulo = self._obtener_o_crear_capitulo()
@@ -647,8 +715,8 @@ class CapituloWizard(models.TransientModel):
             'es_encabezado_capitulo': True,
         })
         
-        # Crear líneas de pedido organizadas por secciones
-        for seccion in self.seccion_ids.filtered('incluir'):
+        # Crear líneas de pedido organizadas por secciones (solo secciones que tienen productos)
+        for seccion in secciones_con_productos:
             # Añadir línea de sección como separador (siempre, incluso si no tiene productos)
             section_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
@@ -663,8 +731,8 @@ class CapituloWizard(models.TransientModel):
             if seccion.es_fija:
                 section_line.write({'name': f"🔒 === {seccion.name.upper()} === (SECCIÓN FIJA)"})
             
-            # Añadir productos de la sección que estén marcados para incluir y tengan producto seleccionado
-            productos_incluidos = seccion.line_ids.filtered(lambda l: l.incluir and l.product_id)
+            # Añadir productos de la sección que tengan producto seleccionado (automáticamente incluidos)
+            productos_incluidos = seccion.line_ids.filtered(lambda l: l.product_id)
             
             if productos_incluidos:
                 for line in productos_incluidos:
@@ -680,10 +748,6 @@ class CapituloWizard(models.TransientModel):
                     }
                     
                     product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
-                    
-                    # Si la sección es fija, añadir una nota indicativa
-                    if seccion.es_fija:
-                        product_line.write({'name': f"🔒 {descripcion} (No modificable)"})
             else:
                 # Si no hay productos, añadir una línea informativa
                 SaleOrderLine.with_context(from_capitulo_wizard=True).create({
@@ -740,36 +804,45 @@ class CapituloWizard(models.TransientModel):
         debug_info.append(f"Número de secciones: {len(self.seccion_ids)}")
         debug_info.append("")
         
-        secciones_incluidas = 0
-        productos_incluidos = 0
+        secciones_con_productos = 0
         total_productos = 0
+        productos_con_producto_seleccionado = 0
         
         for seccion in self.seccion_ids:
             debug_info.append(f"Sección: '{seccion.name}' (ID: {seccion.id})")
-            debug_info.append(f"  - Incluir: {seccion.incluir}")
             debug_info.append(f"  - Es fija: {seccion.es_fija}")
             debug_info.append(f"  - Wizard ID: {seccion.wizard_id.id if seccion.wizard_id else 'NO ESTABLECIDO'}")
             debug_info.append(f"  - Productos: {len(seccion.line_ids)}")
             
-            if seccion.incluir:
-                secciones_incluidas += 1
+            productos_en_seccion = seccion.line_ids.filtered(lambda l: l.product_id)
+            if productos_en_seccion:
+                secciones_con_productos += 1
             
             for line in seccion.line_ids:
                 total_productos += 1
                 producto_nombre = line.product_id.name if line.product_id else 'Sin producto'
                 debug_info.append(f"    * ID: {line.id} | {producto_nombre}")
-                debug_info.append(f"      - Incluir: {line.incluir}")
                 debug_info.append(f"      - Cantidad: {line.cantidad}")
                 debug_info.append(f"      - Precio: {line.precio_unitario}")
                 debug_info.append(f"      - Wizard ID: {line.wizard_id.id if line.wizard_id else 'NO ESTABLECIDO'}")
                 debug_info.append(f"      - Sección ID: {line.seccion_id.id if line.seccion_id else 'NO ESTABLECIDO'}")
-                if line.incluir:
-                    productos_incluidos += 1
+                if line.product_id:
+                    productos_con_producto_seleccionado += 1
             debug_info.append("")
         
         debug_info.append(f"RESUMEN:")
-        debug_info.append(f"- Secciones incluidas: {secciones_incluidas} de {len(self.seccion_ids)}")
-        debug_info.append(f"- Productos incluidos: {productos_incluidos} de {total_productos}")
+        debug_info.append(f"- Secciones con productos: {secciones_con_productos} de {len(self.seccion_ids)}")
+        debug_info.append(f"- Productos con producto seleccionado: {productos_con_producto_seleccionado} de {total_productos}")
+        debug_info.append(f"")
+        debug_info.append(f"DIAGNÓSTICO:")
+        if productos_con_producto_seleccionado == 0:
+            debug_info.append(f"⚠️ PROBLEMA: No hay productos seleccionados")
+            debug_info.append(f"   SOLUCIÓN: Añada productos en las secciones usando 'Añadir una línea'")
+        elif secciones_con_productos == 0:
+            debug_info.append(f"⚠️ PROBLEMA: No hay secciones con productos")
+            debug_info.append(f"   SOLUCIÓN: Seleccione productos en al menos una sección")
+        else:
+            debug_info.append(f"✅ TODO CORRECTO: {productos_con_producto_seleccionado} productos listos para añadir automáticamente")
         
         mensaje = "\n".join(debug_info)
         _logger.info(f"Debug wizard state:\n{mensaje}")
@@ -778,7 +851,7 @@ class CapituloWizard(models.TransientModel):
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': 'Estado del Wizard',
+                'title': 'Estado del Wizard - Diagnóstico',
                 'message': mensaje,
                 'type': 'info',
                 'sticky': True,
@@ -801,12 +874,16 @@ class CapituloWizard(models.TransientModel):
                 raise UserError(f"La sección en la posición {seccion.sequence} no tiene un nombre válido.")
         
         # Debug: Mostrar información de validación
-        secciones_incluidas = self.seccion_ids.filtered('incluir')
-        _logger.info(f"Validación: {len(secciones_incluidas)} secciones marcadas para incluir de {len(self.seccion_ids)} total")
+        secciones_con_productos = []
+        for seccion in self.seccion_ids:
+            if seccion.line_ids.filtered(lambda l: l.product_id):
+                secciones_con_productos.append(seccion)
         
-        # Validar que al menos una sección esté marcada para incluir
-        if not secciones_incluidas:
-            raise UserError("Debe seleccionar al menos una sección para incluir en el presupuesto.")
+        _logger.info(f"Validación: {len(secciones_con_productos)} secciones con productos de {len(self.seccion_ids)} total")
+        
+        # Validar que al menos una sección tenga productos
+        if not secciones_con_productos:
+            raise UserError("Debe añadir al menos un producto en alguna sección para crear el presupuesto.")
     
     def add_another_chapter(self):
         """Añade el capítulo actual y abre el wizard para añadir otro"""
