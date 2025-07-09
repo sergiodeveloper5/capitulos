@@ -22,7 +22,7 @@ class CapituloSeccionLine(models.Model):
     cantidad = fields.Float(string='Cantidad', default=1, required=True)
     precio_unitario = fields.Float(string='Precio Unitario', related='product_id.list_price', readonly=False)
     sequence = fields.Integer(string='Secuencia', default=10)
-
+    descripcion_personalizada = fields.Char(string='Descripción Personalizada')
     es_opcional = fields.Boolean(string='Opcional', default=False)
     
     @api.depends('cantidad', 'precio_unitario')

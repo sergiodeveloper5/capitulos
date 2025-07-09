@@ -51,7 +51,7 @@ class CapituloContrato(models.Model):
                         'cantidad': linea.cantidad,
                         'precio_unitario': linea.precio_unitario,
                         'sequence': linea.sequence,
-
+                        'descripcion_personalizada': linea.descripcion_personalizada,
                         'es_opcional': linea.es_opcional,
                     }))
                 

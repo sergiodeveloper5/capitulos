@@ -72,9 +72,17 @@
                             <div class="alert alert-warning" role="alert" style="margin-bottom: 10px;">
                                 <strong>🔒 Secciones Fijas:</strong> Las secciones están predefinidas y no se pueden modificar, eliminar o añadir nuevas. Esta estructura garantiza la consistencia del capítulo.
                             </div>
-
+                            
+                            <div class="alert alert-info" role="alert" style="margin-bottom: 15px;">
+                                <strong>📋 Proceso para añadir productos:</strong><br/>
+                                <strong>1.</strong> Marque las secciones que desea incluir usando el toggle "Incluir"<br/>
+                                <strong>2.</strong> Haga clic en cada sección marcada para abrirla<br/>
+                                <strong>3.</strong> En la pestaña "Productos", haga clic en "Añadir una línea" para añadir productos<br/>
+                                <strong>4.</strong> Seleccione el producto, cantidad y precio<br/>
+                                <strong>5.</strong> Haga clic en "Añadir al Presupuesto" - solo las secciones marcadas se añadirán
+                            </div>
                             <field name="seccion_ids">
-                                <list create="false" delete="false" edit="true" default_order="sequence, name">
+                                <list create="false" delete="false" edit="true">
                                     <field name="sequence" readonly="1"/>
                                     <field name="name" decoration-bf="es_fija"/>
                                     <field name="incluir" string="Incluir" widget="boolean_toggle"/>
@@ -100,6 +108,7 @@
                                                     <list editable="bottom">
                                                         <field name="sequence" widget="handle"/>
                                                         <field name="product_id"/>
+                                                        <field name="descripcion_personalizada"/>
                                                         <field name="cantidad"/>
                                                         <field name="precio_unitario"/>
                                                     </list>
@@ -118,7 +127,12 @@
                 </sheet>
                 <footer>
                     <button name="add_to_order" string="Añadir al Presupuesto" type="object" class="btn-primary"/>
+                    <button name="action_auto_include_products" string="✅ Marcar Todas las Secciones" type="object" class="btn-success"/>
                     <button name="add_another_chapter" string="➕ Añadir Otro Capítulo" type="object" class="btn-secondary"/>
+                    <button name="debug_wizard_state" string="🔍 Debug Estado" type="object" class="btn-info"/>
+                    <button name="action_reset_sections" string="🔄 Resetear Secciones" type="object" class="btn-warning"/>
+                    <button name="action_force_refresh_sections" string="🔧 Corregir Nombres" type="object" class="btn-info"/>
+                    <button name="action_fix_wizard_relations" string="🔗 Corregir Relaciones" type="object" class="btn-warning"/>
                     <button string="Cancelar" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
