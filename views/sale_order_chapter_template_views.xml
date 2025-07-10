@@ -154,7 +154,7 @@
         <record id="action_chapter_template" model="ir.actions.act_window">
             <field name="name">Plantillas de Capítulos</field>
             <field name="res_model">sale.order.chapter.template</field>
-            <field name="view_mode">list,form</field>
+            <field name="view_mode">kanban,list,form</field>
             <field name="search_view_id" ref="sale_order_chapter_template_search_view"/>
             <field name="context">{'search_default_active': 1}</field>
             <field name="help" type="html">
@@ -212,11 +212,6 @@
                     </templates>
                 </kanban>
             </field>
-        </record>
-        
-        <!-- Actualizar la acción para incluir vista kanban -->
-        <record id="action_chapter_template" model="ir.actions.act_window">
-            <field name="view_mode">kanban,list,form</field>
         </record>
         
     </data>

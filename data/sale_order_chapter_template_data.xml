@@ -153,50 +153,26 @@
             <field name="purchase_ok">True</field>
         </record>
         
-        <!-- Asignar productos a las secciones de plantilla -->
+        <!-- Actualizar secciones con productos predefinidos -->
         
         <!-- Productos para sección Alquiler -->
-        <record id="section_template_alquiler_product_1" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_alquiler"/>
-            <field name="product_ids" eval="[(4, ref('product_alquiler_plataforma'))]"/>
-        </record>
-        
-        <record id="section_template_alquiler_product_2" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_alquiler"/>
-            <field name="product_ids" eval="[(4, ref('product_seguro'))]"/>
+        <record id="section_template_alquiler" model="sale.order.chapter.section.template">
+            <field name="product_ids" eval="[(4, ref('product_alquiler_plataforma')), (4, ref('product_seguro'))]"/>
         </record>
         
         <!-- Productos para sección Montaje -->
-        <record id="section_template_montaje_product_1" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_montaje"/>
-            <field name="product_ids" eval="[(4, ref('product_montaje_inicial'))]"/>
-        </record>
-        
-        <record id="section_template_montaje_product_2" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_montaje"/>
-            <field name="product_ids" eval="[(4, ref('product_desmontaje_final'))]"/>
+        <record id="section_template_montaje" model="sale.order.chapter.section.template">
+            <field name="product_ids" eval="[(4, ref('product_montaje_inicial')), (4, ref('product_desmontaje_final'))]"/>
         </record>
         
         <!-- Productos para sección Portes -->
-        <record id="section_template_portes_product_1" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_portes"/>
-            <field name="product_ids" eval="[(4, ref('product_porte_entrega'))]"/>
-        </record>
-        
-        <record id="section_template_portes_product_2" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_portes"/>
-            <field name="product_ids" eval="[(4, ref('product_porte_retirada'))]"/>
+        <record id="section_template_portes" model="sale.order.chapter.section.template">
+            <field name="product_ids" eval="[(4, ref('product_porte_entrega')), (4, ref('product_porte_retirada'))]"/>
         </record>
         
         <!-- Productos para sección Otros Conceptos -->
-        <record id="section_template_otros_product_1" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_otros_conceptos"/>
-            <field name="product_ids" eval="[(4, ref('product_gestion_carga'))]"/>
-        </record>
-        
-        <record id="section_template_otros_product_2" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_otros_conceptos"/>
-            <field name="product_ids" eval="[(4, ref('product_tabla_madera'))]"/>
+        <record id="section_template_otros_conceptos" model="sale.order.chapter.section.template">
+            <field name="product_ids" eval="[(4, ref('product_gestion_carga')), (4, ref('product_tabla_madera'))]"/>
         </record>
         
     </data>

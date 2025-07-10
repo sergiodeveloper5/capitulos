@@ -38,8 +38,7 @@
         </record>
         
         <!-- Asignar producto de condiciones a la sección -->
-        <record id="section_template_conditions_cremallera_product" model="sale.order.chapter.section.template">
-            <field name="id" ref="section_template_conditions_cremallera"/>
+        <record id="section_template_conditions_cremallera" model="sale.order.chapter.section.template">
             <field name="product_ids" eval="[(4, ref('product_conditions_general'))]"/>
         </record>
         
@@ -68,33 +67,27 @@
         </record>
         
         <!-- Actualizar categorías de productos existentes -->
-        <record id="product_alquiler_plataforma_cat" model="product.product">
-            <field name="id" ref="product_alquiler_plataforma"/>
+        <record id="product_alquiler_plataforma" model="product.product">
             <field name="categ_id" ref="product_category_sermaco_rental"/>
         </record>
         
-        <record id="product_seguro_cat" model="product.product">
-            <field name="id" ref="product_seguro"/>
+        <record id="product_seguro" model="product.product">
             <field name="categ_id" ref="product_category_sermaco_rental"/>
         </record>
         
-        <record id="product_montaje_inicial_cat" model="product.product">
-            <field name="id" ref="product_montaje_inicial"/>
+        <record id="product_montaje_inicial" model="product.product">
             <field name="categ_id" ref="product_category_sermaco_services"/>
         </record>
         
-        <record id="product_desmontaje_final_cat" model="product.product">
-            <field name="id" ref="product_desmontaje_final"/>
+        <record id="product_desmontaje_final" model="product.product">
             <field name="categ_id" ref="product_category_sermaco_services"/>
         </record>
         
-        <record id="product_porte_entrega_cat" model="product.product">
-            <field name="id" ref="product_porte_entrega"/>
+        <record id="product_porte_entrega" model="product.product">
             <field name="categ_id" ref="product_category_sermaco_transport"/>
         </record>
         
-        <record id="product_porte_retirada_cat" model="product.product">
-            <field name="id" ref="product_porte_retirada"/>
+        <record id="product_porte_retirada" model="product.product">
             <field name="categ_id" ref="product_category_sermaco_transport"/>
         </record>
         
