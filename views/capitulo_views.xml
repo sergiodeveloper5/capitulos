@@ -6,10 +6,6 @@
             <field name="arch" type="xml">
                 <form>
                     <sheet>
-                        <div class="alert alert-info" role="alert">
-                            <strong>💡 Capítulo como Producto:</strong> Este capítulo funciona como un producto configurable en Odoo. Las secciones se configuran al añadirlo a un presupuesto.
-                        </div>
-                        
                         <div class="oe_button_box" name="button_box">
                             <button name="action_crear_desde_plantilla" type="object" 
                                     class="oe_stat_button" icon="fa-copy"
@@ -25,13 +21,9 @@
                                     invisible="not es_plantilla or not id"
                                     confirm="¿Está seguro de que desea eliminar esta plantilla? Se desvinculará de todos los capítulos que la utilicen."/>
                         </div>
-                        
                         <group>
                             <group>
-                                <field name="name" required="1"/>
-                                <field name="type" readonly="1"/>
-                                <field name="categ_id" readonly="1"/>
-                                <field name="is_capitulo" readonly="1" widget="boolean_toggle"/>
+                                <field name="name"/>
                                 <field name="es_plantilla"/>
                             </group>
                             <group>
@@ -39,22 +31,15 @@
                                        options="{'no_create': True}"
                                        invisible="context.get('default_plantilla_id', False)"/>
                                 <field name="description"/>
-                                <field name="list_price"/>
-                                <field name="standard_price"/>
-                                <field name="uom_id"/>
                             </group>
                         </group>
-                        
                         <notebook>
-                            <page string="Secciones Predefinidas">
-                                <div class="alert alert-warning" role="alert" style="margin-bottom: 10px;">
-                                    <strong>🔒 Secciones Fijas:</strong> Las secciones están predefinidas y no se pueden modificar una vez que el capítulo se añade a un presupuesto.
-                                </div>
+                            <page string="Secciones">
                                 <field name="seccion_ids">
                                     <list>
                                         <field name="sequence" widget="handle"/>
                                         <field name="name"/>
-                                        <field name="es_fija" widget="boolean_toggle"/>
+                                        <field name="es_fija"/>
                                         <field name="descripcion"/>
                                     </list>
                                     <form>
