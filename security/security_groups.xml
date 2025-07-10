@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        
+        <!-- Categoría para los grupos de Sermaco -->
+        <record id="module_category_sermaco" model="ir.module.category">
+            <field name="name">Sermaco</field>
+            <field name="description">Gestión de Capítulos y Secciones para Sermaco</field>
+            <field name="sequence">20</field>
+        </record>
+        
+        <!-- Grupo para Comerciales -->
+        <record id="group_chapter_commercial" model="res.groups">
+            <field name="name">Sermaco: Comercial</field>
+            <field name="category_id" ref="module_category_sermaco"/>
+            <field name="comment">Comerciales pueden usar plantillas existentes con restricciones específicas</field>
+        </record>
+        
+        <!-- Grupo para Administradores/Técnicos -->
+        <record id="group_chapter_admin" model="res.groups">
+            <field name="name">Sermaco: Administrador de Capítulos</field>
+            <field name="category_id" ref="module_category_sermaco"/>
+            <field name="implied_ids" eval="[(4, ref('group_chapter_commercial'))]"/>
+            <field name="comment">Administradores tienen acceso completo a plantillas y configuración</field>
+        </record>
+        
+        <!-- Reglas de acceso a registros -->
+        
+        <!-- Plantillas de Capítulos: Solo administradores pueden crear/modificar -->
+        <record id="chapter_template_admin_rule" model="ir.rule">
+            <field name="name">Plantillas de Capítulos: Solo Administradores</field>
+            <field name="model_id" ref="model_sale_order_chapter_template"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_chapter_admin'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+        
+        <!-- Plantillas de Capítulos: Comerciales solo lectura -->
+        <record id="chapter_template_commercial_rule" model="ir.rule">
+            <field name="name">Plantillas de Capítulos: Comerciales Solo Lectura</field>
+            <field name="model_id" ref="model_sale_order_chapter_template"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_chapter_commercial'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+        
+        <!-- Plantillas de Secciones: Solo administradores pueden crear/modificar -->
+        <record id="section_template_admin_rule" model="ir.rule">
+            <field name="name">Plantillas de Secciones: Solo Administradores</field>
+            <field name="model_id" ref="model_sale_order_chapter_section_template"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_chapter_admin'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+        
+        <!-- Plantillas de Secciones: Comerciales solo lectura -->
+        <record id="section_template_commercial_rule" model="ir.rule">
+            <field name="name">Plantillas de Secciones: Comerciales Solo Lectura</field>
+            <field name="model_id" ref="model_sale_order_chapter_section_template"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_chapter_commercial'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+        
+        <!-- Capítulos en Presupuestos: Acceso según presupuesto -->
+        <record id="chapter_access_rule" model="ir.rule">
+            <field name="name">Capítulos: Acceso según Presupuesto</field>
+            <field name="model_id" ref="model_sale_order_chapter"/>
+            <field name="domain_force">['|', ('sale_order_id.user_id', '=', user.id), ('sale_order_id.team_id.member_ids', 'in', user.id)]</field>
+            <field name="groups" eval="[(4, ref('group_chapter_commercial'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+        
+        <!-- Secciones en Presupuestos: Acceso según presupuesto -->
+        <record id="section_access_rule" model="ir.rule">
+            <field name="name">Secciones: Acceso según Presupuesto</field>
+            <field name="model_id" ref="model_sale_order_chapter_section"/>
+            <field name="domain_force">['|', ('sale_order_id.user_id', '=', user.id), ('sale_order_id.team_id.member_ids', 'in', user.id)]</field>
+            <field name="groups" eval="[(4, ref('group_chapter_commercial'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+        
+        <!-- Menús y Acciones -->
+        
+        <!-- Menú principal de configuración (solo administradores) -->
+        <record id="menu_sermaco_config" model="ir.ui.menu">
+            <field name="name">Sermaco</field>
+            <field name="parent_id" ref="base.menu_administration"/>
+            <field name="sequence">100</field>
+            <field name="groups_id" eval="[(4, ref('group_chapter_admin'))]"/>
+        </record>
+        
+        <!-- Menú de plantillas de capítulos -->
+        <record id="menu_chapter_templates" model="ir.ui.menu">
+            <field name="name">Plantillas de Capítulos</field>
+            <field name="parent_id" ref="menu_sermaco_config"/>
+            <field name="action" ref="action_chapter_template"/>
+            <field name="sequence">10</field>
+            <field name="groups_id" eval="[(4, ref('group_chapter_admin'))]"/>
+        </record>
+        
+        <!-- Menú de plantillas de secciones -->
+        <record id="menu_section_templates" model="ir.ui.menu">
+            <field name="name">Plantillas de Secciones</field>
+            <field name="parent_id" ref="menu_sermaco_config"/>
+            <field name="action" ref="action_section_template"/>
+            <field name="sequence">20</field>
+            <field name="groups_id" eval="[(4, ref('group_chapter_admin'))]"/>
+        </record>
+        
+        <!-- Asignación automática de grupos a usuarios existentes -->
+        <!-- Nota: En un entorno real, esto se haría manualmente o mediante datos de demostración -->
+        
+    </data>
+</odoo>

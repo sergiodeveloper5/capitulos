@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- Vista de formulario del wizard para añadir capítulos -->
+        <record id="sale_order_chapter_wizard_form" model="ir.ui.view">
+            <field name="name">sale.order.chapter.wizard.form</field>
+            <field name="model">sale.order.chapter.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Añadir Capítulos al Presupuesto">
+                    <header>
+                        <div class="alert alert-info" role="alert">
+                            <i class="fa fa-info-circle"/> 
+                            Selecciona plantillas existentes o crea un nuevo capítulo personalizado.
+                        </div>
+                    </header>
+                    
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>Añadir Capítulos</h1>
+                            <h3>
+                                Presupuesto: <field name="sale_order_id" readonly="1"/>
+                            </h3>
+                        </div>
+                        
+                        <group>
+                            <group>
+                                <field name="existing_chapter_count" readonly="1"/>
+                                <field name="available_template_count" readonly="1"/>
+                            </group>
+                        </group>
+                        
+                        <notebook>
+                            <page string="Desde Plantillas" name="from_templates" 
+                                  attrs="{'invisible': [('available_template_count', '=', 0)]}">
+                                
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="alert alert-success" role="alert">
+                                            <i class="fa fa-lightbulb-o"/> 
+                                            <strong>Recomendado:</strong> Usa plantillas predefinidas para mayor consistencia.
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <group string="Seleccionar Plantillas">
+                                    <field name="action_type" widget="radio" 
+                                           options="{'horizontal': true}"
+                                           attrs="{'invisible': [('available_template_count', '=', 0)]}"/>
+                                </group>
+                                
+                                <group string="Plantillas Disponibles" 
+                                       attrs="{'invisible': [('action_type', '!=', 'from_template')]}">
+                                    <field name="template_ids" nolabel="1" 
+                                           widget="many2many_checkboxes">
+                                        <list>
+                                            <field name="name"/>
+                                            <field name="description"/>
+                                            <field name="section_count" string="Secciones"/>
+                                        </list>
+                                    </field>
+                                </group>
+                                
+                                <div class="row" 
+                                     attrs="{'invisible': [('action_type', '!=', 'from_template')]}">
+                                    <div class="col-md-6">
+                                        <button name="action_preview_templates" type="object" 
+                                                string="Vista Previa de Plantillas" 
+                                                class="btn btn-info"
+                                                attrs="{'invisible': [('template_ids', '=', [])]}"/>
+                                    </div>
+                                </div>
+                            </page>
+                            
+                            <page string="Capítulo Personalizado" name="new_chapter">
+                                
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="alert alert-warning" role="alert">
+                                            <i class="fa fa-exclamation-triangle"/> 
+                                            <strong>Nota:</strong> Los capítulos personalizados incluirán secciones básicas según tu rol.
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <group string="Datos del Nuevo Capítulo" 
+                                       attrs="{'invisible': [('action_type', '!=', 'new_chapter')]}">
+                                    <field name="action_type" widget="radio" 
+                                           options="{'horizontal': true}"/>
+                                    <field name="new_chapter_name" 
+                                           attrs="{'required': [('action_type', '=', 'new_chapter')], 'invisible': [('action_type', '!=', 'new_chapter')]}"/>
+                                    <field name="new_chapter_description" 
+                                           attrs="{'invisible': [('action_type', '!=', 'new_chapter')]}"/>
+                                    <field name="new_chapter_sequence" 
+                                           attrs="{'invisible': [('action_type', '!=', 'new_chapter')]}"/>
+                                </group>
+                                
+                                <div class="row" 
+                                     attrs="{'invisible': [('action_type', '!=', 'new_chapter')]}">
+                                    <div class="col-12">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6>Secciones que se crearán automáticamente:</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <ul class="list-group list-group-flush">
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center" 
+                                                        groups="sermaco_chapters.group_chapter_admin">
+                                                        Alquiler
+                                                        <span class="badge badge-warning badge-pill">Solo Lectura</span>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center" 
+                                                        groups="sermaco_chapters.group_chapter_admin">
+                                                        Montaje
+                                                        <span class="badge badge-warning badge-pill">Solo Lectura</span>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                        Portes
+                                                        <span class="badge badge-success badge-pill">Editable</span>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                        Otros Conceptos
+                                                        <span class="badge badge-success badge-pill">Editable</span>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                        Condiciones Generales
+                                                        <span class="badge badge-warning badge-pill">Solo Lectura</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </page>
+                            
+                            <page string="Capítulos Existentes" name="existing_chapters" 
+                                  attrs="{'invisible': [('existing_chapter_count', '=', 0)]}">
+                                
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="alert alert-info" role="alert">
+                                            <i class="fa fa-info-circle"/> 
+                                            Este presupuesto ya tiene <field name="existing_chapter_count" readonly="1"/> capítulo(s).
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <button name="action_view_existing_chapters" type="object" 
+                                                string="Ver Capítulos Existentes" 
+                                                class="btn btn-info"/>
+                                    </div>
+                                </div>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    
+                    <footer>
+                        <button string="Añadir Capítulos" name="action_add_chapters" type="object" 
+                                class="btn-primary"
+                                attrs="{'invisible': ['|', ('action_type', '=', False), '&amp;', ('action_type', '=', 'from_template'), ('template_ids', '=', [])]}"/>
+                        <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+        
+        <!-- Vista de lista para previsualizar plantillas -->
+        <record id="sale_order_chapter_template_preview_list" model="ir.ui.view">
+            <field name="name">sale.order.chapter.template.preview.list</field>
+            <field name="model">sale.order.chapter.template</field>
+            <field name="arch" type="xml">
+                <list string="Vista Previa de Plantillas" create="false" edit="false">
+                    <field name="name"/>
+                    <field name="description"/>
+                    <field name="section_count" string="Secciones"/>
+                    <button name="action_view_sections" type="object" 
+                            icon="fa-eye" title="Ver Secciones"/>
+                </list>
+            </field>
+        </record>
+        
+        <!-- Vista de formulario para previsualizar plantilla individual -->
+        <record id="sale_order_chapter_template_preview_form" model="ir.ui.view">
+            <field name="name">sale.order.chapter.template.preview.form</field>
+            <field name="model">sale.order.chapter.template</field>
+            <field name="arch" type="xml">
+                <form string="Vista Previa de Plantilla" create="false" edit="false">
+                    <header>
+                        <div class="alert alert-info" role="alert">
+                            <i class="fa fa-eye"/> Vista previa de la plantilla seleccionada
+                        </div>
+                    </header>
+                    
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                            <h3>
+                                <field name="description" readonly="1"/>
+                            </h3>
+                        </div>
+                        
+                        <group>
+                            <group>
+                                <field name="sequence" readonly="1"/>
+                                <field name="section_count" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="company_id" readonly="1"/>
+                                <field name="active" readonly="1"/>
+                            </group>
+                        </group>
+                        
+                        <notebook>
+                            <page string="Secciones" name="sections">
+                                <field name="section_ids" readonly="1">
+                                    <list>
+                                        <field name="sequence"/>
+                                        <field name="name"/>
+                                        <field name="section_type"/>
+                                        <field name="is_readonly_commercial"/>
+                                        <field name="product_count" string="Productos"/>
+                                        <button name="action_view_products" type="object" 
+                                                icon="fa-cube" title="Ver Productos"
+                                                attrs="{'invisible': [('product_count', '=', 0)]}"/>
+                                    </list>
+                                    <form string="Sección">
+                                        <group>
+                                            <group>
+                                                <field name="name" readonly="1"/>
+                                                <field name="section_type" readonly="1"/>
+                                                <field name="sequence" readonly="1"/>
+                                            </group>
+                                            <group>
+                                                <field name="is_readonly_commercial" readonly="1"/>
+                                                <field name="product_count" readonly="1"/>
+                                            </group>
+                                        </group>
+                                        
+                                        <group string="Descripción">
+                                            <field name="description" readonly="1" nolabel="1"/>
+                                        </group>
+                                        
+                                        <group string="Productos Predefinidos" 
+                                               attrs="{'invisible': [('product_count', '=', 0)]}">
+                                            <field name="product_ids" readonly="1" nolabel="1">
+                                                <list>
+                                                    <field name="name"/>
+                                                    <field name="default_code"/>
+                                                    <field name="list_price" widget="monetary"/>
+                                                    <field name="uom_id"/>
+                                                </list>
+                                            </field>
+                                        </group>
+                                    </form>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <!-- Acción para el wizard -->
+        <record id="action_sale_order_chapter_wizard" model="ir.actions.act_window">
+            <field name="name">Añadir Capítulos</field>
+            <field name="res_model">sale.order.chapter.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="sale_order_chapter_wizard_form"/>
+            <field name="target">new</field>
+            <field name="context">{'default_sale_order_id': active_id}</field>
+        </record>
+        
+        <!-- Acción para vista previa de plantillas -->
+        <record id="action_chapter_template_preview" model="ir.actions.act_window">
+            <field name="name">Vista Previa de Plantillas</field>
+            <field name="res_model">sale.order.chapter.template</field>
+            <field name="view_mode">list,form</field>
+            <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'list', 'view_id': ref('sale_order_chapter_template_preview_list')}), (0, 0, {'view_mode': 'form', 'view_id': ref('sale_order_chapter_template_preview_form')})]"/>
+            <field name="target">new</field>
+        </record>
+        
+    </data>
+</odoo>

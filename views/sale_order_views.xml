@@ -1,50 +1,347 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Heredar vista de pedido de ventas -->
-    <record id="view_order_form_inherit_capitulo" model="ir.ui.view">
-        <field name="name">sale.order.form.inherit.capitulo</field>
-        <field name="model">sale.order</field>
-        <field name="inherit_id" ref="sale.view_order_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//button[@name='action_quotation_send']" position="after">
-                <button name="action_add_capitulo" string="Gestionar Capítulos" type="object" class="btn-secondary" groups="sales_team.group_sale_salesman" invisible="state not in ['draft', 'sent']"/>
-            </xpath>
-            <xpath expr="//field[@name='order_line']" position="attributes">
-                <attribute name="context">{
-                    'tree_view_ref': 'capitulos.view_order_line_tree_inherit_capitulo'
-                }</attribute>
-                <attribute name="widget">section_and_note_one2many</attribute>
-            </xpath>
-            <xpath expr="//field[@name='order_line']" position="after">
-                <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
-            </xpath>
-        </field>
-    </record>
-    
-    <!-- Vista de árbol personalizada para líneas de pedido con restricciones -->
-    <record id="view_order_line_tree_inherit_capitulo" model="ir.ui.view">
-        <field name="name">sale.order.line.tree.inherit.capitulo</field>
-        <field name="model">sale.order.line</field>
-        <field name="arch" type="xml">
-            <list create="true" delete="true" edit="true">
-                <field name="sequence" widget="handle"/>
-                <field name="product_id"/>
-                <field name="name" decoration-bf="es_encabezado_capitulo or es_encabezado_seccion" decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion"/>
-                <field name="product_uom_qty"/>
-                <field name="product_uom" groups="uom.group_uom"/>
-                <field name="price_unit"/>
-                <field name="tax_id" widget="many2many_tags"/>
-                <field name="price_subtotal"/>
-                <field name="capitulo_id" invisible="not es_linea_capitulo"/>
-                <field name="seccion_configurada" invisible="not es_linea_capitulo"/>
-                <button name="action_configure_secciones" string="Configurar" type="object" 
-                        icon="fa-cog" invisible="not es_linea_capitulo"
-                        help="Configurar secciones del capítulo"/>
-                <field name="es_encabezado_capitulo" invisible="1"/>
-                <field name="es_encabezado_seccion" invisible="1"/>
-                <field name="es_linea_capitulo" invisible="1"/>
-            </list>
-        </field>
-    </record>
-
+    <data>
+        
+        <!-- Herencia de la vista de formulario de sale.order -->
+        <record id="sale_order_form_chapters" model="ir.ui.view">
+            <field name="name">sale.order.form.chapters</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.view_order_form"/>
+            <field name="arch" type="xml">
+                
+                <!-- Añadir botones en el header -->
+                <xpath expr="//header" position="inside">
+                    <button name="action_add_chapter_wizard" type="object" 
+                            string="Añadir Capítulos" class="btn-secondary"
+                            attrs="{'invisible': [('state', 'in', ['done', 'cancel'])]}"
+                            groups="sermaco_chapters.group_chapter_commercial"/>
+                    <button name="action_view_chapters" type="object" 
+                            string="Ver Capítulos" class="btn-secondary"
+                            attrs="{'invisible': [('chapter_count', '=', 0)]}"
+                            groups="sermaco_chapters.group_chapter_commercial"/>
+                    <button name="action_chapter_hierarchy_view" type="object" 
+                            string="Vista Jerárquica" class="btn-secondary"
+                            attrs="{'invisible': [('chapter_count', '=', 0)]}"
+                            groups="sermaco_chapters.group_chapter_commercial"/>
+                </xpath>
+                
+                <!-- Añadir botones estadísticos -->
+                <xpath expr="//div[@name='button_box']" position="inside">
+                    <button name="action_view_chapters" type="object" 
+                            class="oe_stat_button" icon="fa-folder-open"
+                            groups="sermaco_chapters.group_chapter_commercial">
+                        <field name="chapter_count" widget="statinfo" 
+                               string="Capítulos"/>
+                    </button>
+                </xpath>
+                
+                <!-- Añadir página de capítulos -->
+                <xpath expr="//notebook" position="inside">
+                    <page string="Capítulos" name="chapters" 
+                          attrs="{'invisible': [('chapter_count', '=', 0)]}"
+                          groups="sermaco_chapters.group_chapter_commercial">
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="alert alert-info" role="alert" 
+                                     attrs="{'invisible': [('chapter_count', '>', 0)]}">
+                                    <i class="fa fa-info-circle"/> 
+                                    Este presupuesto no tiene capítulos organizados. 
+                                    <button name="action_add_chapter_wizard" type="object" 
+                                            string="Añadir Capítulos" class="btn btn-link p-0"/>
+                                    o 
+                                    <button name="action_organize_by_chapters" type="object" 
+                                            string="Organizar Líneas Existentes" class="btn btn-link p-0"/>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <field name="chapter_ids" context="{'default_sale_order_id': active_id}">
+                            <list>
+                                <field name="sequence" widget="handle"/>
+                                <field name="name"/>
+                                <field name="description"/>
+                                <field name="section_count" string="Secciones"/>
+                                <field name="line_count" string="Líneas"/>
+                                <field name="amount_total" widget="monetary"/>
+                                <button name="action_view_sections" type="object" 
+                                        icon="fa-list-ul" title="Ver Secciones"/>
+                                <button name="action_view_lines" type="object" 
+                                        icon="fa-shopping-cart" title="Ver Líneas"/>
+                            </list>
+                            <form string="Capítulo">
+                                <header>
+                                    <button name="action_view_sections" type="object" 
+                                            string="Ver Secciones" class="btn-primary"/>
+                                    <button name="action_view_lines" type="object" 
+                                            string="Ver Líneas" class="btn-secondary"/>
+                                </header>
+                                <sheet>
+                                    <div class="oe_button_box" name="button_box">
+                                        <button name="action_view_sections" type="object" 
+                                                class="oe_stat_button" icon="fa-list-ul">
+                                            <field name="section_count" widget="statinfo" 
+                                                   string="Secciones"/>
+                                        </button>
+                                        <button name="action_view_lines" type="object" 
+                                                class="oe_stat_button" icon="fa-shopping-cart">
+                                            <field name="line_count" widget="statinfo" 
+                                                   string="Líneas"/>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="oe_title">
+                                        <label for="name" class="oe_edit_only"/>
+                                        <h1>
+                                            <field name="name"/>
+                                        </h1>
+                                    </div>
+                                    
+                                    <group>
+                                        <group>
+                                            <field name="template_id" readonly="1"/>
+                                            <field name="sequence"/>
+                                        </group>
+                                        <group>
+                                            <field name="amount_total" widget="monetary"/>
+                                            <field name="currency_id" invisible="1"/>
+                                        </group>
+                                    </group>
+                                    
+                                    <group string="Descripción">
+                                        <field name="description" nolabel="1"/>
+                                    </group>
+                                    
+                                    <notebook>
+                                        <page string="Secciones" name="sections">
+                                            <field name="section_ids" context="{'default_chapter_id': active_id}">
+                                                <list editable="bottom">
+                                                    <field name="sequence" widget="handle"/>
+                                                    <field name="name"/>
+                                                    <field name="section_type"/>
+                                                    <field name="line_count" string="Líneas"/>
+                                                    <field name="amount_total" widget="monetary"/>
+                                                    <field name="is_readonly_commercial" invisible="1"/>
+                                                    <field name="can_edit_commercial" invisible="1"/>
+                                                    <button name="action_view_lines" type="object" 
+                                                            icon="fa-external-link" title="Ver Líneas"/>
+                                                    <button name="action_add_product" type="object" 
+                                                            icon="fa-plus" title="Añadir Producto"
+                                                            attrs="{'invisible': [('can_edit_commercial', '=', False)]}"/>
+                                                </list>
+                                            </field>
+                                        </page>
+                                    </notebook>
+                                </sheet>
+                            </form>
+                        </field>
+                        
+                        <div class="row mt-3" attrs="{'invisible': [('chapter_count', '=', 0)]}">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Resumen de Capítulos</h5>
+                                        <p class="card-text">
+                                            <strong>Total de Capítulos:</strong> <field name="chapter_count" readonly="1"/><br/>
+                                            <strong>Total de Capítulos:</strong> <field name="chapter_amount_total" widget="monetary" readonly="1"/>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Acciones Rápidas</h5>
+                                        <button name="action_add_chapter_wizard" type="object" 
+                                                string="Añadir Más Capítulos" class="btn btn-primary btn-sm mr-2"/>
+                                        <button name="action_organize_by_chapters" type="object" 
+                                                string="Organizar Líneas" class="btn btn-secondary btn-sm"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </page>
+                </xpath>
+                
+                <!-- Modificar las líneas de pedido para mostrar capítulo y sección -->
+                <xpath expr="//field[@name='order_line']/list" position="attributes">
+                    <attribute name="decoration-muted">chapter_id</attribute>
+                </xpath>
+                
+                <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
+                    <field name="chapter_id" optional="show"/>
+                    <field name="section_id" optional="show"/>
+                </xpath>
+                
+                <!-- Añadir campos en el formulario de líneas -->
+                <xpath expr="//field[@name='order_line']/form//field[@name='product_id']" position="after">
+                    <field name="chapter_id" 
+                           domain="[('sale_order_id', '=', parent.id)]"
+                           context="{'default_sale_order_id': parent.id}"/>
+                    <field name="section_id" 
+                           domain="[('chapter_id', '=', chapter_id)]"
+                           context="{'default_chapter_id': chapter_id}"/>
+                </xpath>
+                
+            </field>
+        </record>
+        
+        <!-- Vista jerárquica especializada -->
+        <record id="sale_order_chapter_hierarchy_form" model="ir.ui.view">
+            <field name="name">sale.order.chapter.hierarchy.form</field>
+            <field name="model">sale.order</field>
+            <field name="arch" type="xml">
+                <form string="Vista Jerárquica de Capítulos" create="false" edit="false">
+                    <header>
+                        <button name="action_add_chapter_wizard" type="object" 
+                                string="Añadir Capítulos" class="btn-primary"
+                                groups="sermaco_chapters.group_chapter_commercial"/>
+                        <button string="Volver al Presupuesto" type="object" 
+                                name="action_view_order" class="btn-secondary"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                            <h3>
+                                <field name="partner_id" readonly="1"/>
+                            </h3>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h3>Estructura de Capítulos</h3>
+                                
+                                <field name="chapter_ids" readonly="1">
+                                    <list>
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="name"/>
+                                        <field name="description"/>
+                                        <field name="amount_total" widget="monetary"/>
+                                    </list>
+                                </field>
+                                
+                                <!-- Mostrar estructura jerárquica -->
+                                <div class="mt-4">
+                                    <t t-foreach="record.chapter_ids" t-as="chapter">
+                                        <div class="card mb-3">
+                                            <div class="card-header">
+                                                <h5 class="mb-0">
+                                                    <i class="fa fa-folder-open"/> 
+                                                    <t t-esc="chapter.name"/>
+                                                    <span class="badge badge-primary float-right">
+                                                        <t t-esc="chapter.amount_total"/> €
+                                                    </span>
+                                                </h5>
+                                                <small class="text-muted">
+                                                    <t t-esc="chapter.description"/>
+                                                </small>
+                                            </div>
+                                            <div class="card-body">
+                                                <t t-foreach="chapter.section_ids" t-as="section">
+                                                    <div class="ml-3 mb-2">
+                                                        <h6>
+                                                            <i class="fa fa-list-ul"/> 
+                                                            <t t-esc="section.name"/>
+                                                            <span class="badge badge-secondary">
+                                                                <t t-esc="section.section_type"/>
+                                                            </span>
+                                                            <span t-if="section.is_readonly_commercial" 
+                                                                  class="badge badge-warning ml-1">
+                                                                <i class="fa fa-lock"/> Solo Lectura
+                                                            </span>
+                                                        </h6>
+                                                        <div class="ml-3">
+                                                            <t t-foreach="section.line_ids" t-as="line">
+                                                                <div class="d-flex justify-content-between">
+                                                                    <span>
+                                                                        <i class="fa fa-cube"/> 
+                                                                        <t t-esc="line.product_id.name"/>
+                                                                        (<t t-esc="line.product_uom_qty"/> 
+                                                                        <t t-esc="line.product_uom.name"/>)
+                                                                    </span>
+                                                                    <span class="font-weight-bold">
+                                                                        <t t-esc="line.price_subtotal"/> €
+                                                                    </span>
+                                                                </div>
+                                                            </t>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Resumen del Presupuesto</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <table class="table table-sm">
+                                            <tr>
+                                                <td>Capítulos:</td>
+                                                <td><field name="chapter_count" readonly="1"/></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Total Capítulos:</td>
+                                                <td><field name="chapter_amount_total" widget="monetary" readonly="1"/></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Total Presupuesto:</td>
+                                                <td><field name="amount_total" widget="monetary" readonly="1"/></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Estado:</td>
+                                                <td><field name="state" readonly="1"/></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <div class="card mt-3">
+                                    <div class="card-header">
+                                        <h6>Acciones</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <button name="action_add_chapter_wizard" type="object" 
+                                                string="Añadir Capítulos" class="btn btn-primary btn-block mb-2"/>
+                                        <button name="action_view_chapters" type="object" 
+                                                string="Gestionar Capítulos" class="btn btn-secondary btn-block mb-2"/>
+                                        <button name="action_organize_by_chapters" type="object" 
+                                                string="Organizar Líneas" class="btn btn-info btn-block"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <!-- Vista de formulario para mover líneas a sección -->
+        <record id="sale_order_line_move_section_form" model="ir.ui.view">
+            <field name="name">sale.order.line.move.section.form</field>
+            <field name="model">sale.order.line</field>
+            <field name="arch" type="xml">
+                <form string="Mover a Sección">
+                    <group>
+                        <field name="product_id" readonly="1"/>
+                        <field name="chapter_id" 
+                               domain="[('sale_order_id', '=', order_id)]"/>
+                        <field name="section_id" 
+                               domain="[('chapter_id', '=', chapter_id)]"/>
+                    </group>
+                    <footer>
+                        <button string="Mover" type="object" name="write" class="btn-primary"/>
+                        <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+        
+    </data>
 </odoo>

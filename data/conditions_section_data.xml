@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        
+        <!-- Plantilla base para sección de Condiciones Generales -->
+        <!-- Esta plantilla se puede usar para crear automáticamente la sección obligatoria -->
+        <record id="section_template_conditions_base" model="sale.order.chapter.section.template">
+            <field name="name">Condiciones Generales</field>
+            <field name="section_type">conditions</field>
+            <field name="sequence">999</field>
+            <field name="is_readonly_commercial">True</field>
+            <field name="description">Condiciones generales de contratación según documento adjunto</field>
+            <!-- No se asigna chapter_template_id porque esta es una plantilla base -->
+        </record>
+        
+        <!-- Producto para condiciones generales (opcional) -->
+        <record id="product_conditions_general" model="product.product" forcecreate="True">
+            <field name="name">CONDICIONES GENERALES DE CONTRATACIÓN</field>
+            <field name="default_code">COND-GEN-001</field>
+            <field name="type">service</field>
+            <field name="categ_id" ref="product.product_category_5"/>
+            <field name="list_price">0.00</field>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="description">Producto informativo para las condiciones generales de contratación</field>
+        </record>
+        
+        <!-- Sección de Condiciones Generales para la plantilla CREMALLERA BIMASTIL -->
+        <record id="section_template_conditions_cremallera" model="sale.order.chapter.section.template">
+            <field name="name">Condiciones Generales</field>
+            <field name="chapter_template_id" ref="chapter_template_cremallera_bimastil"/>
+            <field name="section_type">conditions</field>
+            <field name="sequence">999</field>
+            <field name="is_readonly_commercial">True</field>
+            <field name="description">Condiciones generales de contratación según documento adjunto. Aplicables a todos los servicios de alquiler de equipos de construcción y andamios.</field>
+        </record>
+        
+        <!-- Asignar producto de condiciones a la sección -->
+        <record id="section_template_conditions_cremallera_product" model="sale.order.chapter.section.template">
+            <field name="id" ref="section_template_conditions_cremallera"/>
+            <field name="product_ids" eval="[(4, ref('product_conditions_general'))]"/>
+        </record>
+        
+        <!-- Datos adicionales para configuración del módulo -->
+        
+        <!-- Configuración de empresa (opcional) -->
+        <record id="company_sermaco_config" model="res.company" forcecreate="False">
+            <field name="name">Sermaco - Andamios y Equipos de Construcción</field>
+            <!-- Solo se actualiza si la empresa ya existe -->
+        </record>
+        
+        <!-- Categoría de productos específica para Sermaco (opcional) -->
+        <record id="product_category_sermaco_rental" model="product.category" forcecreate="True">
+            <field name="name">Alquiler de Equipos - Sermaco</field>
+            <field name="parent_id" ref="product.product_category_5"/>
+        </record>
+        
+        <record id="product_category_sermaco_services" model="product.category" forcecreate="True">
+            <field name="name">Servicios de Montaje - Sermaco</field>
+            <field name="parent_id" ref="product.product_category_5"/>
+        </record>
+        
+        <record id="product_category_sermaco_transport" model="product.category" forcecreate="True">
+            <field name="name">Servicios de Transporte - Sermaco</field>
+            <field name="parent_id" ref="product.product_category_5"/>
+        </record>
+        
+        <!-- Actualizar categorías de productos existentes -->
+        <record id="product_alquiler_plataforma_cat" model="product.product">
+            <field name="id" ref="product_alquiler_plataforma"/>
+            <field name="categ_id" ref="product_category_sermaco_rental"/>
+        </record>
+        
+        <record id="product_seguro_cat" model="product.product">
+            <field name="id" ref="product_seguro"/>
+            <field name="categ_id" ref="product_category_sermaco_rental"/>
+        </record>
+        
+        <record id="product_montaje_inicial_cat" model="product.product">
+            <field name="id" ref="product_montaje_inicial"/>
+            <field name="categ_id" ref="product_category_sermaco_services"/>
+        </record>
+        
+        <record id="product_desmontaje_final_cat" model="product.product">
+            <field name="id" ref="product_desmontaje_final"/>
+            <field name="categ_id" ref="product_category_sermaco_services"/>
+        </record>
+        
+        <record id="product_porte_entrega_cat" model="product.product">
+            <field name="id" ref="product_porte_entrega"/>
+            <field name="categ_id" ref="product_category_sermaco_transport"/>
+        </record>
+        
+        <record id="product_porte_retirada_cat" model="product.product">
+            <field name="id" ref="product_porte_retirada"/>
+            <field name="categ_id" ref="product_category_sermaco_transport"/>
+        </record>
+        
+        <!-- Configuración de secuencias para numeración automática (opcional) -->
+        <record id="sequence_chapter_template" model="ir.sequence" forcecreate="True">
+            <field name="name">Plantillas de Capítulos Sermaco</field>
+            <field name="code">sermaco.chapter.template</field>
+            <field name="prefix">CHAP-</field>
+            <field name="suffix"></field>
+            <field name="padding">3</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="implementation">standard</field>
+        </record>
+        
+        <record id="sequence_section_template" model="ir.sequence" forcecreate="True">
+            <field name="name">Plantillas de Secciones Sermaco</field>
+            <field name="code">sermaco.section.template</field>
+            <field name="prefix">SECT-</field>
+            <field name="suffix"></field>
+            <field name="padding">3</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="implementation">standard</field>
+        </record>
+        
+    </data>
+</odoo>

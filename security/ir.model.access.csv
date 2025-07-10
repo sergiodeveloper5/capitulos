@@ -1,7 +1,15 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_capitulo_user,capitulo.contrato,model_capitulo_contrato,base.group_user,1,1,1,1
-access_capitulo_seccion_user,capitulo.seccion,model_capitulo_seccion,base.group_user,1,1,1,1
-access_capitulo_seccion_line_user,capitulo.seccion.line,model_capitulo_seccion_line,base.group_user,1,1,1,1
-access_seccion_configurator_user,capitulo.seccion.configurator,model_capitulo_seccion_configurator,base.group_user,1,1,1,1
-access_seccion_configurator_line_user,capitulo.seccion.configurator.line,model_capitulo_seccion_configurator_line,base.group_user,1,1,1,1
-access_seccion_configurator_product_user,capitulo.seccion.configurator.product,model_capitulo_seccion_configurator_product,base.group_user,1,1,1,1
+access_chapter_template_admin,sale.order.chapter.template admin,model_sale_order_chapter_template,group_chapter_admin,1,1,1,1
+access_chapter_template_commercial,sale.order.chapter.template commercial,model_sale_order_chapter_template,group_chapter_commercial,1,0,0,0
+access_section_template_admin,sale.order.chapter.section.template admin,model_sale_order_chapter_section_template,group_chapter_admin,1,1,1,1
+access_section_template_commercial,sale.order.chapter.section.template commercial,model_sale_order_chapter_section_template,group_chapter_commercial,1,0,0,0
+access_chapter_admin,sale.order.chapter admin,model_sale_order_chapter,group_chapter_admin,1,1,1,1
+access_chapter_commercial,sale.order.chapter commercial,model_sale_order_chapter,group_chapter_commercial,1,1,1,1
+access_section_admin,sale.order.chapter.section admin,model_sale_order_chapter_section,group_chapter_admin,1,1,1,1
+access_section_commercial,sale.order.chapter.section commercial,model_sale_order_chapter_section,group_chapter_commercial,1,1,1,0
+access_chapter_wizard_admin,sale.order.chapter.wizard admin,model_sale_order_chapter_wizard,group_chapter_admin,1,1,1,1
+access_chapter_wizard_commercial,sale.order.chapter.wizard commercial,model_sale_order_chapter_wizard,group_chapter_commercial,1,1,1,1
+access_chapter_template_all,sale.order.chapter.template all,model_sale_order_chapter_template,base.group_user,1,0,0,0
+access_section_template_all,sale.order.chapter.section.template all,model_sale_order_chapter_section_template,base.group_user,1,0,0,0
+access_chapter_all,sale.order.chapter all,model_sale_order_chapter,base.group_user,1,0,0,0
+access_section_all,sale.order.chapter.section all,model_sale_order_chapter_section,base.group_user,1,0,0,0
