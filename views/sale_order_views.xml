@@ -8,7 +8,6 @@
             <field name="model">sale.order</field>
             <field name="inherit_id" ref="sale.view_order_form"/>
             <field name="arch" type="xml">
-                
                 <!-- Agregar botones en el header -->
                 <xpath expr="//form//header" position="inside">
                     <button name="%(capitulos.action_capitulo_wizard)d" 
@@ -51,7 +50,6 @@
                         </group>
                     </page>
                 </xpath>
-                
             </field>
         </record>
         

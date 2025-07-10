@@ -26,11 +26,13 @@ class Capitulo(models.Model):
     es_plantilla = fields.Boolean('Guardar como Plantilla', default=False)
     plantilla_origen_id = fields.Many2one('capitulo.plantilla', 'Plantilla Origen')
     
-    # Estado
+    # Estado del capítulo
     state = fields.Selection([
         ('draft', 'Borrador'),
         ('confirmed', 'Confirmado'),
-    ], default='draft', string='Estado')
+        ('done', 'Realizado'),
+        ('cancel', 'Cancelado')
+    ], string='Estado', default='draft', tracking=True)
     
     @api.depends('seccion_ids.total_seccion')
     def _compute_total_capitulo(self):
