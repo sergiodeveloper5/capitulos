@@ -16,16 +16,15 @@
                     </group>
                     
                     <!-- Campos para crear nuevo capítulo -->
-                    <group string="Nuevo Capítulo" attrs="{'invisible': [('show_create_fields', '=', False)]}">
-                        <field name="name" placeholder="Ej: MONTACARGAS MC-1700" required="1" attrs="{'required': [('action_type', '=', 'create')]}"/>
+                    <group string="Nuevo Capítulo" invisible="not show_create_fields">
+                        <field name="name" placeholder="Ej: MONTACARGAS MC-1700" required="action_type == 'create'"/>
                         <field name="description" placeholder="Ej: MONTACARGAS DE MATERIALES, CON PARA EN TERRAZA PARA DESEMBARCO."/>
                     </group>
                     
                     <!-- Campos para usar plantilla -->
-                    <group string="Seleccionar Plantilla" attrs="{'invisible': [('show_template_fields', '=', False)]}">
+                    <group string="Seleccionar Plantilla" invisible="not show_template_fields">
                         <field name="plantilla_id" 
-                               required="1" 
-                               attrs="{'required': [('action_type', '=', 'template')]}"
+                               required="action_type == 'template'"
                                domain="[('active', '=', True)]"/>
                     </group>
                     
