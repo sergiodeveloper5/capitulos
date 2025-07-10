@@ -15,6 +15,10 @@ class Capitulo(models.Model):
     # Secciones del capítulo
     seccion_ids = fields.One2many('capitulo.seccion', 'capitulo_id', 'Secciones')
     
+    # Total del capítulo
+    total_capitulo = fields.Monetary('Total del Capítulo', compute='_compute_total_capitulo', store=True)
+    currency_id = fields.Many2one('res.currency', related='sale_order_id.currency_id', store=True)
+    
     # Condiciones particulares
     condiciones_particulares = fields.Html('Condiciones Particulares')
     
@@ -27,6 +31,12 @@ class Capitulo(models.Model):
         ('draft', 'Borrador'),
         ('confirmed', 'Confirmado'),
     ], default='draft', string='Estado')
+    
+    @api.depends('seccion_ids.total_seccion')
+    def _compute_total_capitulo(self):
+        """Calcular el total del capítulo sumando todas las secciones"""
+        for record in self:
+            record.total_capitulo = sum(record.seccion_ids.mapped('total_seccion'))
     
     @api.model
     def create_from_template(self, template_id, sale_order_id):

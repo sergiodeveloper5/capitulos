@@ -49,6 +49,8 @@
                                 <field name="name"/>
                                 <field name="description"/>
                                 <field name="state"/>
+                                <field name="total_capitulo" sum="Total"/>
+                                <field name="currency_id" invisible="1"/>
                                 <button name="save_as_template" 
                                         string="Guardar como Plantilla" 
                                         type="object" 
@@ -146,7 +148,7 @@
         <record id="view_capitulo_form_comercial" model="ir.ui.view">
             <field name="name">capitulo.capitulo.form.comercial</field>
             <field name="model">capitulo.capitulo</field>
-            <field name="groups_id" eval="[(4, ref('group_capitulo_comercial'))]"/>
+            <field name="groups_id" eval="[(4, ref('capitulos.group_capitulo_comercial'))]"/>
             <field name="arch" type="xml">
                 <form string="Capítulo">
                     <header>
