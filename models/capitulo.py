@@ -12,6 +12,50 @@ class CapituloContrato(models.Model):
     _inherit = ['product.template']
     _order = 'name'
     
+    # Evitar conflicto con taxes_id de product.template
+    taxes_id = fields.Many2many(
+        'account.tax',
+        'capitulo_contrato_taxes_rel',  # Tabla específica para evitar conflictos
+        'capitulo_id',
+        'tax_id',
+        string='Customer Taxes',
+        domain=[('type_tax_use', '=', 'sale')]
+    )
+    
+    supplier_taxes_id = fields.Many2many(
+        'account.tax',
+        'capitulo_contrato_supplier_taxes_rel',  # Tabla específica para evitar conflictos
+        'capitulo_id',
+        'tax_id',
+        string='Vendor Taxes',
+        domain=[('type_tax_use', '=', 'purchase')]
+    )
+    
+    # Evitar conflicto con optional_product_ids de product.template
+    optional_product_ids = fields.Many2many(
+        'product.template',
+        'capitulo_contrato_optional_rel',  # Tabla específica para evitar conflictos
+        'src_id',
+        'dest_id',
+        string='Optional Products'
+    )
+    
+    alternative_product_ids = fields.Many2many(
+        'product.template',
+        'capitulo_contrato_alternative_rel',  # Tabla específica para evitar conflictos
+        'src_id',
+        'dest_id',
+        string='Alternative Products'
+    )
+    
+    accessory_product_ids = fields.Many2many(
+        'product.template',
+        'capitulo_contrato_accessory_rel',  # Tabla específica para evitar conflictos
+        'src_id',
+        'dest_id',
+        string='Accessory Products'
+    )
+    
     # Configuración por defecto para productos de tipo capítulo
     @api.model
     def _get_default_category_id(self):
@@ -24,7 +68,8 @@ class CapituloContrato(models.Model):
     condiciones_legales = fields.Text(string='Condiciones Legales')
     plantilla_id = fields.Many2one('capitulo.contrato', string='Basado en Plantilla', 
                                    domain="[('es_plantilla', '=', True)]",
-                                   help='Selecciona un capítulo existente como plantilla')
+                                   help='Selecciona un capítulo existente como plantilla',
+                                   column='plantilla_id')
     es_plantilla = fields.Boolean(string='Es Plantilla', default=False,
                                   help='Marca este capítulo como plantilla para ser usado por otros')
     

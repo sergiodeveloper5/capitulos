@@ -7,7 +7,7 @@ class CapituloSeccion(models.Model):
 
     name = fields.Char(string='Nombre de la Sección', required=True)
     sequence = fields.Integer(string='Secuencia', default=10)
-    capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo', ondelete='cascade')
+    capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo', ondelete='cascade', column='capitulo_id')
     product_line_ids = fields.One2many('capitulo.seccion.line', 'seccion_id', string='Líneas de Producto')
     descripcion = fields.Text(string='Descripción')
     es_fija = fields.Boolean(string='Sección Fija', default=False, help="Si está marcado, esta sección no se puede modificar en el presupuesto")

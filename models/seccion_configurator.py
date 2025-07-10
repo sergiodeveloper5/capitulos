@@ -10,7 +10,7 @@ class CapituloSeccionConfigurator(models.TransientModel):
     
     sale_line_id = fields.Many2one('sale.order.line', string='Línea de Venta', required=True)
     order_id = fields.Many2one('sale.order', string='Pedido', required=True)
-    capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo', required=True)
+    capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo', required=True, column='capitulo_id')
     
     seccion_line_ids = fields.One2many(
         'capitulo.seccion.configurator.line', 

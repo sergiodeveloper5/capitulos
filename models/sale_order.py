@@ -5,7 +5,10 @@ class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
     capitulo_ids = fields.Many2many(
-        'capitulo.contrato', 
+        'capitulo.contrato',
+        'sale_order_capitulo_rel',
+        'sale_order_id',
+        'capitulo_id',
         string='Capítulos Aplicados',
         help="Capítulos técnicos aplicados a este pedido de venta"
     )
@@ -48,7 +51,8 @@ class SaleOrderLine(models.Model):
     capitulo_id = fields.Many2one(
         'capitulo.contrato',
         string='Capítulo',
-        help="Capítulo al que pertenece esta línea"
+        help="Capítulo al que pertenece esta línea",
+        column='capitulo_id'
     )
     
     seccion_configurada = fields.Char(
