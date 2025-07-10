@@ -16,24 +16,24 @@
                             type="object" 
                             class="btn-primary"
                             groups="capitulos.group_capitulo_admin,capitulos.group_capitulo_comercial"
-                            attrs="{'invisible': [('state', 'not in', ['draft', 'sent'])]}"/>
+                            invisible="state not in ('draft', 'sent')"/>
                     <button name="action_use_template" 
                             string="Usar Plantilla" 
                             type="object" 
                             class="btn-secondary"
                             groups="capitulos.group_capitulo_admin,capitulos.group_capitulo_comercial"
-                            attrs="{'invisible': [('state', 'not in', ['draft', 'sent'])]}"/>
+                            invisible="state not in ('draft', 'sent')"/>
                     <button name="action_generate_lines_from_capitulos" 
                             string="Generar Líneas desde Capítulos" 
                             type="object" 
                             class="btn-info"
                             groups="capitulos.group_capitulo_admin"
-                            attrs="{'invisible': ['|', ('state', 'not in', ['draft', 'sent']), ('tiene_capitulos', '=', False)]}"/>
+                            invisible="state not in ('draft', 'sent') or not tiene_capitulos"/>
                 </xpath>
                 
                 <!-- Agregar página de capítulos -->
                 <xpath expr="//form//notebook" position="inside">
-                    <page string="Capítulos" name="capitulos" attrs="{'invisible': [('tiene_capitulos', '=', False)]}">
+                    <page string="Capítulos" name="capitulos" invisible="not tiene_capitulos">
                         <field name="tiene_capitulos" invisible="1"/>
                         <field name="total_capitulos" invisible="1"/>
                         
@@ -87,7 +87,7 @@
                             </group>
                             <group>
                                 <field name="es_plantilla"/>
-                                <field name="plantilla_origen_id" readonly="1" attrs="{'invisible': [('plantilla_origen_id', '=', False)]}"/>
+                                <field name="plantilla_origen_id" readonly="1" invisible="not plantilla_origen_id"/>
                             </group>
                         </group>
                         
@@ -161,7 +161,7 @@
                                 <field name="sale_order_id" readonly="1"/>
                             </group>
                             <group>
-                                <field name="plantilla_origen_id" readonly="1" attrs="{'invisible': [('plantilla_origen_id', '=', False)]}"/>
+                                <field name="plantilla_origen_id" readonly="1" invisible="not plantilla_origen_id"/>
                             </group>
                         </group>
                         
@@ -194,8 +194,8 @@
                                                   create="true" 
                                                   delete="false">
                                                 <field name="sequence" widget="handle"/>
-                                                <field name="product_id" attrs="{'readonly': [('es_fijo', '=', True)]}"/>
-                                                <field name="quantity" attrs="{'readonly': [('es_fijo', '=', True)]}"/>
+                                                <field name="product_id" readonly="es_fijo"/>
+                                                <field name="quantity" readonly="es_fijo"/>
                                                 <field name="product_uom_id" readonly="1"/>
                                                 <field name="price_unit"/>
                                                 <field name="subtotal" sum="Subtotal"/>
