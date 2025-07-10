@@ -1,220 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data>
-        
-        <!-- Extensión de la vista de formulario de sale.order -->
-        <record id="view_order_form_inherit_capitulos" model="ir.ui.view">
-            <field name="name">sale.order.form.inherit.capitulos</field>
-            <field name="model">sale.order</field>
-            <field name="inherit_id" ref="sale.view_order_form"/>
-            <field name="arch" type="xml">
-                <!-- Agregar botones en el header -->
-                <xpath expr="//form//header" position="inside">
-                    <button name="%(capitulos.action_capitulo_wizard)d" 
-                            string="Gestionar Capítulos" 
-                            type="action" 
-                            class="btn-primary"
-                            invisible="state not in ('draft', 'sent')"/>
-                </xpath>
-                
-                <!-- Agregar página de capítulos -->
-                <xpath expr="//form//notebook" position="inside">
-                    <page string="Capítulos" name="capitulos" invisible="not tiene_capitulos">
-                        <field name="tiene_capitulos" invisible="1"/>
-                        <field name="total_capitulos" invisible="1"/>
-                        
-                        <group>
-                            <group>
-                                <field name="total_capitulos" string="Total de Capítulos" readonly="1"/>
-                            </group>
-                        </group>
-                        
-                        <field name="capitulo_ids" context="{'default_sale_order_id': id}">
-                            <list string="Capítulos" editable="bottom">
-                                <field name="sequence" widget="handle"/>
-                                <field name="name"/>
-                                <field name="description"/>
-                                <field name="state"/>
-                                <field name="total_capitulo" sum="Total"/>
-                                <field name="currency_id" invisible="1"/>
-                                <button name="save_as_template" 
-                                        string="Guardar como Plantilla" 
-                                        type="object" 
-                                        icon="fa-save"/>
-                            </list>
-                        </field>
-                        
-                        <div class="oe_clear"/>
-                        <group class="oe_subtotal_footer oe_right">
-                            <field name="total_capitulos" string="Total Capítulos" class="oe_subtotal_footer_separator"/>
-                        </group>
-                    </page>
-                </xpath>
-            </field>
-        </record>
-        
-        <!-- Vista de capítulos para administradores (completa) -->
-        <record id="view_capitulo_form_admin" model="ir.ui.view">
-            <field name="name">capitulo.capitulo.form.admin</field>
-            <field name="model">capitulo.capitulo</field>
-            <field name="arch" type="xml">
-                <form string="Capítulo">
-                    <header>
-                        <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>
-                    </header>
-                    <sheet>
-                        <group>
-                            <group>
-                                <field name="name" placeholder="Ej: MONTACARGAS MC-1700"/>
-                                <field name="sale_order_id" readonly="1"/>
-                                <field name="sequence"/>
-                            </group>
-                            <group>
-                                <field name="es_plantilla"/>
-                                <field name="plantilla_origen_id" readonly="1" invisible="not plantilla_origen_id"/>
-                            </group>
-                        </group>
-                        
-                        <group string="Descripción">
-                            <field name="description" placeholder="Ej: MONTACARGAS DE MATERIALES, CON PARA EN TERRAZA PARA DESEMBARCO." nolabel="1"/>
-                        </group>
-                        
-                        <notebook>
-                            <page string="Secciones y Productos">
-                                <field name="seccion_ids">
-                                    <list string="Secciones" editable="bottom">
-                                        <field name="sequence" widget="handle"/>
-                                        <field name="name"/>
-                                        <field name="es_fija"/>
-                                        <field name="total_seccion" sum="Total"/>
-                                        <field name="currency_id" invisible="1"/>
-                                    </list>
-                                    <form string="Sección">
-                                        <group>
-                                            <group>
-                                                <field name="name"/>
-                                                <field name="sequence"/>
-                                            </group>
-                                            <group>
-                                                <field name="es_fija"/>
-                                                <field name="total_seccion" readonly="1"/>
-                                                <field name="currency_id" invisible="1"/>
-                                            </group>
-                                        </group>
-                                        
-                                        <field name="producto_ids">
-                                            <list string="Productos" editable="bottom">
-                                                <field name="sequence" widget="handle"/>
-                                                <field name="product_id"/>
-                                                <field name="quantity"/>
-                                                <field name="product_uom_id" readonly="1"/>
-                                                <field name="price_unit"/>
-                                                <field name="subtotal" sum="Subtotal"/>
-                                                <field name="es_fijo"/>
-                                                <field name="currency_id" invisible="1"/>
-                                            </list>
-                                        </field>
-                                    </form>
-                                </field>
-                            </page>
-                            
-                            <page string="Condiciones Particulares">
-                                <field name="condiciones_particulares" widget="html"/>
-                            </page>
-                        </notebook>
-                        
-                    </sheet>
-                </form>
-            </field>
-        </record>
-        
-        <!-- Vista de capítulos para comerciales (limitada) -->
-        <record id="view_capitulo_form_comercial" model="ir.ui.view">
-            <field name="name">capitulo.capitulo.form.comercial</field>
-            <field name="model">capitulo.capitulo</field>
-            <field name="groups_id" eval="[(4, ref('base.group_user'))]"/>
-            <field name="arch" type="xml">
-                <form string="Capítulo">
-                    <header>
-                        <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>
-                    </header>
-                    <sheet>
-                        <group>
-                            <group>
-                                <field name="name" readonly="1"/>
-                                <field name="sale_order_id" readonly="1"/>
-                            </group>
-                            <group>
-                                <field name="plantilla_origen_id" readonly="1" invisible="not plantilla_origen_id"/>
-                            </group>
-                        </group>
-                        
-                        <group string="Descripción">
-                            <field name="description" readonly="1" nolabel="1"/>
-                        </group>
-                        
-                        <notebook>
-                            <page string="Secciones y Productos">
-                                <field name="seccion_ids">
-                                    <list string="Secciones" create="false" delete="false">
-                                        <field name="sequence" widget="handle"/>
-                                        <field name="name"/>
-                                        <field name="total_seccion" sum="Total"/>
-                                        <field name="currency_id" invisible="1"/>
-                                    </list>
-                                    <form string="Sección">
-                                        <group>
-                                            <group>
-                                                <field name="name" readonly="1"/>
-                                            </group>
-                                            <group>
-                                                <field name="total_seccion" readonly="1"/>
-                                                <field name="currency_id" invisible="1"/>
-                                            </group>
-                                        </group>
-                                        
-                                        <field name="producto_ids">
-                                            <list string="Productos" editable="bottom" 
-                                                  create="true" 
-                                                  delete="false">
-                                                <field name="sequence" widget="handle"/>
-                                                <field name="product_id" readonly="es_fijo"/>
-                                                <field name="quantity" readonly="es_fijo"/>
-                                                <field name="product_uom_id" readonly="1"/>
-                                                <field name="price_unit"/>
-                                                <field name="subtotal" sum="Subtotal"/>
-                                                <field name="es_fijo" invisible="1"/>
-                                                <field name="currency_id" invisible="1"/>
-                                            </list>
-                                        </field>
-                                    </form>
-                                </field>
-                            </page>
-                            
-                            <page string="Condiciones Particulares">
-                                <field name="condiciones_particulares" readonly="1" widget="html"/>
-                            </page>
-                        </notebook>
-                        
-                    </sheet>
-                </form>
-            </field>
-        </record>
-        
-        <!-- Acción para capítulos -->
-        <record id="action_capitulo_capitulo" model="ir.actions.act_window">
-            <field name="name">Capítulos</field>
-            <field name="res_model">capitulo.capitulo</field>
-            <field name="view_mode">list,form</field>
-            <field name="help" type="html">
-                <p class="o_view_nocontent_smiling_face">
-                    Crear un nuevo capítulo
-                </p>
-                <p>
-                    Los capítulos permiten organizar productos en secciones dentro de los presupuestos.
-                </p>
-            </field>
-        </record>
-        
-    </data>
+    <!-- Heredar vista de pedido de ventas -->
+    <record id="view_order_form_inherit_capitulo" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.capitulo</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_quotation_send']" position="after">
+                <button name="action_add_capitulo" string="Gestionar Capítulos" type="object" class="btn-secondary" groups="sales_team.group_sale_salesman" invisible="state not in ['draft', 'sent']"/>
+            </xpath>
+            <xpath expr="//field[@name='order_line']" position="attributes">
+                <attribute name="context">{
+                    'tree_view_ref': 'capitulos.view_order_line_tree_inherit_capitulo'
+                }</attribute>
+                <attribute name="widget">section_and_note_one2many</attribute>
+            </xpath>
+            <xpath expr="//field[@name='order_line']" position="after">
+                <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
+            </xpath>
+        </field>
+    </record>
+    
+    <!-- Vista de árbol personalizada para líneas de pedido con restricciones -->
+    <record id="view_order_line_tree_inherit_capitulo" model="ir.ui.view">
+        <field name="name">sale.order.line.tree.inherit.capitulo</field>
+        <field name="model">sale.order.line</field>
+        <field name="arch" type="xml">
+            <list create="true" delete="true" edit="true">
+                <field name="sequence" widget="handle"/>
+                <field name="product_id"/>
+                <field name="name" decoration-bf="es_encabezado_capitulo or es_encabezado_seccion" decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion"/>
+                <field name="product_uom_qty"/>
+                <field name="product_uom" groups="uom.group_uom"/>
+                <field name="price_unit"/>
+                <field name="tax_id" widget="many2many_tags"/>
+                <field name="price_subtotal"/>
+                <field name="es_encabezado_capitulo" invisible="1"/>
+                <field name="es_encabezado_seccion" invisible="1"/>
+            </list>
+        </field>
+    </record>
+
 </odoo>

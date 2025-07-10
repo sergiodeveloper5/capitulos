@@ -1,157 +1,173 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api
+from odoo.exceptions import UserError
+import logging
 
-class Capitulo(models.Model):
-    _name = 'capitulo.capitulo'
-    _description = 'Capítulo de Andamios'
-    _order = 'sequence, name'
+_logger = logging.getLogger(__name__)
 
-    name = fields.Char('Nombre del Capítulo', required=True)
-    description = fields.Text('Descripción')
-    sequence = fields.Integer('Secuencia', default=10)
-    sale_order_id = fields.Many2one('sale.order', 'Presupuesto', ondelete='cascade')
+class CapituloContrato(models.Model):
+    _name = 'capitulo.contrato'
+    _description = 'Capítulo de Contrato'
+
+    name = fields.Char(string='Nombre del Capítulo', required=True)
+    description = fields.Text(string='Descripción')
+    seccion_ids = fields.One2many('capitulo.seccion', 'capitulo_id', string='Secciones')
+    condiciones_legales = fields.Text(string='Condiciones Legales')
+    plantilla_id = fields.Many2one('capitulo.contrato', string='Basado en Plantilla', 
+                                   help='Selecciona un capítulo existente como plantilla')
+    es_plantilla = fields.Boolean(string='Es Plantilla', default=False,
+                                  help='Marca este capítulo como plantilla para ser usado por otros')
+    capitulos_dependientes_count = fields.Integer(
+        string='Capítulos Dependientes', 
+        compute='_compute_capitulos_dependientes_count',
+        help='Número de capítulos que usan esta plantilla'
+    )
     
-    # Secciones del capítulo
-    seccion_ids = fields.One2many('capitulo.seccion', 'capitulo_id', 'Secciones')
-    
-    # Total del capítulo
-    total_capitulo = fields.Monetary('Total del Capítulo', compute='_compute_total_capitulo', store=True)
-    currency_id = fields.Many2one('res.currency', related='sale_order_id.currency_id', store=True)
-    
-    # Condiciones particulares
-    condiciones_particulares = fields.Html('Condiciones Particulares')
-    
-    # Control de plantillas
-    es_plantilla = fields.Boolean('Guardar como Plantilla', default=False)
-    plantilla_origen_id = fields.Many2one('capitulo.plantilla', 'Plantilla Origen')
-    
-    # Estado del capítulo
-    state = fields.Selection([
-        ('draft', 'Borrador'),
-        ('confirmed', 'Confirmado'),
-        ('done', 'Realizado'),
-        ('cancel', 'Cancelado')
-    ], string='Estado', default='draft', tracking=True)
-    
-    @api.depends('seccion_ids.total_seccion')
-    def _compute_total_capitulo(self):
-        """Calcular el total del capítulo sumando todas las secciones"""
+    @api.depends('es_plantilla')
+    def _compute_capitulos_dependientes_count(self):
+        """Calcula el número de capítulos que dependen de esta plantilla"""
         for record in self:
-            record.total_capitulo = sum(record.seccion_ids.mapped('total_seccion'))
-    
-    @api.model
-    def create_from_template(self, template_id, sale_order_id):
-        """Crear capítulo desde plantilla"""
-        template = self.env['capitulo.plantilla'].browse(template_id)
-        
-        # Crear el capítulo
-        capitulo_vals = {
-            'name': template.name,
-            'description': template.description,
-            'sale_order_id': sale_order_id,
-            'condiciones_particulares': template.condiciones_particulares,
-            'plantilla_origen_id': template.id,
-        }
-        capitulo = self.create(capitulo_vals)
-        
-        # Crear las secciones desde la plantilla
-        for template_seccion in template.seccion_ids:
-            seccion_vals = {
-                'name': template_seccion.name,
-                'capitulo_id': capitulo.id,
-                'sequence': template_seccion.sequence,
-                'es_fija': template_seccion.es_fija,
+            if record.es_plantilla:
+                record.capitulos_dependientes_count = self.search_count([('plantilla_id', '=', record.id)])
+            else:
+                record.capitulos_dependientes_count = 0
+
+    @api.onchange('plantilla_id')
+    def _onchange_plantilla_id(self):
+        """Copia las secciones y productos de la plantilla seleccionada"""
+        if self.plantilla_id:
+            # Limpiar secciones existentes
+            self.seccion_ids = [(5, 0, 0)]
+            
+            # Copiar secciones de la plantilla
+            secciones_vals = []
+            for seccion in self.plantilla_id.seccion_ids:
+                # Copiar líneas de productos de la sección
+                lineas_vals = []
+                for linea in seccion.product_line_ids:
+                    lineas_vals.append((0, 0, {
+                        'product_id': linea.product_id.id,
+                        'cantidad': linea.cantidad,
+                        'precio_unitario': linea.precio_unitario,
+                        'sequence': linea.sequence,
+                        'descripcion_personalizada': linea.descripcion_personalizada,
+                        'es_opcional': linea.es_opcional,
+                    }))
+                
+                secciones_vals.append((0, 0, {
+                    'name': seccion.name,
+                    'sequence': seccion.sequence,
+                    'descripcion': seccion.descripcion,
+                    'es_fija': seccion.es_fija,
+                    'product_line_ids': lineas_vals,
+                }))
+            
+            self.seccion_ids = secciones_vals
+            self.condiciones_legales = self.plantilla_id.condiciones_legales
+
+    def action_crear_desde_plantilla(self):
+        """Acción para crear un nuevo capítulo desde una plantilla"""
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Crear Capítulo desde Plantilla',
+            'res_model': 'capitulo.contrato',
+            'view_mode': 'form',
+            'target': 'current',
+            'context': {
+                'default_plantilla_id': self.id,
+                'form_view_initial_mode': 'edit',
             }
-            seccion = self.env['capitulo.seccion'].create(seccion_vals)
-            
-            # Crear los productos de la sección
-            for template_producto in template_seccion.producto_ids:
-                producto_vals = {
-                    'product_id': template_producto.product_id.id,
-                    'seccion_id': seccion.id,
-                    'quantity': template_producto.quantity,
-                    'price_unit': template_producto.price_unit,
-                    'sequence': template_producto.sequence,
-                    'es_fijo': template_producto.es_fijo,
-                }
-                self.env['capitulo.producto'].create(producto_vals)
-        
-        return capitulo
-    
-    def generate_sale_order_lines(self):
-        """Generar líneas de pedido de venta desde este capítulo"""
-        if not self.sale_order_id:
-            return
-            
-        # Eliminar líneas existentes de este capítulo
-        lines_to_remove = self.sale_order_id.order_line.filtered(
-            lambda l: l.name and f'[{self.name}]' in l.name
-        )
-        lines_to_remove.unlink()
-        
-        # Línea de sección para el capítulo
-        self.env['sale.order.line'].create({
-            'order_id': self.sale_order_id.id,
-            'display_type': 'line_section',
-            'name': f"{self.name} - {self.description or ''}",
-        })
-        
-        for seccion in self.seccion_ids:
-            # Línea de nota para la sección
-            self.env['sale.order.line'].create({
-                'order_id': self.sale_order_id.id,
-                'display_type': 'line_note',
-                'name': f"  {seccion.name}",
-            })
-            
-            # Líneas de productos
-            for producto in seccion.producto_ids:
-                self.env['sale.order.line'].create({
-                    'order_id': self.sale_order_id.id,
-                    'product_id': producto.product_id.id,
-                    'product_uom_qty': producto.quantity,
-                    'price_unit': producto.price_unit,
-                    'name': f"    [{self.name}] {producto.product_id.name}",
-                })
-        
-        # Agregar condiciones particulares si existen
-        if self.condiciones_particulares:
-            self.env['sale.order.line'].create({
-                'order_id': self.sale_order_id.id,
-                'display_type': 'line_note',
-                'name': f"Condiciones Particulares - {self.name}",
-            })
-    
-    def save_as_template(self):
-        """Guardar capítulo como plantilla"""
-        template_vals = {
-            'name': self.name,
-            'description': self.description,
-            'condiciones_particulares': self.condiciones_particulares,
         }
-        template = self.env['capitulo.plantilla'].create(template_vals)
+    
+    def unlink(self):
+        """Permite eliminar plantillas con validaciones mejoradas"""
+        for record in self:
+            if record.es_plantilla:
+                # Verificar si la plantilla está siendo utilizada
+                capitulos_usando_plantilla = self.search([('plantilla_id', '=', record.id)])
+                if capitulos_usando_plantilla:
+                    # En lugar de bloquear completamente, limpiar las referencias
+                    capitulos_usando_plantilla.write({'plantilla_id': False})
+                    # Mostrar mensaje informativo
+                    _logger.info(
+                        f"Plantilla '{record.name}' eliminada. Se han desvinculado {len(capitulos_usando_plantilla)} capítulos que la utilizaban."
+                    )
+        return super().unlink()
+    
+    def action_eliminar_plantilla_forzado(self):
+        """Acción para eliminar una plantilla forzadamente, desvinculando capítulos dependientes"""
+        self.ensure_one()
+        if not self.es_plantilla:
+            raise UserError("Este registro no es una plantilla.")
         
-        # Copiar secciones a la plantilla
-        for seccion in self.seccion_ids:
-            seccion_template_vals = {
-                'name': seccion.name,
-                'plantilla_id': template.id,
-                'sequence': seccion.sequence,
-                'es_fija': seccion.es_fija,
-            }
-            seccion_template = self.env['capitulo.seccion.plantilla'].create(seccion_template_vals)
+        # Buscar capítulos que usan esta plantilla
+        capitulos_dependientes = self.search([('plantilla_id', '=', self.id)])
+        
+        if capitulos_dependientes:
+            # Desvincular capítulos dependientes
+            capitulos_dependientes.write({'plantilla_id': False})
             
-            # Copiar productos de la sección
-            for producto in seccion.producto_ids:
-                producto_template_vals = {
-                    'product_id': producto.product_id.id,
-                    'seccion_plantilla_id': seccion_template.id,
-                    'quantity': producto.quantity,
-                    'price_unit': producto.price_unit,
-                    'sequence': producto.sequence,
-                    'es_fijo': producto.es_fijo,
+            # Log de la operación
+            _logger.info(
+                f"Plantilla '{self.name}' eliminada. Capítulos desvinculados: {', '.join(capitulos_dependientes.mapped('name'))}"
+            )
+            
+            # Eliminar la plantilla
+            nombre_plantilla = self.name
+            self.unlink()
+            
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': 'Plantilla Eliminada',
+                    'message': f'La plantilla "{nombre_plantilla}" ha sido eliminada. Se han desvinculado {len(capitulos_dependientes)} capítulos que la utilizaban: {', '.join(capitulos_dependientes.mapped("name"))}',
+                    'type': 'success',
+                    'sticky': True,
                 }
-                self.env['capitulo.producto.plantilla'].create(producto_template_vals)
+            }
         
-        return template
+        # Eliminar la plantilla (sin dependencias)
+        nombre_plantilla = self.name
+        self.unlink()
+        
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Plantilla Eliminada',
+                'message': f'La plantilla "{nombre_plantilla}" ha sido eliminada exitosamente.',
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+    
+    def action_mostrar_dependencias(self):
+        """Muestra los capítulos que dependen de esta plantilla"""
+        self.ensure_one()
+        if not self.es_plantilla:
+            raise UserError("Este registro no es una plantilla.")
+        
+        capitulos_dependientes = self.search([('plantilla_id', '=', self.id)])
+        
+        if not capitulos_dependientes:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': 'Sin Dependencias',
+                    'message': f'La plantilla "{self.name}" no está siendo utilizada por ningún capítulo. Puede eliminarla de forma segura.',
+                    'type': 'info',
+                    'sticky': False,
+                }
+            }
+        
+        return {
+            'type': 'ir.actions.act_window',
+            'name': f'Capítulos que usan la plantilla: {self.name}',
+            'res_model': 'capitulo.contrato',
+            'view_mode': 'list,form',
+            'domain': [('plantilla_id', '=', self.id)],
+            'context': {'search_default_plantilla_id': self.id},
+        }

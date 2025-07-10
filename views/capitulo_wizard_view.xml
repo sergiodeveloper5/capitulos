@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="capitulo_wizard_form_view" model="ir.ui.view">
+        <field name="name">capitulo.wizard.form</field>
+        <field name="model">capitulo.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        <strong>Gestión de Capítulos:</strong> Puede usar un capítulo existente o crear uno nuevo desde cero.
+                    </div>
+                    
+                    <group>
+                        <field name="modo_creacion" widget="radio" options="{'horizontal': true}"/>
+                    </group>
+                    
+                    <!-- Campos para capítulo existente -->
+                    <group invisible="modo_creacion != 'existente'">
+                        <field name="capitulo_id" options="{'no_create': True, 'no_edit': True}" 
+                               placeholder="Seleccione un capítulo existente..." 
+                               help="Seleccione un capítulo ya creado para aplicar al presupuesto"
+                               required="modo_creacion == 'existente'"/>
+                    </group>
+                    
+                    <!-- Gestión de Plantillas -->
+                    <group string="Gestión de Plantillas" invisible="modo_creacion != 'existente'">
+                        <div class="oe_button_box" name="template_buttons">
+                            <button name="action_open_templates" type="object" 
+                                    class="oe_stat_button" icon="fa-list"
+                                    string="Ver Plantillas"
+                                    help="Abrir lista de plantillas disponibles"/>
+                            <button name="action_create_template" type="object" 
+                                    class="oe_stat_button" icon="fa-plus"
+                                    string="Nueva Plantilla"
+                                    help="Crear una nueva plantilla"/>
+                            <button name="action_delete_template" type="object" 
+                                    class="oe_stat_button" icon="fa-trash"
+                                    string="Eliminar Plantilla"
+                                    invisible="not capitulo_id or not capitulo_id.es_plantilla"
+                                    confirm="¿Está seguro de que desea eliminar esta plantilla? Se desvinculará de todos los capítulos que la utilicen."
+                                    help="Eliminar la plantilla seleccionada"/>
+                            <button name="action_convert_to_template" type="object" 
+                                    class="oe_stat_button" icon="fa-star"
+                                    string="Convertir en Plantilla"
+                                    invisible="not capitulo_id or capitulo_id.es_plantilla"
+                                    confirm="¿Desea convertir este capítulo en una plantilla reutilizable?"
+                                    help="Convertir el capítulo seleccionado en plantilla"/>
+                        </div>
+                    </group>
+                    
+                    <!-- Campos para nuevo capítulo -->
+                    <group invisible="modo_creacion != 'nuevo'">
+                        <field name="nuevo_capitulo_nombre" placeholder="Nombre del nuevo capítulo..." 
+                               help="Especifique el nombre para el nuevo capítulo"
+                               required="modo_creacion == 'nuevo'"/>
+                        <field name="nuevo_capitulo_descripcion" placeholder="Descripción del capítulo..."/>
+                    </group>
+                    
+
+                    
+                    <notebook>
+                        <page string="Secciones y Productos">
+                            <!-- Título prominente del capítulo -->
+                            <div invisible="modo_creacion != 'existente' or not capitulo_id" class="alert alert-primary" role="alert" style="margin-bottom: 15px; text-align: center; font-size: 18px; border: 2px solid #007bff;">
+                                <strong>📋 CAPÍTULO: </strong><field name="capitulo_id" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
+                            </div>
+                            
+                            <div invisible="modo_creacion != 'nuevo' or not nuevo_capitulo_nombre" class="alert alert-primary" role="alert" style="margin-bottom: 15px; text-align: center; font-size: 18px; border: 2px solid #007bff;">
+                                <strong>📋 NUEVO CAPÍTULO: </strong><field name="nuevo_capitulo_nombre" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
+                            </div>
+                            
+                            <div class="alert alert-warning" role="alert" style="margin-bottom: 10px;">
+                                <strong>🔒 Secciones Fijas:</strong> Las secciones están predefinidas y no se pueden modificar, eliminar o añadir nuevas. Esta estructura garantiza la consistencia del capítulo.
+                            </div>
+                            
+                            <div class="alert alert-info" role="alert" style="margin-bottom: 15px;">
+                                <strong>📋 Proceso para añadir productos:</strong><br/>
+                                <strong>1.</strong> Marque las secciones que desea incluir usando el toggle "Incluir"<br/>
+                                <strong>2.</strong> Haga clic en cada sección marcada para abrirla<br/>
+                                <strong>3.</strong> En la pestaña "Productos", haga clic en "Añadir una línea" para añadir productos<br/>
+                                <strong>4.</strong> Seleccione el producto, cantidad y precio<br/>
+                                <strong>5.</strong> Haga clic en "Añadir al Presupuesto" - solo las secciones marcadas se añadirán
+                            </div>
+                            <field name="seccion_ids">
+                                <list create="false" delete="false" edit="true">
+                                    <field name="sequence" readonly="1"/>
+                                    <field name="name" decoration-bf="es_fija"/>
+                                    <field name="incluir" string="Incluir" widget="boolean_toggle"/>
+                                    <field name="es_fija" readonly="1" string="Fija" widget="boolean_toggle"/>
+                                </list>
+                                <form>
+                                    <sheet>
+                                        <div class="alert alert-warning" role="alert">
+                                            <strong>🔒 Sección Bloqueada:</strong> Las secciones están predefinidas y no pueden ser modificadas para mantener la estructura del capítulo.
+                                        </div>
+                                        <group>
+                                            <field name="name" placeholder="Escriba el nombre de la sección..." readonly="es_fija" required="1"/>
+                                            <field name="incluir" string="Incluir en Presupuesto" widget="boolean_toggle"/>
+                                            <field name="sequence" readonly="1"/>
+                                            <field name="es_fija" readonly="1"/>
+                                        </group>
+                                        <notebook>
+                                            <page string="Productos">
+                                                <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
+                                                    <strong>💡 Consejo:</strong> Haga clic en "Añadir una línea" para agregar productos a esta sección.
+                                                </div>
+                                                <field name="line_ids">
+                                                    <list editable="bottom">
+                                                        <field name="sequence" widget="handle"/>
+                                                        <field name="product_id"/>
+                                                        <field name="descripcion_personalizada"/>
+                                                        <field name="cantidad"/>
+                                                        <field name="precio_unitario"/>
+                                                    </list>
+                                                </field>
+                                            </page>
+                                        </notebook>
+                                    </sheet>
+                                </form>
+                            </field>
+                        </page>
+                        
+                        <page string="Condiciones Particulares">
+                            <field name="condiciones_particulares" placeholder="Escriba aquí las condiciones particulares para este presupuesto..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="add_to_order" string="Añadir al Presupuesto" type="object" class="btn-primary"/>
+                    <button name="action_auto_include_products" string="✅ Marcar Todas las Secciones" type="object" class="btn-success"/>
+                    <button name="add_another_chapter" string="➕ Añadir Otro Capítulo" type="object" class="btn-secondary"/>
+                    <button name="debug_wizard_state" string="🔍 Debug Estado" type="object" class="btn-info"/>
+                    <button name="action_reset_sections" string="🔄 Resetear Secciones" type="object" class="btn-warning"/>
+                    <button name="action_force_refresh_sections" string="🔧 Corregir Nombres" type="object" class="btn-info"/>
+                    <button name="action_fix_wizard_relations" string="🔗 Corregir Relaciones" type="object" class="btn-warning"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="capitulo_wizard_action" model="ir.actions.act_window">
+        <field name="name">Gestionar Capítulos del Presupuesto</field>
+        <field name="res_model">capitulo.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

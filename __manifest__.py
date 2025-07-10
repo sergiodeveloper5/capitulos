@@ -1,25 +1,25 @@
-# -*- coding: utf-8 -*-
 {
-    'name': 'Capítulos de Andamios - Sermaco',
+    'name': 'Gestión de Capítulos Contratados',
     'version': '18.0.1.0.0',
     'category': 'Sales',
-    'summary': 'Gestión de capítulos de andamios para presupuestos',
-    'description': '''
-        Módulo para gestionar capítulos de andamios en presupuestos de venta.
-        Permite crear capítulos con secciones y productos, guardar como plantillas
-        y gestionar permisos diferenciados para admin y comerciales.
-    ''',
-    'author': 'Sermaco',
-    'website': '',
-    'depends': ['sale', 'sale_management', 'product'],
+    'summary': 'Gestión de capítulos técnicos y contratación de servicios agrupados',
+    'description': "Gestión de capítulos técnicos como servicios completos con productos configurables para presupuestos de venta.",
+    'author': 'Sergio Vadillo',
+    'website': 'https://github.com/sergiodeveloper5/capitulos.git',
+    'depends': [
+        'base',
+        'sale_management',
+        'product',
+        'uom',
+    ],
     'data': [
         'security/ir.model.access.csv',
+        'views/capitulo_views.xml',
         'views/sale_order_views.xml',
-        'wizard/capitulo_wizard_views.xml',
-        'data/capitulo_data.xml',
+        'views/capitulo_wizard_view.xml',
     ],
-    'demo': [],
     'installable': True,
     'auto_install': False,
-    'application': False,
+    'application': True,
+    'license': 'LGPL-3',
 }
