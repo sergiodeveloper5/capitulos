@@ -11,7 +11,7 @@
     ''',
     'author': 'Sermaco',
     'website': '',
-    'depends': ['sale_management', 'product'],
+    'depends': ['sale', 'sale_management', 'product'],
     'data': [
         'security/security.xml',
         'security/ir.model.access.csv',
