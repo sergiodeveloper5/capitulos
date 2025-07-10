@@ -77,6 +77,50 @@ class Capitulo(models.Model):
         
         return capitulo
     
+    def generate_sale_order_lines(self):
+        """Generar líneas de pedido de venta desde este capítulo"""
+        if not self.sale_order_id:
+            return
+            
+        # Eliminar líneas existentes de este capítulo
+        lines_to_remove = self.sale_order_id.order_line.filtered(
+            lambda l: l.name and f'[{self.name}]' in l.name
+        )
+        lines_to_remove.unlink()
+        
+        # Línea de sección para el capítulo
+        self.env['sale.order.line'].create({
+            'order_id': self.sale_order_id.id,
+            'display_type': 'line_section',
+            'name': f"{self.name} - {self.description or ''}",
+        })
+        
+        for seccion in self.seccion_ids:
+            # Línea de nota para la sección
+            self.env['sale.order.line'].create({
+                'order_id': self.sale_order_id.id,
+                'display_type': 'line_note',
+                'name': f"  {seccion.name}",
+            })
+            
+            # Líneas de productos
+            for producto in seccion.producto_ids:
+                self.env['sale.order.line'].create({
+                    'order_id': self.sale_order_id.id,
+                    'product_id': producto.product_id.id,
+                    'product_uom_qty': producto.quantity,
+                    'price_unit': producto.price_unit,
+                    'name': f"    [{self.name}] {producto.product_id.name}",
+                })
+        
+        # Agregar condiciones particulares si existen
+        if self.condiciones_particulares:
+            self.env['sale.order.line'].create({
+                'order_id': self.sale_order_id.id,
+                'display_type': 'line_note',
+                'name': f"Condiciones Particulares - {self.name}",
+            })
+    
     def save_as_template(self):
         """Guardar capítulo como plantilla"""
         template_vals = {

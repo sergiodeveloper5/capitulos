@@ -9,20 +9,56 @@
             <field name="arch" type="xml">
                 <form string="Gestión de Capítulos">
                     <group>
-                        <field name="sale_order_id" readonly="1"/>
                         <field name="action_type" widget="radio"/>
                         <field name="show_create_fields" invisible="1"/>
                         <field name="show_template_fields" invisible="1"/>
                     </group>
                     
                     <!-- Campos para crear nuevo capítulo -->
-                    <group string="Nuevo Capítulo" invisible="not show_create_fields">
+                    <group name="create_fields" string="Nuevo Capítulo" invisible="not show_create_fields">
                         <field name="name" placeholder="Ej: MONTACARGAS MC-1700" required="action_type == 'create'"/>
                         <field name="description" placeholder="Ej: MONTACARGAS DE MATERIALES, CON PARA EN TERRAZA PARA DESEMBARCO."/>
+                        <field name="condiciones_particulares" placeholder="Condiciones particulares del capítulo..."/>
                     </group>
                     
+                    <notebook name="create_notebook" invisible="not show_create_fields">
+                        <page string="Secciones y Productos">
+                            <field name="seccion_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="es_fija"/>
+                                </tree>
+                                <form>
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="sequence"/>
+                                        <field name="es_fija"/>
+                                    </group>
+                                    <field name="producto_ids">
+                                        <tree editable="bottom">
+                                            <field name="sequence" widget="handle"/>
+                                            <field name="product_id"/>
+                                            <field name="quantity"/>
+                                            <field name="product_uom_id"/>
+                                            <field name="price_unit"/>
+                                            <field name="es_fijo"/>
+                                        </tree>
+                                    </field>
+                                </form>
+                            </field>
+                        </page>
+                        <page string="Opciones de Plantilla">
+                             <group>
+                                 <field name="save_as_template"/>
+                                 <field name="show_template_name" invisible="1"/>
+                                 <field name="template_name" invisible="not show_template_name" placeholder="Nombre de la plantilla..."/>
+                             </group>
+                         </page>
+                    </notebook>
+                    
                     <!-- Campos para usar plantilla -->
-                    <group string="Seleccionar Plantilla" invisible="not show_template_fields">
+                    <group name="template_fields" string="Seleccionar Plantilla" invisible="not show_template_fields">
                         <field name="plantilla_id" 
                                required="action_type == 'template'"
                                domain="[('active', '=', True)]"/>

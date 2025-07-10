@@ -11,21 +11,11 @@
                 
                 <!-- Agregar botones en el header -->
                 <xpath expr="//form//header" position="inside">
-                    <button name="action_create_capitulo" 
-                            string="Crear Capítulo" 
-                            type="object" 
+                    <button name="%(capitulos.action_capitulo_wizard)d" 
+                            string="Gestionar Capítulos" 
+                            type="action" 
                             class="btn-primary"
                             invisible="state not in ('draft', 'sent')"/>
-                    <button name="action_use_template" 
-                            string="Usar Plantilla" 
-                            type="object" 
-                            class="btn-secondary"
-                            invisible="state not in ('draft', 'sent')"/>
-                    <button name="action_generate_lines_from_capitulos" 
-                            string="Generar Líneas desde Capítulos" 
-                            type="object" 
-                            class="btn-info"
-                            invisible="state not in ('draft', 'sent') or not tiene_capitulos"/>
                 </xpath>
                 
                 <!-- Agregar página de capítulos -->
