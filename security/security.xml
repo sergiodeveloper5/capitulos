@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        
+        <!-- Grupo para Administradores de Capítulos -->
+        <record id="group_capitulo_admin" model="res.groups">
+            <field name="name">Administrador de Capítulos</field>
+            <field name="category_id" ref="base.module_category_sales_management"/>
+            <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_manager'))]"/>
+        </record>
+        
+        <!-- Grupo para Comerciales -->
+        <record id="group_capitulo_comercial" model="res.groups">
+            <field name="name">Comercial de Capítulos</field>
+            <field name="category_id" ref="base.module_category_sales_management"/>
+            <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_salesman'))]"/>
+        </record>
+        
+        <!-- Reglas de acceso para Capítulos -->
+        <record id="rule_capitulo_admin" model="ir.rule">
+            <field name="name">Capítulos: Administradores pueden ver todos</field>
+            <field name="model_id" ref="model_capitulo_capitulo"/>
+            <field name="groups" eval="[(4, ref('group_capitulo_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+        
+        <record id="rule_capitulo_comercial" model="ir.rule">
+            <field name="name">Capítulos: Comerciales pueden ver sus presupuestos</field>
+            <field name="model_id" ref="model_capitulo_capitulo"/>
+            <field name="groups" eval="[(4, ref('group_capitulo_comercial'))]"/>
+            <field name="domain_force">['|', ('sale_order_id.user_id', '=', user.id), ('sale_order_id.user_id', '=', False)]</field>
+        </record>
+        
+        <!-- Reglas de acceso para Plantillas -->
+        <record id="rule_plantilla_admin" model="ir.rule">
+            <field name="name">Plantillas: Administradores pueden ver todas</field>
+            <field name="model_id" ref="model_capitulo_plantilla"/>
+            <field name="groups" eval="[(4, ref('group_capitulo_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+        
+        <record id="rule_plantilla_comercial" model="ir.rule">
+            <field name="name">Plantillas: Comerciales pueden ver plantillas activas</field>
+            <field name="model_id" ref="model_capitulo_plantilla"/>
+            <field name="groups" eval="[(4, ref('group_capitulo_comercial'))]"/>
+            <field name="domain_force">[('active', '=', True)]</field>
+        </record>
+        
+    </data>
+</odoo>

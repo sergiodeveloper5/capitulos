@@ -1,43 +1,26 @@
 # -*- coding: utf-8 -*-
 {
-    'name': 'Sermaco - Gestión de Capítulos y Secciones',
+    'name': 'Capítulos de Andamios - Sermaco',
     'version': '18.0.1.0.0',
     'category': 'Sales',
-    'summary': 'Módulo para gestionar plantillas de capítulos con secciones predefinidas para presupuestos de Sermaco',
-    'description': """
-        Sistema de Capítulos y Secciones para Sermaco
-        =============================================
-        
-        Este módulo permite:
-        * Crear plantillas de capítulos con secciones predefinidas
-        * Control de permisos por roles (Administrador/Técnico vs Comercial)
-        * Secciones fijas no eliminables para comerciales
-        * Restricciones específicas por tipo de sección
-        * Integración completa con presupuestos de venta
-        
-        Empresa: Sermaco (Andamios y Equipos de Construcción)
-    """,
+    'summary': 'Gestión de capítulos de andamios para presupuestos',
+    'description': '''
+        Módulo para gestionar capítulos de andamios en presupuestos de venta.
+        Permite crear capítulos con secciones y productos, guardar como plantillas
+        y gestionar permisos diferenciados para admin y comerciales.
+    ''',
     'author': 'Sermaco',
-    'website': 'https://www.sermaco.com',
-    'depends': ['base', 'sale'],
+    'website': '',
+    'depends': ['sale_management', 'product'],
     'data': [
-        # Seguridad
-        'security/security_groups.xml',
         'security/ir.model.access.csv',
-        
-        # Datos
-        'data/sale_order_chapter_template_data.xml',
-        'data/conditions_section_data.xml',
-        
-        # Vistas
-        'views/sale_order_chapter_template_views.xml',
-        'views/sale_order_chapter_section_template_views.xml',
+        'security/security.xml',
         'views/sale_order_views.xml',
-        'wizards/sale_order_chapter_wizard_views.xml',
+        'wizard/capitulo_wizard_views.xml',
+        'data/capitulo_data.xml',
     ],
     'demo': [],
     'installable': True,
     'auto_install': False,
-    'application': True,
-    'license': 'LGPL-3',
+    'application': False,
 }

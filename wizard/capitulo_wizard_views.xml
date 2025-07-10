@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- Vista del wizard para crear capítulos -->
+        <record id="view_capitulo_wizard_form" model="ir.ui.view">
+            <field name="name">capitulo.wizard.form</field>
+            <field name="model">capitulo.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Gestión de Capítulos">
+                    <group>
+                        <field name="sale_order_id" readonly="1"/>
+                        <field name="action_type" widget="radio"/>
+                        <field name="show_create_fields" invisible="1"/>
+                        <field name="show_template_fields" invisible="1"/>
+                    </group>
+                    
+                    <!-- Campos para crear nuevo capítulo -->
+                    <group string="Nuevo Capítulo" attrs="{'invisible': [('show_create_fields', '=', False)]}">
+                        <field name="name" placeholder="Ej: MONTACARGAS MC-1700" required="1" attrs="{'required': [('action_type', '=', 'create')]}"/>
+                        <field name="description" placeholder="Ej: MONTACARGAS DE MATERIALES, CON PARA EN TERRAZA PARA DESEMBARCO."/>
+                    </group>
+                    
+                    <!-- Campos para usar plantilla -->
+                    <group string="Seleccionar Plantilla" attrs="{'invisible': [('show_template_fields', '=', False)]}">
+                        <field name="plantilla_id" 
+                               required="1" 
+                               attrs="{'required': [('action_type', '=', 'template')]}"
+                               domain="[('active', '=', True)]"/>
+                    </group>
+                    
+                    <footer>
+                        <button name="action_confirm" string="Confirmar" type="object" class="btn-primary"/>
+                        <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+        
+        <!-- Acción del wizard -->
+        <record id="action_capitulo_wizard" model="ir.actions.act_window">
+            <field name="name">Gestión de Capítulos</field>
+            <field name="res_model">capitulo.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+        
+    </data>
+</odoo>
