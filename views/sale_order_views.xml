@@ -35,8 +35,14 @@
                 <field name="price_unit"/>
                 <field name="tax_id" widget="many2many_tags"/>
                 <field name="price_subtotal"/>
+                <field name="capitulo_id" invisible="not es_linea_capitulo"/>
+                <field name="seccion_configurada" invisible="not es_linea_capitulo"/>
+                <button name="action_configure_secciones" string="Configurar" type="object" 
+                        icon="fa-cog" invisible="not es_linea_capitulo"
+                        help="Configurar secciones del capítulo"/>
                 <field name="es_encabezado_capitulo" invisible="1"/>
                 <field name="es_encabezado_seccion" invisible="1"/>
+                <field name="es_linea_capitulo" invisible="1"/>
             </list>
         </field>
     </record>

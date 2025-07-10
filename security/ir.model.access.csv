@@ -2,6 +2,6 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_capitulo_user,capitulo.contrato,model_capitulo_contrato,base.group_user,1,1,1,1
 access_capitulo_seccion_user,capitulo.seccion,model_capitulo_seccion,base.group_user,1,1,1,1
 access_capitulo_seccion_line_user,capitulo.seccion.line,model_capitulo_seccion_line,base.group_user,1,1,1,1
-access_wizard_user,capitulo.wizard,model_capitulo_wizard,base.group_user,1,1,1,1
-access_wizard_seccion_user,capitulo.wizard.seccion,model_capitulo_wizard_seccion,base.group_user,1,1,1,1
-access_wizard_line_user,capitulo.wizard.line,model_capitulo_wizard_line,base.group_user,1,1,1,1
+access_seccion_configurator_user,capitulo.seccion.configurator,model_capitulo_seccion_configurator,base.group_user,1,1,1,1
+access_seccion_configurator_line_user,capitulo.seccion.configurator.line,model_capitulo_seccion_configurator_line,base.group_user,1,1,1,1
+access_seccion_configurator_product_user,capitulo.seccion.configurator.product,model_capitulo_seccion_configurator_product,base.group_user,1,1,1,1

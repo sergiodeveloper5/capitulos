@@ -9,15 +9,36 @@ _logger = logging.getLogger(__name__)
 class CapituloContrato(models.Model):
     _name = 'capitulo.contrato'
     _description = 'Capítulo de Contrato'
+    _inherit = ['product.template']
+    _order = 'name'
+    
+    # Configuración por defecto para productos de tipo capítulo
+    @api.model
+    def _get_default_category_id(self):
+        category = self.env.ref('capitulos.product_category_capitulos', raise_if_not_found=False)
+        return category.id if category else False
 
-    name = fields.Char(string='Nombre del Capítulo', required=True)
+    # Heredamos name de product.template
     description = fields.Text(string='Descripción')
     seccion_ids = fields.One2many('capitulo.seccion', 'capitulo_id', string='Secciones')
     condiciones_legales = fields.Text(string='Condiciones Legales')
     plantilla_id = fields.Many2one('capitulo.contrato', string='Basado en Plantilla', 
+                                   domain="[('es_plantilla', '=', True)]",
                                    help='Selecciona un capítulo existente como plantilla')
     es_plantilla = fields.Boolean(string='Es Plantilla', default=False,
                                   help='Marca este capítulo como plantilla para ser usado por otros')
+    
+    # Configuración específica para productos de tipo capítulo
+    type = fields.Selection(default='service')
+    categ_id = fields.Many2one(default=_get_default_category_id)
+    is_capitulo = fields.Boolean(string='Es Capítulo', default=True)
+    
+    # Atributos para configuración de secciones
+    attribute_line_ids = fields.One2many(
+        'product.template.attribute.line', 'product_tmpl_id',
+        string='Secciones Configurables',
+        copy=True
+    )
     capitulos_dependientes_count = fields.Integer(
         string='Capítulos Dependientes', 
         compute='_compute_capitulos_dependientes_count',
