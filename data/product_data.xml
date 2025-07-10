@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Categoría de productos para capítulos -->
+    <record id="product_category_capitulos" model="product.category">
+        <field name="name">Capítulos de Contrato</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+    </record>
+
+    <!-- Atributo para secciones de capítulos -->
+    <record id="product_attribute_secciones" model="product.attribute">
+        <field name="name">Secciones del Capítulo</field>
+        <field name="display_type">multi</field>
+        <field name="create_variant">no_variant</field>
+    </record>
+
+    <!-- Valores de atributo para secciones predefinidas -->
+    <record id="product_attribute_value_alquiler" model="product.attribute.value">
+        <field name="name">Alquiler</field>
+        <field name="attribute_id" ref="product_attribute_secciones"/>
+        <field name="sequence">1</field>
+    </record>
+
+    <record id="product_attribute_value_montaje" model="product.attribute.value">
+        <field name="name">Montaje</field>
+        <field name="attribute_id" ref="product_attribute_secciones"/>
+        <field name="sequence">2</field>
+    </record>
+
+    <record id="product_attribute_value_portes" model="product.attribute.value">
+        <field name="name">Portes</field>
+        <field name="attribute_id" ref="product_attribute_secciones"/>
+        <field name="sequence">3</field>
+    </record>
+
+    <record id="product_attribute_value_otros" model="product.attribute.value">
+        <field name="name">Otros Conceptos</field>
+        <field name="attribute_id" ref="product_attribute_secciones"/>
+        <field name="sequence">4</field>
+    </record>
+</odoo>
