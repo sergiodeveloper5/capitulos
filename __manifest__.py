@@ -13,8 +13,8 @@
     'website': '',
     'depends': ['sale_management', 'product'],
     'data': [
-        'security/ir.model.access.csv',
         'security/security.xml',
+        'security/ir.model.access.csv',
         'views/sale_order_views.xml',
         'wizard/capitulo_wizard_views.xml',
         'data/capitulo_data.xml',
