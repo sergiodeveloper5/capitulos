@@ -15,19 +15,16 @@
                             string="Crear Capítulo" 
                             type="object" 
                             class="btn-primary"
-                            groups="capitulos.group_capitulo_admin,capitulos.group_capitulo_comercial"
                             invisible="state not in ('draft', 'sent')"/>
                     <button name="action_use_template" 
                             string="Usar Plantilla" 
                             type="object" 
                             class="btn-secondary"
-                            groups="capitulos.group_capitulo_admin,capitulos.group_capitulo_comercial"
                             invisible="state not in ('draft', 'sent')"/>
                     <button name="action_generate_lines_from_capitulos" 
                             string="Generar Líneas desde Capítulos" 
                             type="object" 
                             class="btn-info"
-                            groups="capitulos.group_capitulo_admin"
                             invisible="state not in ('draft', 'sent') or not tiene_capitulos"/>
                 </xpath>
                 
@@ -54,8 +51,7 @@
                                 <button name="save_as_template" 
                                         string="Guardar como Plantilla" 
                                         type="object" 
-                                        icon="fa-save"
-                                        groups="capitulos.group_capitulo_admin"/>
+                                        icon="fa-save"/>
                             </list>
                         </field>
                         
@@ -148,7 +144,7 @@
         <record id="view_capitulo_form_comercial" model="ir.ui.view">
             <field name="name">capitulo.capitulo.form.comercial</field>
             <field name="model">capitulo.capitulo</field>
-            <field name="groups_id" eval="[(4, ref('capitulos.group_capitulo_comercial'))]"/>
+            <field name="groups_id" eval="[(4, ref('base.group_user'))]"/>
             <field name="arch" type="xml">
                 <form string="Capítulo">
                     <header>
