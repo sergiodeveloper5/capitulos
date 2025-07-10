@@ -25,29 +25,11 @@ class CapituloWizardSeccion(models.TransientModel):
         return super().create(vals)
     
     def unlink(self):
-        """Previene la eliminación de secciones fijas"""
-        for seccion in self:
-            if seccion.es_fija:
-                raise UserError(
-                    f"No se puede eliminar la sección '{seccion.name}' porque es una sección fija.\n"
-                    "Las secciones fijas son elementos estructurales del capítulo."
-                )
+        """Permite la eliminación de secciones en el wizard"""
         return super().unlink()
     
     def write(self, vals):
-        """Previene la modificación de secciones fijas"""
-        protected_fields = ['name', 'sequence']
-        
-        for seccion in self:
-            if seccion.es_fija:
-                # Verificar si se está intentando modificar campos protegidos
-                for field in protected_fields:
-                    if field in vals:
-                        raise UserError(
-                            f"No se puede modificar la sección fija '{seccion.name}'.\n"
-                            f"Las secciones fijas son elementos estructurales del capítulo."
-                        )
-        
+        """Permite la modificación de secciones en el wizard"""
         return super().write(vals)
     
     @api.constrains('name')
@@ -79,9 +61,7 @@ class CapituloWizardSeccion(models.TransientModel):
         return super().create(vals)
     
     def unlink_seccion(self):
-        """Elimina la sección si no es fija"""
-        if self.es_fija:
-            raise UserError("No se pueden eliminar secciones fijas")
+        """Elimina la sección"""
         return self.unlink()
 
 class CapituloWizardLine(models.TransientModel):
@@ -169,124 +149,21 @@ class CapituloWizard(models.TransientModel):
         
         return wizard
     
-    def action_force_refresh_sections(self):
-        """Fuerza la actualización de las secciones para mostrar nombres correctos"""
-        self.ensure_one()
-        _logger.info("=== Forzando actualización de secciones ===")
-        
-        # Verificar y corregir nombres de secciones
-        nombres_correctos = ['Alquiler', 'Montaje', 'Portes', 'Otros Conceptos']
-        
-        for i, seccion in enumerate(self.seccion_ids.sorted('sequence')):
-            if i < len(nombres_correctos):
-                nombre_correcto = nombres_correctos[i]
-                if seccion.name != nombre_correcto:
-                    _logger.info(f"Corrigiendo nombre de sección: '{seccion.name}' -> '{nombre_correcto}'")
-                    seccion.write({'name': nombre_correcto})
-        
-        # Corregir relaciones wizard_id en líneas de productos
-        self._fix_wizard_relations()
-        
-        # Forzar refresco
-        self.env.flush_all()
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Secciones Actualizadas',
-                'message': 'Los nombres de las secciones y relaciones han sido corregidos.',
-                'type': 'success',
-                'sticky': False,
-            }
-        }
+
     
-    def action_fix_wizard_relations(self):
-        """Método público para corregir las relaciones wizard_id en todas las líneas de productos"""
-        self.ensure_one()
-        _logger.info("=== Corrigiendo relaciones wizard_id ===")
-        
-        correcciones = 0
-        total_lineas = 0
-        
-        for seccion in self.seccion_ids:
-            for line in seccion.line_ids:
-                total_lineas += 1
-                if not line.wizard_id:
-                    _logger.info(f"Corrigiendo wizard_id para línea {line.id} en sección {seccion.name}")
-                    line.write({'wizard_id': self.id})
-                    correcciones += 1
-                elif line.wizard_id.id != self.id:
-                    _logger.info(f"Corrigiendo wizard_id incorrecto para línea {line.id}: {line.wizard_id.id} -> {self.id}")
-                    line.write({'wizard_id': self.id})
-                    correcciones += 1
-        
-        mensaje = f"Relaciones corregidas: {correcciones} de {total_lineas} líneas de productos."
-        _logger.info(mensaje)
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Relaciones Corregidas',
-                'message': mensaje,
-                'type': 'success' if correcciones > 0 else 'info',
-                'sticky': False,
-            }
-        }
+
     
-    def action_auto_include_products(self):
-        """Marca todas las secciones como incluir para facilitar la selección"""
-        self.ensure_one()
-        
-        secciones_marcadas = 0
-        for seccion in self.seccion_ids:
-            if not seccion.incluir:
-                seccion.incluir = True
-                secciones_marcadas += 1
-        
-        if secciones_marcadas > 0:
-            mensaje = f"Se han marcado {secciones_marcadas} secciones como 'Incluir'.\n\nAhora puede añadir productos a las secciones marcadas y hacer clic en 'Añadir al Presupuesto'."
-            tipo = 'success'
-        else:
-            mensaje = "Todas las secciones ya están marcadas como 'Incluir'."
-            tipo = 'info'
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Secciones Marcadas',
-                'message': mensaje,
-                'type': tipo,
-                'sticky': False,
-            }
-        }
+
     
-    def _fix_wizard_relations(self):
-        """Método privado para corregir relaciones - usado internamente"""
-        correcciones = 0
-        for seccion in self.seccion_ids:
-            for line in seccion.line_ids:
-                if not line.wizard_id:
-                    line.write({'wizard_id': self.id})
-                    correcciones += 1
-                elif line.wizard_id.id != self.id:
-                    line.write({'wizard_id': self.id})
-                    correcciones += 1
-        return correcciones
+
     
     def write(self, vals):
-        """Override write para verificar integridad después de cambios"""
+        """Override write para manejar cambios"""
         # Evitar recursión infinita con una bandera de contexto
         if self.env.context.get('skip_integrity_check'):
             return super().write(vals)
             
         result = super().write(vals)
-        # NO verificar integridad automáticamente para preservar selecciones del usuario
-        # Solo verificar en casos específicos como cambio de modo
-        if 'modo_creacion' in vals and not self.env.context.get('from_onchange'):
-            self._verificar_integridad_secciones()
         return result
 
     @api.onchange('modo_creacion')
@@ -332,149 +209,13 @@ class CapituloWizard(models.TransientModel):
     
 
     
-    def _verificar_integridad_secciones(self):
-        """Verifica y restaura la integridad de las secciones predefinidas solo si es necesario"""
-        # Solo verificar si hay secciones con nombres vacíos o inválidos
-        secciones_actuales = [s.name for s in self.seccion_ids if s.name and s.name.strip()]
-        
-        # Si hay secciones con nombres vacíos o "Nueva Sección", recrear solo si no hay secciones válidas
-        if any(name == 'Nueva Sección' for name in secciones_actuales) or len(secciones_actuales) == 0:
-            self._crear_secciones_predefinidas()
-            return True
-        return False
+
     
-    def action_open_templates(self):
-        """Abre la lista de plantillas disponibles"""
-        return {
-            'type': 'ir.actions.act_window',
-            'name': 'Plantillas de Capítulos',
-            'res_model': 'capitulo.contrato',
-            'view_mode': 'list,form',
-            'domain': [('es_plantilla', '=', True)],
-            'context': {'search_default_es_plantilla': 1},
-            'target': 'new',
-        }
+
     
-    def action_create_template(self):
-        """Crea una nueva plantilla"""
-        return {
-            'type': 'ir.actions.act_window',
-            'name': 'Crear Nueva Plantilla',
-            'res_model': 'capitulo.contrato',
-            'view_mode': 'form',
-            'context': {'default_es_plantilla': True},
-            'target': 'new',
-        }
+
     
-    def action_delete_template(self):
-        """Elimina la plantilla seleccionada"""
-        if not self.capitulo_id or not self.capitulo_id.es_plantilla:
-            raise UserError("Solo se pueden eliminar plantillas.")
-        
-        # Llamar al método de eliminación de la plantilla
-        result = self.capitulo_id.action_eliminar_plantilla_forzado()
-        
-        # Limpiar el campo capitulo_id después de la eliminación
-        self.capitulo_id = False
-        
-        return {
-              'type': 'ir.actions.client',
-              'tag': 'display_notification',
-              'params': {
-                  'title': 'Plantilla Eliminada',
-                  'message': 'La plantilla ha sido eliminada correctamente.',
-                  'type': 'success',
-                  'sticky': False,
-              }
-         }
-    
-    def action_reset_sections(self):
-        """Resetea las secciones manteniendo las selecciones del usuario"""
-        self.ensure_one()
-        
-        # Guardar las selecciones actuales del usuario
-        selecciones_usuario = {}
-        productos_usuario = {}
-        
-        for seccion in self.seccion_ids:
-            selecciones_usuario[seccion.name] = seccion.incluir
-            productos_usuario[seccion.name] = []
-            for line in seccion.line_ids:
-                if line.product_id:
-                    productos_usuario[seccion.name].append({
-                        'product_id': line.product_id.id,
-                        'incluir': line.incluir,
-                        'cantidad': line.cantidad,
-                        'precio_unitario': line.precio_unitario,
-                        'descripcion_personalizada': line.descripcion_personalizada,
-                    })
-        
-        # Recrear secciones predefinidas
-        if self.modo_creacion == 'existente' and self.capitulo_id:
-            self._cargar_secciones_existentes()
-        else:
-            self._crear_secciones_predefinidas()
-        
-        # Restaurar las selecciones del usuario
-        for seccion in self.seccion_ids:
-            if seccion.name in selecciones_usuario:
-                seccion.incluir = selecciones_usuario[seccion.name]
-                
-                # Restaurar productos si existen
-                if seccion.name in productos_usuario:
-                    for producto_data in productos_usuario[seccion.name]:
-                        # Buscar si ya existe una línea para este producto
-                        existing_line = seccion.line_ids.filtered(lambda l: l.product_id.id == producto_data['product_id'])
-                        if existing_line:
-                            existing_line.write({
-                                'incluir': producto_data['incluir'],
-                                'cantidad': producto_data['cantidad'],
-                                'precio_unitario': producto_data['precio_unitario'],
-                                'descripcion_personalizada': producto_data['descripcion_personalizada'],
-                            })
-                        else:
-                            # Crear nueva línea de producto
-                            self.env['capitulo.wizard.line'].create({
-                                'seccion_id': seccion.id,
-                                'product_id': producto_data['product_id'],
-                                'incluir': producto_data['incluir'],
-                                'cantidad': producto_data['cantidad'],
-                                'precio_unitario': producto_data['precio_unitario'],
-                                'descripcion_personalizada': producto_data['descripcion_personalizada'],
-                            })
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Secciones Restauradas',
-                'message': 'Las secciones han sido restauradas manteniendo sus selecciones.',
-                'type': 'success',
-                'sticky': False,
-            }
-        }
-    
-    def action_convert_to_template(self):
-        """Convierte el capítulo seleccionado en plantilla"""
-        if not self.capitulo_id:
-            raise UserError("Debe seleccionar un capítulo para convertir en plantilla.")
-        
-        if self.capitulo_id.es_plantilla:
-            raise UserError("El capítulo seleccionado ya es una plantilla.")
-        
-        # Convertir en plantilla
-        self.capitulo_id.write({'es_plantilla': True})
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Capítulo Convertido',
-                'message': f'El capítulo "{self.capitulo_id.name}" ha sido convertido en plantilla correctamente.',
-                'type': 'success',
-                'sticky': False,
-            }
-        }
+
     
     def _crear_secciones_predefinidas(self):
         """Crea secciones predefinidas básicas"""
@@ -664,8 +405,7 @@ class CapituloWizard(models.TransientModel):
                 producto_nombre = line.product_id.name if line.product_id else 'Sin producto'
                 _logger.info(f"    * ID: {line.id} | {producto_nombre}, Wizard ID: {line.wizard_id.id if line.wizard_id else 'NO ESTABLECIDO'}")
         
-        # NO verificar integridad de secciones para preservar selecciones del usuario
-        # self._verificar_integridad_secciones()
+
         
         # Validar datos del wizard antes de proceder
         self._validate_wizard_data()
@@ -784,79 +524,9 @@ class CapituloWizard(models.TransientModel):
 
         return {'type': 'ir.actions.act_window_close'}
     
-    def add_seccion(self):
-        """Función deshabilitada - No se pueden añadir más secciones"""
-        raise UserError(
-            "No se pueden añadir nuevas secciones.\n"
-            "Las secciones están predefinidas y son fijas para mantener la estructura del capítulo."
-        )
+
     
-    def debug_wizard_state(self):
-        """Método de depuración para verificar el estado del wizard"""
-        self.ensure_one()
-        
-        debug_info = []
-        debug_info.append(f"=== ESTADO DEL WIZARD ===")
-        debug_info.append(f"Wizard ID: {self.id}")
-        debug_info.append(f"Modo: {self.modo_creacion}")
-        debug_info.append(f"Capítulo seleccionado: {self.capitulo_id.name if self.capitulo_id else 'Ninguno'}")
-        debug_info.append(f"Nuevo capítulo: {self.nuevo_capitulo_nombre or 'N/A'}")
-        debug_info.append(f"Número de secciones: {len(self.seccion_ids)}")
-        debug_info.append("")
-        
-        secciones_con_productos = 0
-        total_productos = 0
-        productos_con_producto_seleccionado = 0
-        
-        for seccion in self.seccion_ids:
-            debug_info.append(f"Sección: '{seccion.name}' (ID: {seccion.id})")
-            debug_info.append(f"  - Es fija: {seccion.es_fija}")
-            debug_info.append(f"  - Wizard ID: {seccion.wizard_id.id if seccion.wizard_id else 'NO ESTABLECIDO'}")
-            debug_info.append(f"  - Productos: {len(seccion.line_ids)}")
-            
-            productos_en_seccion = seccion.line_ids.filtered(lambda l: l.product_id)
-            if productos_en_seccion:
-                secciones_con_productos += 1
-            
-            for line in seccion.line_ids:
-                total_productos += 1
-                producto_nombre = line.product_id.name if line.product_id else 'Sin producto'
-                debug_info.append(f"    * ID: {line.id} | {producto_nombre}")
-                debug_info.append(f"      - Cantidad: {line.cantidad}")
-                debug_info.append(f"      - Precio: {line.precio_unitario}")
-                debug_info.append(f"      - Wizard ID: {line.wizard_id.id if line.wizard_id else 'NO ESTABLECIDO'}")
-                debug_info.append(f"      - Sección ID: {line.seccion_id.id if line.seccion_id else 'NO ESTABLECIDO'}")
-                if line.product_id:
-                    productos_con_producto_seleccionado += 1
-            debug_info.append("")
-        
-        debug_info.append(f"RESUMEN:")
-        debug_info.append(f"- Secciones con productos: {secciones_con_productos} de {len(self.seccion_ids)}")
-        debug_info.append(f"- Productos con producto seleccionado: {productos_con_producto_seleccionado} de {total_productos}")
-        debug_info.append(f"")
-        debug_info.append(f"DIAGNÓSTICO:")
-        if productos_con_producto_seleccionado == 0:
-            debug_info.append(f"⚠️ PROBLEMA: No hay productos seleccionados")
-            debug_info.append(f"   SOLUCIÓN: Añada productos en las secciones usando 'Añadir una línea'")
-        elif secciones_con_productos == 0:
-            debug_info.append(f"⚠️ PROBLEMA: No hay secciones con productos")
-            debug_info.append(f"   SOLUCIÓN: Seleccione productos en al menos una sección")
-        else:
-            debug_info.append(f"✅ TODO CORRECTO: {productos_con_producto_seleccionado} productos listos para añadir automáticamente")
-        
-        mensaje = "\n".join(debug_info)
-        _logger.info(f"Debug wizard state:\n{mensaje}")
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Estado del Wizard - Diagnóstico',
-                'message': mensaje,
-                'type': 'info',
-                'sticky': True,
-            }
-        }
+
     
 
     
@@ -884,6 +554,37 @@ class CapituloWizard(models.TransientModel):
         # Validar que al menos una sección tenga productos
         if not secciones_con_productos:
             raise UserError("Debe añadir al menos un producto en alguna sección para crear el presupuesto.")
+    
+    def add_seccion(self):
+        """Añade una nueva sección al wizard"""
+        self.ensure_one()
+        
+        # Calcular la siguiente secuencia
+        next_sequence = (max(self.seccion_ids.mapped('sequence')) + 10) if self.seccion_ids else 10
+        
+        # Crear nueva sección directamente usando write para evitar triggers automáticos
+        nueva_seccion_vals = (0, 0, {
+            'name': 'Nueva Sección',
+            'sequence': next_sequence,
+            'es_fija': False,  # Nueva sección no es fija, el usuario puede editarla
+            'incluir': False,
+        })
+        
+        # Añadir la nueva sección sin limpiar las existentes
+        self.with_context(skip_integrity_check=True).write({
+            'seccion_ids': [nueva_seccion_vals]
+        })
+        
+        _logger.info(f"Nueva sección añadida con secuencia {next_sequence}")
+        
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'capitulo.wizard',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'new',
+            'context': self.env.context,
+        }
     
     def add_another_chapter(self):
         """Añade el capítulo actual y abre el wizard para añadir otro"""
