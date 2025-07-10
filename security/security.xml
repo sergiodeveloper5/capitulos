@@ -2,18 +2,27 @@
 <odoo>
     <data noupdate="1">
         
+        <!-- Categoría personalizada para el módulo -->
+        <record id="module_category_capitulos" model="ir.module.category">
+            <field name="name">Capítulos de Andamios</field>
+            <field name="description">Gestión de capítulos para presupuestos de andamios</field>
+            <field name="sequence">20</field>
+        </record>
+        
         <!-- Grupo para Administradores de Capítulos -->
         <record id="group_capitulo_admin" model="res.groups">
             <field name="name">Administrador de Capítulos</field>
-            <field name="category_id" ref="base.module_category_sales_management"/>
-            <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_manager'))]"/>
+            <field name="category_id" ref="module_category_capitulos"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+            <field name="comment">Acceso completo a la gestión de capítulos, plantillas y configuración</field>
         </record>
         
         <!-- Grupo para Comerciales -->
         <record id="group_capitulo_comercial" model="res.groups">
             <field name="name">Comercial de Capítulos</field>
-            <field name="category_id" ref="base.module_category_sales_management"/>
-            <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_salesman'))]"/>
+            <field name="category_id" ref="module_category_capitulos"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+            <field name="comment">Acceso limitado para crear y gestionar capítulos en sus presupuestos</field>
         </record>
         
         <!-- Reglas de acceso para Capítulos -->
