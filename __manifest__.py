@@ -17,6 +17,7 @@
         'views/capitulo_views.xml',
         'views/sale_order_views.xml',
         'views/capitulo_wizard_view.xml',
+        'views/product_views.xml',
     ],
     'installable': True,
     'auto_install': False,

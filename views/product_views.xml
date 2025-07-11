@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Heredar vista de búsqueda de productos -->
+    <record id="product_template_search_view_inherit" model="ir.ui.view">
+        <field name="name">product.template.search.inherit.capitulos</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_search_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <field name="capitulo_id"/>
+                <field name="tipo_seccion"/>
+                <filter string="Alquiler" name="alquiler" domain="[('tipo_seccion', '=', 'alquiler')]"/>
+                <filter string="Montaje" name="montaje" domain="[('tipo_seccion', '=', 'montaje')]"/>
+                <filter string="Desmontaje" name="desmontaje" domain="[('tipo_seccion', '=', 'desmontaje')]"/>
+                <filter string="Portes" name="portes" domain="[('tipo_seccion', '=', 'portes')]"/>
+                <filter string="Otros" name="otros" domain="[('tipo_seccion', '=', 'otros')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Capítulo" name="capitulo" context="{'group_by': 'capitulo_id'}"/>
+                    <filter string="Tipo de Sección" name="tipo_seccion" context="{'group_by': 'tipo_seccion'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Heredar vista de formulario de productos -->
+    <record id="product_template_form_view_inherit" model="ir.ui.view">
+        <field name="name">product.template.form.inherit.capitulos</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='general_information']//group" position="inside">
+                <group string="Capítulos y Secciones">
+                    <field name="capitulo_id"/>
+                    <field name="tipo_seccion"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
