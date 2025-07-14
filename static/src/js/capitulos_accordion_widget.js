@@ -38,14 +38,16 @@ export class CapitulosAccordionWidget extends Component {
         return Object.keys(data).map((chapterName, index) => ({
             name: chapterName,
             data: data[chapterName],
-            id: `chapter_${index}`,
-            isCollapsed: this.state.collapsedChapters[chapterName] || false
+            id: `chapter_${index}`
         }));
     }
 
     toggleChapter(chapterName) {
         console.log('CapitulosAccordionWidget - toggleChapter called for:', chapterName);
-        this.state.collapsedChapters[chapterName] = !this.state.collapsedChapters[chapterName];
+        this.state.collapsedChapters = {
+            ...this.state.collapsedChapters,
+            [chapterName]: !this.state.collapsedChapters[chapterName]
+        };
         console.log('CapitulosAccordionWidget - new state:', this.state.collapsedChapters);
     }
 
