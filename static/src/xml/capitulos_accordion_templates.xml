@@ -17,12 +17,12 @@
                                 <i class="fa fa-folder-o me-2"></i>
                                 <t t-esc="chapter.name"/>
                             </span>
-                            <i t-attf-class="fa fa-chevron-{{ chapter.isCollapsed ? 'right' : 'down' }}"></i>
+                            <i t-attf-class="fa fa-chevron-{{ this.isChapterCollapsed(chapter.name) ? 'right' : 'down' }}"></i>
                         </button>
                     </div>
                     
                     <!-- Contenido del capítulo -->
-                    <div t-if="!chapter.isCollapsed" class="card-body p-0">
+                    <div t-if="!this.isChapterCollapsed(chapter.name)" class="card-body p-0">
                         <table class="table table-sm mb-0">
                             <thead style="background-color: #e9ecef;">
                                 <tr>

@@ -65,11 +65,12 @@ class SaleOrder(models.Model):
             
             order.capitulos_agrupados = json.dumps(capitulos_dict) if capitulos_dict else '{}'
     
-    @api.depends('capitulo_ids')
+    @api.depends('order_line', 'order_line.es_encabezado_capitulo')
     def _compute_tiene_multiples_capitulos(self):
-        """Calcula si el pedido tiene más de un capítulo"""
+        """Calcula si el pedido tiene más de un capítulo basado en las líneas de encabezado"""
         for order in self:
-            order.tiene_multiples_capitulos = len(order.capitulo_ids) > 1
+            capitulos_count = len(order.order_line.filtered('es_encabezado_capitulo'))
+            order.tiene_multiples_capitulos = capitulos_count > 1
     
     def action_add_capitulo(self):
         """Acción para abrir el wizard de capítulos"""
