@@ -16,6 +16,12 @@ class SaleOrder(models.Model):
         help="JSON con las líneas agrupadas por capítulo para el widget acordeón"
     )
     
+    tiene_multiples_capitulos = fields.Boolean(
+        string='Tiene Múltiples Capítulos',
+        compute='_compute_tiene_multiples_capitulos',
+        help="Indica si el pedido tiene más de un capítulo"
+    )
+    
     @api.depends('order_line', 'order_line.es_encabezado_capitulo', 'order_line.es_encabezado_seccion')
     def _compute_capitulos_agrupados(self):
         """Agrupa las líneas del pedido por capítulos para mostrar en acordeón"""
@@ -58,6 +64,12 @@ class SaleOrder(models.Model):
                     capitulos_dict[current_capitulo_name]['total'] += line.price_subtotal
             
             order.capitulos_agrupados = json.dumps(capitulos_dict) if capitulos_dict else '{}'
+    
+    @api.depends('capitulo_ids')
+    def _compute_tiene_multiples_capitulos(self):
+        """Calcula si el pedido tiene más de un capítulo"""
+        for order in self:
+            order.tiene_multiples_capitulos = len(order.capitulo_ids) > 1
     
     def action_add_capitulo(self):
         """Acción para abrir el wizard de capítulos"""

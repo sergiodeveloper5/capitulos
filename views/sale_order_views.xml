@@ -12,13 +12,13 @@
             <xpath expr="//field[@name='order_line']" position="replace">
                 <div class="capitulos-container">
                     <!-- Mostrar capítulos en acordeón si hay más de uno -->
-                    <div invisible="not capitulo_ids or len(capitulo_ids) &lt;= 1">
+                    <div invisible="not tiene_multiples_capitulos">
                         <h4 style="margin-bottom: 15px; color: #007bff;">📋 Capítulos del Presupuesto</h4>
                         <field name="capitulos_agrupados" widget="capitulos_accordion" nolabel="1"/>
                     </div>
                     
                     <!-- Vista tradicional para un solo capítulo o sin capítulos -->
-                    <div invisible="capitulo_ids and len(capitulo_ids) > 1">
+                    <div invisible="tiene_multiples_capitulos">
                         <field name="order_line" widget="section_and_note_one2many">
                             <list decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" editable="bottom">
                                 <field name="sequence" widget="handle"/>
@@ -37,6 +37,7 @@
             </xpath>
             <xpath expr="//field[@name='order_line']" position="after">
                 <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
+                <field name="tiene_multiples_capitulos" invisible="1"/>
             </xpath>
         </field>
     </record>
