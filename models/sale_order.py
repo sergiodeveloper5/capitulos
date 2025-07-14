@@ -17,9 +17,9 @@ class SaleOrder(models.Model):
     )
     
     tiene_multiples_capitulos = fields.Boolean(
-        string='Tiene Múltiples Capítulos',
+        string='Mostrar Acordeón de Capítulos',
         compute='_compute_tiene_multiples_capitulos',
-        help="Indica si el pedido tiene más de un capítulo"
+        help="Indica si el pedido tiene capítulos para mostrar en acordeón"
     )
     
     @api.depends('order_line', 'order_line.es_encabezado_capitulo', 'order_line.es_encabezado_seccion')
@@ -29,27 +29,38 @@ class SaleOrder(models.Model):
         
         for order in self:
             capitulos_dict = {}
-            current_capitulo_name = None
+            current_capitulo_key = None
             current_seccion_name = None
+            capitulo_counter = {}
             
             for line in order.order_line.sorted('sequence'):
                 if line.es_encabezado_capitulo:
-                    # Nuevo capítulo
-                    current_capitulo_name = line.name
-                    capitulos_dict[current_capitulo_name] = {
+                    # Nuevo capítulo - crear clave única para permitir duplicados
+                    base_name = line.name
+                    if base_name not in capitulo_counter:
+                        capitulo_counter[base_name] = 0
+                    capitulo_counter[base_name] += 1
+                    
+                    # Crear clave única: nombre + contador si hay duplicados
+                    if capitulo_counter[base_name] == 1:
+                        current_capitulo_key = base_name
+                    else:
+                        current_capitulo_key = f"{base_name} ({capitulo_counter[base_name]})"
+                    
+                    capitulos_dict[current_capitulo_key] = {
                         'sections': {},
                         'total': 0.0
                     }
                     current_seccion_name = None
                     
-                elif line.es_encabezado_seccion and current_capitulo_name:
+                elif line.es_encabezado_seccion and current_capitulo_key:
                     # Nueva sección dentro del capítulo actual
                     current_seccion_name = line.name
-                    capitulos_dict[current_capitulo_name]['sections'][current_seccion_name] = {
+                    capitulos_dict[current_capitulo_key]['sections'][current_seccion_name] = {
                         'lines': []
                     }
                     
-                elif current_capitulo_name and current_seccion_name:
+                elif current_capitulo_key and current_seccion_name:
                     # Producto dentro de la sección actual
                     line_data = {
                         'sequence': line.sequence,
@@ -60,17 +71,17 @@ class SaleOrder(models.Model):
                         'price_unit': line.price_unit,
                         'price_subtotal': line.price_subtotal
                     }
-                    capitulos_dict[current_capitulo_name]['sections'][current_seccion_name]['lines'].append(line_data)
-                    capitulos_dict[current_capitulo_name]['total'] += line.price_subtotal
+                    capitulos_dict[current_capitulo_key]['sections'][current_seccion_name]['lines'].append(line_data)
+                    capitulos_dict[current_capitulo_key]['total'] += line.price_subtotal
             
             order.capitulos_agrupados = json.dumps(capitulos_dict) if capitulos_dict else '{}'
     
     @api.depends('order_line', 'order_line.es_encabezado_capitulo')
     def _compute_tiene_multiples_capitulos(self):
-        """Calcula si el pedido tiene más de un capítulo basado en las líneas de encabezado"""
+        """Calcula si el pedido tiene capítulos para mostrar el acordeón"""
         for order in self:
             capitulos_count = len(order.order_line.filtered('es_encabezado_capitulo'))
-            order.tiene_multiples_capitulos = capitulos_count > 1
+            order.tiene_multiples_capitulos = capitulos_count >= 1
     
     def action_add_capitulo(self):
         """Acción para abrir el wizard de capítulos"""

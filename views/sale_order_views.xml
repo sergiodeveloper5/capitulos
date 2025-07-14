@@ -11,13 +11,13 @@
             </xpath>
             <xpath expr="//field[@name='order_line']" position="replace">
                 <div class="capitulos-container">
-                    <!-- Mostrar capítulos en acordeón si hay más de uno -->
+                    <!-- Mostrar capítulos en acordeón cuando hay capítulos estructurados -->
                     <div invisible="not tiene_multiples_capitulos">
                         <h4 style="margin-bottom: 15px; color: #007bff;">📋 Capítulos del Presupuesto</h4>
                         <field name="capitulos_agrupados" widget="capitulos_accordion" nolabel="1"/>
                     </div>
                     
-                    <!-- Vista tradicional para un solo capítulo o sin capítulos -->
+                    <!-- Vista tradicional cuando no hay capítulos estructurados -->
                     <div invisible="tiene_multiples_capitulos">
                         <field name="order_line" widget="section_and_note_one2many">
                             <list decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" editable="bottom">

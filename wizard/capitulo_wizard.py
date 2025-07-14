@@ -319,7 +319,7 @@ class CapituloWizard(models.TransientModel):
                     'cantidad': linea.cantidad,
                     'precio_unitario': linea.precio_unitario,
                     'sequence': linea.sequence,
-                    'incluir': False,  # Por defecto no incluir, el usuario debe seleccionar
+                    'incluir': True,  # En modo existente, incluir automáticamente todos los productos
                     'es_opcional': linea.es_opcional,
                 }))
             
@@ -327,7 +327,7 @@ class CapituloWizard(models.TransientModel):
                 'name': seccion.name,
                 'sequence': seccion.sequence,
                 'es_fija': True,  # Todas las secciones de capítulos existentes son fijas
-                'incluir': False,  # Por defecto no incluir, el usuario debe seleccionar
+                'incluir': True,  # En modo existente, incluir automáticamente todas las secciones
                 'line_ids': lineas_vals,
             }))
         
@@ -410,29 +410,50 @@ class CapituloWizard(models.TransientModel):
         # Validar datos del wizard antes de proceder
         self._validate_wizard_data()
         
-        # Verificar si hay productos para añadir (solo secciones marcadas como incluir)
+        # Verificar si hay productos para añadir
+        # En modo existente, incluir todas las secciones que tengan productos
+        # En modo nuevo, solo las secciones marcadas como incluir
         total_productos_a_añadir = 0
         secciones_con_productos = []
         
-        for seccion in self.seccion_ids.filtered(lambda s: s.incluir):
-            productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
-            if productos_con_producto:
-                total_productos_a_añadir += len(productos_con_producto)
-                secciones_con_productos.append(seccion)
+        if self.modo_creacion == 'existente':
+            # En modo existente, incluir todas las secciones que tengan productos
+            for seccion in self.seccion_ids:
+                productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
+                if productos_con_producto:
+                    total_productos_a_añadir += len(productos_con_producto)
+                    secciones_con_productos.append(seccion)
+        else:
+            # En modo nuevo, solo secciones marcadas como incluir
+            for seccion in self.seccion_ids.filtered(lambda s: s.incluir):
+                productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
+                if productos_con_producto:
+                    total_productos_a_añadir += len(productos_con_producto)
+                    secciones_con_productos.append(seccion)
         
         _logger.info(f"Secciones con productos: {len(secciones_con_productos)}")
         
         _logger.info(f"Total de productos que se van a añadir: {total_productos_a_añadir}")
         
         if total_productos_a_añadir == 0:
-            raise UserError(
-                "No hay productos seleccionados para añadir al presupuesto.\n\n"
-                "Para añadir productos:\n"
-                "1. Marque las secciones que desea incluir usando el toggle 'Incluir'\n"
-                "2. Abra cada sección y añada productos usando 'Añadir una línea'\n"
-                "3. Seleccione el producto, cantidad y precio\n"
-                "4. Haga clic en 'Añadir al Presupuesto'"
-            )
+            if self.modo_creacion == 'existente':
+                raise UserError(
+                    "No hay productos en el capítulo seleccionado para añadir al presupuesto.\n\n"
+                    "Para añadir productos:\n"
+                    "1. Abra las secciones del capítulo\n"
+                    "2. Añada productos usando 'Añadir una línea'\n"
+                    "3. Seleccione el producto, cantidad y precio\n"
+                    "4. Haga clic en 'Añadir al Presupuesto'"
+                )
+            else:
+                raise UserError(
+                    "No hay productos seleccionados para añadir al presupuesto.\n\n"
+                    "Para añadir productos:\n"
+                    "1. Marque las secciones que desea incluir usando el toggle 'Incluir'\n"
+                    "2. Abra cada sección y añada productos usando 'Añadir una línea'\n"
+                    "3. Seleccione el producto, cantidad y precio\n"
+                    "4. Haga clic en 'Añadir al Presupuesto'"
+                )
 
         # Crear o obtener el capítulo según el modo
         capitulo = self._obtener_o_crear_capitulo()
@@ -498,8 +519,9 @@ class CapituloWizard(models.TransientModel):
                     'display_type': 'line_note',
                 })
 
-        # Añadir capítulo a la lista de capítulos aplicados
-        order.write({'capitulo_ids': [(4, capitulo.id)]})
+        # Nota: No añadimos el capítulo a capitulo_ids para permitir capítulos duplicados
+        # La información del capítulo se mantiene en las líneas del pedido
+        # order.write({'capitulo_ids': [(4, capitulo.id)]})
 
         # Añadir condiciones particulares si existen
         if self.condiciones_particulares:
@@ -551,8 +573,9 @@ class CapituloWizard(models.TransientModel):
         
         _logger.info(f"Validación: {len(secciones_con_productos)} secciones con productos de {len(self.seccion_ids)} total")
         
-        # Validar que al menos una sección tenga productos
-        if not secciones_con_productos:
+        # En modo existente, permitir continuar aunque no haya productos añadidos aún
+        # ya que el capítulo existente puede tener productos predefinidos
+        if self.modo_creacion == 'nuevo' and not secciones_con_productos:
             raise UserError("Debe añadir al menos un producto en alguna sección para crear el presupuesto.")
     
     def add_seccion(self):
@@ -593,14 +616,143 @@ class CapituloWizard(models.TransientModel):
         # Validar datos antes de proceder
         self._validate_wizard_data()
         
-        # Primero añadir el capítulo actual
-        self.add_to_order()
+        # Ejecutar la lógica de add_to_order sin retornar su resultado
+        # Verificar si hay productos para añadir
+        # En modo existente, incluir todas las secciones que tengan productos
+        # En modo nuevo, solo las secciones marcadas como incluir
+        total_productos_a_añadir = 0
+        secciones_con_productos = []
+        
+        if self.modo_creacion == 'existente':
+            # En modo existente, incluir todas las secciones que tengan productos
+            for seccion in self.seccion_ids:
+                productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
+                if productos_con_producto:
+                    total_productos_a_añadir += len(productos_con_producto)
+                    secciones_con_productos.append(seccion)
+        else:
+            # En modo nuevo, solo secciones marcadas como incluir
+            for seccion in self.seccion_ids.filtered(lambda s: s.incluir):
+                productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
+                if productos_con_producto:
+                    total_productos_a_añadir += len(productos_con_producto)
+                    secciones_con_productos.append(seccion)
+        
+        if total_productos_a_añadir == 0:
+            if self.modo_creacion == 'existente':
+                raise UserError(
+                    "No hay productos en el capítulo seleccionado para añadir al presupuesto.\n\n"
+                    "Para añadir productos:\n"
+                    "1. Abra las secciones del capítulo\n"
+                    "2. Añada productos usando 'Añadir una línea'\n"
+                    "3. Seleccione el producto, cantidad y precio\n"
+                    "4. Haga clic en 'Añadir al Presupuesto'"
+                )
+            else:
+                raise UserError(
+                    "No hay productos seleccionados para añadir al presupuesto.\n\n"
+                    "Para añadir productos:\n"
+                    "1. Marque las secciones que desea incluir usando el toggle 'Incluir'\n"
+                    "2. Abra cada sección y añada productos usando 'Añadir una línea'\n"
+                    "3. Seleccione el producto, cantidad y precio\n"
+                    "4. Haga clic en 'Añadir al Presupuesto'"
+                )
+
+        # Crear o obtener el capítulo según el modo
+        capitulo = self._obtener_o_crear_capitulo()
+        
+        order = self.order_id
+        SaleOrderLine = self.env['sale.order.line']
+        
+        # Marcar todas las secciones como fijas después de añadir al pedido
+        for seccion in self.seccion_ids:
+            seccion.es_fija = True
+        
+        # Añadir título del capítulo como encabezado principal
+        nombre_capitulo = capitulo.name if self.modo_creacion == 'existente' else self.nuevo_capitulo_nombre
+        SaleOrderLine.with_context(from_capitulo_wizard=True).create({
+            'order_id': order.id,
+            'name': f"📋 ═══ {nombre_capitulo.upper()} ═══",
+            'product_uom_qty': 0,
+            'price_unit': 0,
+            'display_type': 'line_section',
+            'es_encabezado_capitulo': True,
+        })
+        
+        # Crear líneas de pedido organizadas por secciones (solo secciones que tienen productos)
+        for seccion in secciones_con_productos:
+            # Añadir línea de sección como separador
+            section_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
+                'order_id': order.id,
+                'name': f"=== {seccion.name.upper()} ===",
+                'product_uom_qty': 0,
+                'price_unit': 0,
+                'display_type': 'line_section',
+                'es_encabezado_seccion': True,
+            })
+            
+            # Si la sección es fija, marcar la línea como no editable
+            if seccion.es_fija:
+                section_line.write({'name': f"🔒 === {seccion.name.upper()} === (SECCIÓN FIJA)"})
+            
+            # Añadir productos de la sección que tengan producto seleccionado
+            productos_incluidos = seccion.line_ids.filtered(lambda l: l.product_id)
+            
+            if productos_incluidos:
+                for line in productos_incluidos:
+                    descripcion = line.descripcion_personalizada or line.product_id.name
+                    
+                    vals = {
+                        'order_id': order.id,
+                        'product_id': line.product_id.id,
+                        'name': descripcion,
+                        'price_unit': line.precio_unitario,
+                        'product_uom_qty': line.cantidad,
+                        'product_uom': line.product_id.uom_id.id,
+                    }
+                    
+                    product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
+
+        # Nota: No añadimos el capítulo a capitulo_ids para permitir capítulos duplicados
+        # La información del capítulo se mantiene en las líneas del pedido
+        # order.write({'capitulo_ids': [(4, capitulo.id)]})
+
+        # Añadir condiciones particulares si existen
+        if self.condiciones_particulares:
+            # Añadir sección de condiciones particulares
+            SaleOrderLine.with_context(from_capitulo_wizard=True).create({
+                'order_id': order.id,
+                'name': "=== CONDICIONES PARTICULARES ===",
+                'product_uom_qty': 0,
+                'price_unit': 0,
+                'display_type': 'line_section',
+                'es_encabezado_seccion': True,
+            })
+            
+            # Añadir las condiciones como nota
+            SaleOrderLine.with_context(from_capitulo_wizard=True).create({
+                'order_id': order.id,
+                'name': self.condiciones_particulares,
+                'product_uom_qty': 0,
+                'price_unit': 0,
+                'display_type': 'line_note',
+            })
         
         # Crear un nuevo wizard para añadir otro capítulo
-        new_wizard = self.create({
+        # Mantener el capítulo seleccionado para facilitar la adición de duplicados
+        new_wizard_vals = {
             'order_id': self.order_id.id,
-            'modo_creacion': 'existente',
-        })
+            'modo_creacion': self.modo_creacion,
+        }
+        
+        # Si estamos en modo existente, mantener el capítulo seleccionado
+        if self.modo_creacion == 'existente' and self.capitulo_id:
+            new_wizard_vals['capitulo_id'] = self.capitulo_id.id
+        elif self.modo_creacion == 'nuevo':
+            new_wizard_vals['nuevo_capitulo_nombre'] = self.nuevo_capitulo_nombre
+            new_wizard_vals['nuevo_capitulo_descripcion'] = self.nuevo_capitulo_descripcion
+        
+        new_wizard = self.create(new_wizard_vals)
         
         return {
             'type': 'ir.actions.act_window',

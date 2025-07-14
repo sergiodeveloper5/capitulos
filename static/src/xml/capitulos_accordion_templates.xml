@@ -36,7 +36,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <t t-foreach="getSections(chapter.data)" t-as="section" t-key="section.name">
+                                <t t-foreach="getSections(chapter.data)" t-as="section" t-key="section.id">
                                     <!-- Fila de sección -->
                                     <tr style="background-color: #fff3cd; font-weight: 500;">
                                         <td></td>
@@ -47,7 +47,7 @@
                                     </tr>
                                     
                                     <!-- Líneas de la sección -->
-                                    <tr t-foreach="section.lines" t-as="line" t-key="line.sequence">
+                                    <tr t-foreach="section.lines" t-as="line" t-key="line.id">
                                         <td t-esc="line.sequence || ''"></td>
                                         <td t-esc="line.product_name || ''"></td>
                                         <td t-esc="line.name || ''"></td>

@@ -38,7 +38,7 @@ export class CapitulosAccordionWidget extends Component {
         return Object.keys(data).map((chapterName, index) => ({
             name: chapterName,
             data: data[chapterName],
-            id: `chapter_${index}`
+            id: `chapter_${Date.now()}_${index}`
         }));
     }
 
@@ -56,9 +56,13 @@ export class CapitulosAccordionWidget extends Component {
     }
 
     getSections(chapter) {
-        return Object.keys(chapter.sections || {}).map(sectionName => ({
+        return Object.keys(chapter.sections || {}).map((sectionName, index) => ({
             name: sectionName,
-            lines: chapter.sections[sectionName].lines || []
+            id: `section_${Date.now()}_${index}`,
+            lines: (chapter.sections[sectionName].lines || []).map((line, lineIndex) => ({
+                ...line,
+                id: `line_${Date.now()}_${index}_${lineIndex}`
+            }))
         }));
     }
 
