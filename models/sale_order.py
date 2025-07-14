@@ -10,6 +10,55 @@ class SaleOrder(models.Model):
         help="Capítulos técnicos aplicados a este pedido de venta"
     )
     
+    capitulos_agrupados = fields.Text(
+        string='Capítulos Agrupados',
+        compute='_compute_capitulos_agrupados',
+        help="JSON con las líneas agrupadas por capítulo para el widget acordeón"
+    )
+    
+    @api.depends('order_line', 'order_line.es_encabezado_capitulo', 'order_line.es_encabezado_seccion')
+    def _compute_capitulos_agrupados(self):
+        """Agrupa las líneas del pedido por capítulos para mostrar en acordeón"""
+        import json
+        
+        for order in self:
+            capitulos_dict = {}
+            current_capitulo_name = None
+            current_seccion_name = None
+            
+            for line in order.order_line.sorted('sequence'):
+                if line.es_encabezado_capitulo:
+                    # Nuevo capítulo
+                    current_capitulo_name = line.name
+                    capitulos_dict[current_capitulo_name] = {
+                        'sections': {},
+                        'total': 0.0
+                    }
+                    current_seccion_name = None
+                    
+                elif line.es_encabezado_seccion and current_capitulo_name:
+                    # Nueva sección dentro del capítulo actual
+                    current_seccion_name = line.name
+                    capitulos_dict[current_capitulo_name]['sections'][current_seccion_name] = {
+                        'lines': []
+                    }
+                    
+                elif current_capitulo_name and current_seccion_name:
+                    # Producto dentro de la sección actual
+                    line_data = {
+                        'sequence': line.sequence,
+                        'product_name': line.product_id.name if line.product_id else '',
+                        'name': line.name,
+                        'product_uom_qty': line.product_uom_qty,
+                        'product_uom': line.product_uom.name if line.product_uom else '',
+                        'price_unit': line.price_unit,
+                        'price_subtotal': line.price_subtotal
+                    }
+                    capitulos_dict[current_capitulo_name]['sections'][current_seccion_name]['lines'].append(line_data)
+                    capitulos_dict[current_capitulo_name]['total'] += line.price_subtotal
+            
+            order.capitulos_agrupados = json.dumps(capitulos_dict) if capitulos_dict else '{}'
+    
     def action_add_capitulo(self):
         """Acción para abrir el wizard de capítulos"""
         self.ensure_one()
@@ -26,6 +75,19 @@ class SaleOrder(models.Model):
                 'active_model': 'sale.order'
             }
         }
+    
+    def toggle_capitulo_collapse(self, capitulo_index):
+        """Alterna el estado colapsado/expandido de un capítulo"""
+        import json
+        
+        self.ensure_one()
+        capitulos = json.loads(self.capitulos_agrupados or '[]')
+        
+        if 0 <= capitulo_index < len(capitulos):
+            capitulos[capitulo_index]['collapsed'] = not capitulos[capitulo_index].get('collapsed', True)
+            self.capitulos_agrupados = json.dumps(capitulos)
+        
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
 
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'

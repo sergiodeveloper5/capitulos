@@ -1,0 +1,134 @@
+.o_capitulos_accordion {
+    margin: 10px 0;
+}
+
+.o_capitulos_accordion .accordion {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+.o_capitulos_accordion .card {
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.o_capitulos_accordion .card:last-child {
+    border-bottom: none;
+}
+
+.o_capitulos_accordion .card-header {
+    padding: 0;
+    border: none;
+    background-color: #f8f9fa;
+}
+
+.o_capitulos_accordion .card-header button {
+    padding: 12px 15px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.o_capitulos_accordion .card-header button:hover {
+    background-color: #e9ecef;
+    text-decoration: none;
+}
+
+.o_capitulos_accordion .card-header button:focus {
+    box-shadow: none;
+    outline: none;
+}
+
+.o_capitulos_accordion .card-body {
+    padding: 0;
+}
+
+.o_capitulos_accordion .table {
+    margin-bottom: 0;
+    font-size: 13px;
+}
+
+.o_capitulos_accordion .table th {
+    border-top: none;
+    border-bottom: 2px solid #dee2e6;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #495057;
+}
+
+.o_capitulos_accordion .table td {
+    padding: 6px 12px;
+    border-top: 1px solid #f1f3f4;
+    vertical-align: middle;
+}
+
+.o_capitulos_accordion .table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Estilos para filas de sección */
+.o_capitulos_accordion .table tbody tr[style*="background-color: #fff3cd"] {
+    border-left: 4px solid #ffc107;
+}
+
+.o_capitulos_accordion .table tbody tr[style*="background-color: #fff3cd"]:hover {
+    background-color: #fff3cd !important;
+}
+
+/* Estilos para filas de total */
+.o_capitulos_accordion .table tbody tr[style*="background-color: #d4edda"] {
+    border-left: 4px solid #28a745;
+}
+
+.o_capitulos_accordion .table tbody tr[style*="background-color: #d4edda"]:hover {
+    background-color: #d4edda !important;
+}
+
+/* Animaciones para el colapso */
+.o_capitulos_accordion .collapse {
+    transition: all 0.35s ease;
+}
+
+.o_capitulos_accordion .fa-chevron-down,
+.o_capitulos_accordion .fa-chevron-right {
+    transition: transform 0.2s ease;
+    font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .o_capitulos_accordion .table {
+        font-size: 12px;
+    }
+    
+    .o_capitulos_accordion .table th,
+    .o_capitulos_accordion .table td {
+        padding: 4px 8px;
+    }
+    
+    .o_capitulos_accordion .card-header button {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+}
+
+/* Mejoras visuales adicionales */
+.o_capitulos_accordion .fa-folder-o {
+    color: #6c757d;
+}
+
+.o_capitulos_accordion .fa-tag {
+    color: #ffc107;
+}
+
+.o_capitulos_accordion .text-right {
+    text-align: right;
+}
+
+.o_capitulos_accordion .alert {
+    margin: 20px;
+    border-radius: 0.375rem;
+}

@@ -19,6 +19,12 @@
         'views/capitulo_wizard_view.xml',
         'views/product_views.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'capitulos/static/src/css/capitulos_accordion.css',
+            'capitulos/static/src/js/capitulos_accordion_widget.js',
+        ],
+    },
     'installable': True,
     'auto_install': False,
     'application': True,
