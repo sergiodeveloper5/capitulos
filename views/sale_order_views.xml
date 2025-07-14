@@ -20,7 +20,7 @@
                     <!-- Vista tradicional para un solo capítulo o sin capítulos -->
                     <div invisible="capitulo_ids and len(capitulo_ids) > 1">
                         <field name="order_line" widget="section_and_note_one2many">
-                            <tree decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" editable="bottom">
+                            <list decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" editable="bottom">
                                 <field name="sequence" widget="handle"/>
                                 <field name="product_id" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
                                 <field name="name" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
@@ -30,7 +30,7 @@
                                 <field name="price_subtotal"/>
                                 <field name="es_encabezado_capitulo" invisible="1"/>
                                 <field name="es_encabezado_seccion" invisible="1"/>
-                            </tree>
+                            </list>
                         </field>
                     </div>
                 </div>
