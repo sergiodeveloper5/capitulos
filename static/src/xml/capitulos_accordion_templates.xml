@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="capitulos.CapitulosAccordionWidget" owl="1">
+        <div class="o_capitulos_accordion">
+            <div t-if="!chapters.length" class="alert alert-info">
+                No hay capítulos para mostrar
+            </div>
+            <div t-else="" class="accordion" id="capitulosAccordion">
+                <div t-foreach="chapters" t-as="chapter" t-key="chapter.id" class="card mb-2">
+                    <!-- Header del capítulo -->
+                    <div class="card-header p-2" style="background-color: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                        <button class="btn btn-link text-left w-100 d-flex justify-content-between align-items-center"
+                                type="button"
+                                t-on-click="() => this.toggleChapter(chapter.name)"
+                                style="text-decoration: none; color: #495057; font-weight: 500;">
+                            <span>
+                                <i class="fa fa-folder-o me-2"></i>
+                                <t t-esc="chapter.name"/>
+                            </span>
+                            <i t-attf-class="fa fa-chevron-{{ chapter.isCollapsed ? 'right' : 'down' }}"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Contenido del capítulo -->
+                    <div t-if="!chapter.isCollapsed" class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <thead style="background-color: #e9ecef;">
+                                <tr>
+                                    <th style="width: 40px;">Seq</th>
+                                    <th>Producto</th>
+                                    <th>Descripción</th>
+                                    <th style="width: 80px;">Cantidad</th>
+                                    <th style="width: 80px;">Unidad</th>
+                                    <th style="width: 100px;">Precio Unit.</th>
+                                    <th style="width: 100px;">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="getSections(chapter.data)" t-as="section" t-key="section.name">
+                                    <!-- Fila de sección -->
+                                    <tr style="background-color: #fff3cd; font-weight: 500;">
+                                        <td></td>
+                                        <td colspan="6">
+                                            <i class="fa fa-tag me-2"></i>
+                                            <t t-esc="section.name"/>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Líneas de la sección -->
+                                    <tr t-foreach="section.lines" t-as="line" t-key="line.sequence">
+                                        <td t-esc="line.sequence || ''"></td>
+                                        <td t-esc="line.product_name || ''"></td>
+                                        <td t-esc="line.name || ''"></td>
+                                        <td class="text-end" t-esc="line.product_uom_qty || 0"></td>
+                                        <td t-esc="line.product_uom || ''"></td>
+                                        <td class="text-end" t-esc="formatCurrency(line.price_unit)"></td>
+                                        <td class="text-end" t-esc="formatCurrency(line.price_subtotal)"></td>
+                                    </tr>
+                                </t>
+                                
+                                <!-- Fila de total del capítulo -->
+                                <tr style="background-color: #d4edda; font-weight: bold;">
+                                    <td colspan="6" class="text-end">
+                                        Total <t t-esc="chapter.name"/>:
+                                    </td>
+                                    <td class="text-end" t-esc="formatCurrency(chapter.data.total)"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

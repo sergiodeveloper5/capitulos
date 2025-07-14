@@ -23,6 +23,7 @@
         'web.assets_backend': [
             'capitulos/static/src/css/capitulos_accordion.css',
             'capitulos/static/src/js/capitulos_accordion_widget.js',
+            'capitulos/static/src/xml/capitulos_accordion_templates.xml',
         ],
     },
     'installable': True,
