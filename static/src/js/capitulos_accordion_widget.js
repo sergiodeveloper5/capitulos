@@ -6,7 +6,6 @@ import { Component, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
 import { Dialog } from "@web/core/dialog/dialog";
-import { Many2OneField } from "@web/views/fields/many2one/many2one_field";
 
 export class CapitulosAccordionWidget extends Component {
     static template = "capitulos.CapitulosAccordionWidget";
@@ -22,7 +21,8 @@ export class CapitulosAccordionWidget extends Component {
             editValues: {},
             showProductDialog: false,
             currentSection: null,
-            currentChapter: null
+            currentChapter: null,
+            condicionesParticulares: ''
         });
         
         this.orm = useService("orm");
@@ -79,41 +79,92 @@ export class CapitulosAccordionWidget extends Component {
 
     async addProductToSection(chapterName, sectionName) {
         try {
+            console.log('DEBUG: addProductToSection llamado con:', {
+                chapterName: chapterName,
+                sectionName: sectionName,
+                orderId: this.props.record.resId
+            });
+            
             // Abrir el diálogo de selección de productos
             const productId = await this.openProductSelector();
             
             if (!productId) {
+                console.log('DEBUG: No se seleccionó producto, cancelando');
                 return;
             }
             
+            console.log('DEBUG: Producto seleccionado:', productId);
             const orderId = this.props.record.resId;
             
             // Usar el método del modelo Python para añadir el producto
+            console.log('DEBUG: Llamando al método add_product_to_section...');
             const result = await this.orm.call(
                 'sale.order',
                 'add_product_to_section',
                 [orderId, chapterName, sectionName, productId, 1.0]
             );
             
+            console.log('DEBUG: Resultado del método:', result);
+            
             if (result && result.success) {
+                console.log('DEBUG: Producto añadido exitosamente, recargando datos...');
                 this.notification.add(
-                    _t('Producto añadido correctamente'),
+                    result.message || _t('Producto añadido correctamente'),
                     { type: 'success' }
                 );
                 
-                // Recargar los datos del widget
+                // ESTRATEGIA DE RECARGA AGRESIVA
+                console.log('DEBUG: Iniciando recarga agresiva de datos...');
+                
+                // 1. Invalidar cache del registro
+                this.props.record.invalidateCache();
+                
+                // 2. Recargar el registro completo
                 await this.props.record.load();
+                console.log('DEBUG: Registro recargado');
+                
+                // 3. Forzar recálculo del modelo raíz
+                await this.props.record.model.root.load();
+                console.log('DEBUG: Modelo raíz recargado');
+                
+                // 4. Forzar actualización del estado reactivo
+                this.state.collapsedChapters = { ...this.state.collapsedChapters };
+                
+                // 5. Forzar re-renderizado usando el método correcto de Owl
+                this.render(true);
+                
+                // 6. Esperar un tick para que se procesen los cambios
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                console.log('DEBUG: Datos después de recarga:', this.parsedData);
+                console.log('DEBUG: Capítulos encontrados:', this.chapters.length);
+                
+                // Verificar si los datos se actualizaron correctamente
+                const updatedData = this.parsedData;
+                if (updatedData && Object.keys(updatedData).length > 0) {
+                    console.log('DEBUG: ✅ Datos actualizados correctamente');
+                    for (const [chapterName, chapterData] of Object.entries(updatedData)) {
+                        console.log(`DEBUG: Capítulo '${chapterName}' tiene ${Object.keys(chapterData.sections || {}).length} secciones`);
+                        for (const [sectionName, sectionData] of Object.entries(chapterData.sections || {})) {
+                            console.log(`DEBUG: Sección '${sectionName}' tiene ${(sectionData.lines || []).length} productos`);
+                        }
+                    }
+                } else {
+                    console.log('DEBUG: ❌ Los datos siguen vacíos después de la recarga');
+                }
+                
             } else {
+                console.log('DEBUG: Error en el resultado:', result);
                 this.notification.add(
-                    result?.error || _t('Error al añadir el producto'),
+                    result?.error || result?.message || _t('Error al añadir el producto'),
                     { type: 'danger' }
                 );
             }
             
         } catch (error) {
-            console.error('Error al añadir producto:', error);
+            console.error('DEBUG: Error al añadir producto:', error);
             this.notification.add(
-                _t('Error al añadir producto a la sección'),
+                _t('Error al añadir producto a la sección: ') + (error.message || error),
                 { type: 'danger' }
             );
         }
@@ -212,29 +263,60 @@ export class CapitulosAccordionWidget extends Component {
 
     async deleteLine(lineId) {
         try {
-            // Usar el servicio de diálogo para confirmación
-            const confirmed = await new Promise((resolve) => {
-                this.dialog.add(Dialog, {
-                    title: _t("Confirmar eliminación"),
-                    body: _t("¿Está seguro de que desea eliminar esta línea?"),
-                    confirm: () => resolve(true),
-                    cancel: () => resolve(false),
-                });
-            });
+            console.log('DEBUG: deleteLine llamado con lineId:', lineId);
             
-            if (!confirmed) {
+            // Verificar que el lineId es válido
+            if (!lineId || isNaN(parseInt(lineId))) {
+                console.error('DEBUG: lineId inválido:', lineId);
+                this.notification.add(_t('ID de línea inválido'), { type: 'danger' });
                 return;
             }
             
-            await this.orm.unlink('sale.order.line', [parseInt(lineId)]);
+            // Buscar información del producto para mostrar en la confirmación
+            const line = this.findLineById(lineId);
+            const productName = line ? line.name : 'Producto';
             
+            // Confirmación con diálogo más elegante
+              const confirmed = await new Promise((resolve) => {
+                  this.dialog.add(DeleteConfirmDialog, {
+                      title: _t("Confirmar eliminación"),
+                      productName: productName,
+                      onConfirm: () => resolve(true),
+                      onCancel: () => resolve(false),
+                  });
+              });
+            
+            if (!confirmed) {
+                console.log('DEBUG: Eliminación cancelada por el usuario');
+                return;
+            }
+            
+            console.log('DEBUG: Iniciando eliminación de línea ID:', parseInt(lineId));
+            
+            // Llamada directa sin contexto adicional
+            await this.orm.call(
+                'sale.order.line',
+                'unlink',
+                [[parseInt(lineId)]]
+            );
+            
+            console.log('DEBUG: Eliminación exitosa');
             this.notification.add(_t('Línea eliminada correctamente'), { type: 'success' });
             
+            // Recargar los datos
             await this.props.record.load();
             
         } catch (error) {
-            console.error('Error deleting line:', error);
-            this.notification.add(_t('Error al eliminar la línea'), { type: 'danger' });
+            console.error('DEBUG: Error al eliminar línea:', error);
+            let errorMessage = 'Error desconocido';
+            
+            if (error.data && error.data.message) {
+                errorMessage = error.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            this.notification.add(_t('Error al eliminar la línea: ') + errorMessage, { type: 'danger' });
         }
     }
 
@@ -270,52 +352,123 @@ export class CapitulosAccordionWidget extends Component {
             [field]: value
         };
     }
+
+    // Métodos para manejar las condiciones particulares
+    updateCondicionesParticulares(value) {
+        // Guardar el valor en el estado local
+        this.state.condicionesParticulares = value;
+        
+        // Aquí podrías implementar un debounce para guardar automáticamente
+        // Por ahora, se guardará cuando se guarde el presupuesto
+        console.log('Condiciones particulares actualizadas:', value);
+    }
+
+    getCondicionesParticulares() {
+        // Retornar el valor guardado o un string vacío
+        return this.state.condicionesParticulares || '';
+    }
+    
+    // MÉTODO DE DEBUGGING - FORZAR ACTUALIZACIÓN MANUAL
+    async forceRefresh() {
+        console.log('🔄 FORCE REFRESH: Iniciando actualización forzada...');
+        
+        try {
+            // Obtener datos frescos directamente del servidor
+            const orderId = this.props.record.resId;
+            console.log('🔄 FORCE REFRESH: Order ID:', orderId);
+            
+            // Llamar directamente al método computed
+            await this.orm.call('sale.order', '_compute_capitulos_agrupados', [[orderId]]);
+            console.log('🔄 FORCE REFRESH: Método computed ejecutado');
+            
+            // Recargar el registro
+            await this.props.record.load();
+            console.log('🔄 FORCE REFRESH: Registro recargado');
+            
+            // Verificar datos
+            const newData = this.parsedData;
+            console.log('🔄 FORCE REFRESH: Nuevos datos:', newData);
+            console.log('🔄 FORCE REFRESH: Capítulos:', Object.keys(newData).length);
+            
+            // Forzar re-render
+            this.render(true);
+            
+            console.log('🔄 FORCE REFRESH: ✅ Actualización completada');
+            
+        } catch (error) {
+            console.error('🔄 FORCE REFRESH: ❌ Error:', error);
+        }
+    }
+    
+    // MÉTODO DE DEBUGGING - VERIFICAR ESTADO
+    debugState() {
+        console.log('🐛 DEBUG STATE: === ESTADO ACTUAL DEL WIDGET ===');
+        console.log('🐛 DEBUG STATE: Record ID:', this.props.record.resId);
+        console.log('🐛 DEBUG STATE: Raw data:', this.props.record.data.capitulos_agrupados);
+        console.log('🐛 DEBUG STATE: Parsed data:', this.parsedData);
+        console.log('🐛 DEBUG STATE: Chapters count:', this.chapters.length);
+        console.log('🐛 DEBUG STATE: State:', this.state);
+        
+        // Verificar cada capítulo y sección
+        const data = this.parsedData;
+        if (data && Object.keys(data).length > 0) {
+            for (const [chapterName, chapterData] of Object.entries(data)) {
+                console.log(`🐛 DEBUG STATE: Capítulo '${chapterName}':`);
+                console.log(`🐛 DEBUG STATE:   - Secciones: ${Object.keys(chapterData.sections || {}).length}`);
+                
+                for (const [sectionName, sectionData] of Object.entries(chapterData.sections || {})) {
+                    const linesCount = (sectionData.lines || []).length;
+                    console.log(`🐛 DEBUG STATE:   - Sección '${sectionName}': ${linesCount} productos`);
+                    
+                    if (linesCount > 0) {
+                        sectionData.lines.forEach((line, idx) => {
+                            console.log(`🐛 DEBUG STATE:     ${idx + 1}. ${line.name} (ID: ${line.id})`);
+                        });
+                    }
+                }
+            }
+        } else {
+            console.log('🐛 DEBUG STATE: ❌ No hay datos de capítulos');
+        }
+        
+        console.log('🐛 DEBUG STATE: === FIN DEL ESTADO ===');
+    }
 }
 
-// Hacer el widget accesible globalmente para depuración
-window.CapitulosAccordionWidget = CapitulosAccordionWidget;
-
-// Componente de diálogo para selección de productos
+// Diálogo para seleccionar productos
 class ProductSelectorDialog extends Component {
-    static template = "capitulos.ProductSelectorDialog";
-    static components = { Dialog };
     static props = {
-        title: String,
-        onConfirm: Function,
-        onCancel: Function,
-        close: Function,
+        title: { type: String },
+        onConfirm: { type: Function },
+        onCancel: { type: Function },
+        close: { type: Function }
     };
-
+    
     setup() {
-        this.state = useState({
-            selectedProduct: null,
-            searchTerm: '',
-            products: [],
-            isLoading: false
-        });
-        
         this.orm = useService("orm");
         this.notification = useService("notification");
-        
-        // Cargar productos iniciales
-        this.searchProducts();
+        this.state = useState({
+            searchTerm: "",
+            products: [],
+            selectedProduct: null,
+            loading: false
+        });
     }
 
     async searchProducts() {
-        this.state.isLoading = true;
+        if (!this.state.searchTerm.trim()) {
+            this.state.products = [];
+            return;
+        }
+
+        this.state.loading = true;
         try {
-            const domain = [['sale_ok', '=', true]];
-            if (this.state.searchTerm) {
-                domain.push(['name', 'ilike', this.state.searchTerm]);
-            }
-            
             const products = await this.orm.searchRead(
                 'product.product',
-                domain,
-                ['id', 'name', 'list_price', 'default_code', 'uom_id'],
+                [['name', 'ilike', this.state.searchTerm], ['sale_ok', '=', true]],
+                ['id', 'name', 'list_price', 'default_code'],
                 { limit: 20 }
             );
-            
             this.state.products = products;
         } catch (error) {
             console.error('Error al buscar productos:', error);
@@ -324,17 +477,13 @@ class ProductSelectorDialog extends Component {
                 { type: 'danger' }
             );
         } finally {
-            this.state.isLoading = false;
+            this.state.loading = false;
         }
     }
 
-    onSearchInput(ev) {
-        this.state.searchTerm = ev.target.value;
-        // Debounce la búsqueda
-        clearTimeout(this.searchTimeout);
-        this.searchTimeout = setTimeout(() => {
-            this.searchProducts();
-        }, 300);
+    onSearchInput(event) {
+        this.state.searchTerm = event.target.value;
+        this.searchProducts();
     }
 
     selectProduct(product) {
@@ -358,6 +507,36 @@ class ProductSelectorDialog extends Component {
         this.props.close();
     }
 }
+
+ProductSelectorDialog.template = "capitulos.ProductSelectorDialog";
+ProductSelectorDialog.components = { Dialog };
+
+// Diálogo de confirmación para eliminar productos
+class DeleteConfirmDialog extends Component {
+    static props = {
+        title: { type: String },
+        productName: { type: String },
+        onConfirm: { type: Function },
+        onCancel: { type: Function },
+        close: { type: Function }
+    };
+    
+    onConfirm() {
+        this.props.onConfirm();
+        this.props.close();
+    }
+
+    onCancel() {
+        this.props.onCancel();
+        this.props.close();
+    }
+}
+
+DeleteConfirmDialog.template = "capitulos.DeleteConfirmDialog";
+DeleteConfirmDialog.components = { Dialog };
+
+// Hacer el widget accesible globalmente para depuración
+window.CapitulosAccordionWidget = CapitulosAccordionWidget;
 
 registry.category("fields").add("capitulos_accordion", {
     component: CapitulosAccordionWidget,

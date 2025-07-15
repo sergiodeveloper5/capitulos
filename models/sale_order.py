@@ -22,12 +22,18 @@ class SaleOrder(models.Model):
         help="Indica si el pedido tiene capítulos para mostrar en acordeón"
     )
     
-    @api.depends('order_line', 'order_line.es_encabezado_capitulo', 'order_line.es_encabezado_seccion')
+    @api.depends('order_line', 'order_line.es_encabezado_capitulo', 'order_line.es_encabezado_seccion', 
+                 'order_line.name', 'order_line.product_id', 'order_line.product_uom_qty', 
+                 'order_line.product_uom', 'order_line.price_unit', 'order_line.price_subtotal', 'order_line.sequence')
     def _compute_capitulos_agrupados(self):
         """Agrupa las líneas del pedido por capítulos para mostrar en acordeón"""
         import json
+        import logging
+        _logger = logging.getLogger(__name__)
         
         for order in self:
+            _logger.info(f"DEBUG COMPUTE: Procesando pedido {order.id} con {len(order.order_line)} líneas")
+            
             capitulos_dict = {}
             current_capitulo_key = None
             current_seccion_name = None
@@ -75,7 +81,20 @@ class SaleOrder(models.Model):
                     capitulos_dict[current_capitulo_key]['sections'][current_seccion_name]['lines'].append(line_data)
                     capitulos_dict[current_capitulo_key]['total'] += line.price_subtotal
             
-            order.capitulos_agrupados = json.dumps(capitulos_dict) if capitulos_dict else '{}'
+            result_json = json.dumps(capitulos_dict) if capitulos_dict else '{}'
+            order.capitulos_agrupados = result_json
+            
+            _logger.info(f"DEBUG COMPUTE: Pedido {order.id} - Resultado final:")
+            _logger.info(f"DEBUG COMPUTE: - Capítulos encontrados: {len(capitulos_dict)}")
+            _logger.info(f"DEBUG COMPUTE: - JSON generado: {len(result_json)} caracteres")
+            
+            if capitulos_dict:
+                for cap_name, cap_data in capitulos_dict.items():
+                    sections_count = len(cap_data.get('sections', {}))
+                    total_lines = sum(len(sec.get('lines', [])) for sec in cap_data.get('sections', {}).values())
+                    _logger.info(f"DEBUG COMPUTE: - Capítulo '{cap_name}': {sections_count} secciones, {total_lines} productos")
+            else:
+                _logger.info(f"DEBUG COMPUTE: - ❌ No se generaron capítulos")
     
     @api.depends('order_line', 'order_line.es_encabezado_capitulo')
     def _compute_tiene_multiples_capitulos(self):
@@ -117,8 +136,15 @@ class SaleOrder(models.Model):
     @api.model
     def add_product_to_section(self, order_id, capitulo_name, seccion_name, product_id, quantity=1.0):
         """Añade un producto a una sección específica de un capítulo"""
+        import logging
+        _logger = logging.getLogger(__name__)
+        
+        _logger.info(f"DEBUG ADD_PRODUCT: Iniciando adición de producto {product_id} a capítulo '{capitulo_name}', sección '{seccion_name}'")
+        
         order = self.browse(order_id)
         order.ensure_one()
+        
+        _logger.info(f"DEBUG ADD_PRODUCT: Pedido {order.id} tiene {len(order.order_line)} líneas antes de añadir")
         
         if not product_id:
             raise UserError("Debe seleccionar un producto")
@@ -126,6 +152,8 @@ class SaleOrder(models.Model):
         product = self.env['product.product'].browse(product_id)
         if not product.exists():
             raise UserError("El producto seleccionado no existe")
+        
+        _logger.info(f"DEBUG ADD_PRODUCT: Producto encontrado: {product.name}")
         
         # Buscar la línea de encabezado del capítulo
         capitulo_line = None
@@ -142,8 +170,10 @@ class SaleOrder(models.Model):
                 
                 if line_name == capitulo_name or line_name == capitulo_base_name:
                     capitulo_line = line
+                    _logger.info(f"DEBUG: Capítulo encontrado: {line.name}")
             elif capitulo_line and line.es_encabezado_seccion and line.name == seccion_name:
                 seccion_line = line
+                _logger.info(f"DEBUG: Sección encontrada: {line.name}")
                 break
         
         if not capitulo_line:
@@ -153,15 +183,47 @@ class SaleOrder(models.Model):
             raise UserError(f"No se encontró la sección: {seccion_name} en el capítulo: {capitulo_name}")
         
         # Encontrar la posición donde insertar el nuevo producto
-        # Debe ir después de la línea de sección pero antes del siguiente encabezado
-        insert_sequence = seccion_line.sequence + 1
+        # Debe ir inmediatamente después de la línea de sección
+        
+        # Buscar si ya hay productos en esta sección
+        existing_products_in_section = []
+        next_header_sequence = None
+        
+        # Buscar productos existentes en esta sección y el siguiente encabezado
+        for line in order.order_line.filtered(lambda l: l.sequence > seccion_line.sequence).sorted('sequence'):
+            if line.es_encabezado_capitulo or line.es_encabezado_seccion:
+                next_header_sequence = line.sequence
+                break
+            else:
+                # Es un producto en esta sección
+                existing_products_in_section.append(line)
+        
+        _logger.info(f"DEBUG: Productos existentes en sección: {len(existing_products_in_section)}")
+        _logger.info(f"DEBUG: Siguiente encabezado en secuencia: {next_header_sequence}")
+        
+        # Determinar la secuencia de inserción
+        if existing_products_in_section:
+            # Si ya hay productos, insertar después del último producto de la sección
+            last_product_sequence = max(p.sequence for p in existing_products_in_section)
+            insert_sequence = last_product_sequence + 1
+            _logger.info(f"DEBUG: Insertando después del último producto en secuencia: {last_product_sequence}")
+        else:
+            # Si no hay productos, insertar inmediatamente después de la sección
+            insert_sequence = seccion_line.sequence + 1
+            _logger.info(f"DEBUG: Insertando inmediatamente después de la sección en secuencia: {seccion_line.sequence}")
         
         # Ajustar las secuencias de las líneas posteriores
         lines_to_update = order.order_line.filtered(
             lambda l: l.sequence >= insert_sequence
         )
+        _logger.info(f"DEBUG: Actualizando secuencias de {len(lines_to_update)} líneas")
+        
         for line in lines_to_update:
+            old_sequence = line.sequence
             line.sequence += 1
+            _logger.info(f"DEBUG: Línea '{line.name}' secuencia {old_sequence} -> {line.sequence}")
+        
+        _logger.info(f"DEBUG: Nueva línea se insertará en secuencia: {insert_sequence}")
         
         # Crear la nueva línea de producto
         new_line_vals = {
@@ -180,6 +242,25 @@ class SaleOrder(models.Model):
         new_line = self.env['sale.order.line'].with_context(
             from_capitulo_wizard=True
         ).create(new_line_vals)
+        
+        # Forzar la escritura de los datos pendientes sin commit
+        self.env.cr.flush()
+        
+        # Refrescar el record completo desde la base de datos
+        order.invalidate_recordset()
+        # Forzar el recálculo del campo computed
+        order._compute_capitulos_agrupados()
+        
+        _logger.info(f"DEBUG: Producto añadido exitosamente. ID de nueva línea: {new_line.id}")
+        _logger.info(f"DEBUG: Secuencia de nueva línea: {new_line.sequence}")
+        _logger.info(f"DEBUG: Total de líneas en el pedido: {len(order.order_line)}")
+        _logger.info(f"DEBUG: Campo capitulos_agrupados recalculado: {len(order.capitulos_agrupados)} caracteres")
+        
+        # Verificar que la nueva línea está en order_line
+        if new_line.id in order.order_line.ids:
+            _logger.info(f"DEBUG: ✓ Nueva línea confirmada en order_line")
+        else:
+            _logger.error(f"DEBUG: ✗ Nueva línea NO encontrada en order_line")
         
         return {
             'success': True,
@@ -204,18 +285,37 @@ class SaleOrderLine(models.Model):
     
     def unlink(self):
         """Previene la eliminación de encabezados de capítulos y secciones"""
+        import logging
+        _logger = logging.getLogger(__name__)
+        
+        _logger.info(f"DEBUG UNLINK: Intentando eliminar {len(self)} líneas")
+        _logger.info(f"DEBUG UNLINK: Contexto completo: {dict(self.env.context)}")
+        _logger.info(f"DEBUG UNLINK: from_capitulo_widget: {self.env.context.get('from_capitulo_widget')}")
+        
         for line in self:
-            if line.es_encabezado_capitulo:
-                raise UserError(
-                    f"No se puede eliminar el encabezado del capítulo: {line.name}\n"
-                    "Los encabezados de capítulos son elementos estructurales del presupuesto."
-                )
-            if line.es_encabezado_seccion:
-                raise UserError(
-                    f"No se puede eliminar el encabezado de la sección: {line.name}\n"
-                    "Los encabezados de secciones son elementos estructurales del presupuesto."
-                )
-        return super().unlink()
+            _logger.info(f"DEBUG UNLINK: Línea {line.id} - '{line.name}' - Capítulo: {line.es_encabezado_capitulo}, Sección: {line.es_encabezado_seccion}")
+        
+        # Verificar si alguna línea es un encabezado
+        headers_to_delete = self.filtered(lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion)
+        
+        if headers_to_delete:
+            header_names = ', '.join(headers_to_delete.mapped('name'))
+            _logger.error(f"DEBUG UNLINK: Intentando eliminar encabezados: {header_names}")
+            raise UserError(
+                f"No se pueden eliminar los siguientes encabezados: {header_names}\n"
+                "Los encabezados de capítulos y secciones son elementos estructurales del presupuesto."
+            )
+        
+        # Si llegamos aquí, todas las líneas son productos normales
+        _logger.info("DEBUG UNLINK: Todas las líneas son productos normales, procediendo con eliminación")
+        
+        try:
+            result = super().unlink()
+            _logger.info("DEBUG UNLINK: Eliminación exitosa")
+            return result
+        except Exception as e:
+            _logger.error(f"DEBUG UNLINK: Error durante eliminación: {str(e)}")
+            raise
     
     def write(self, vals):
         """Previene la modificación de campos críticos en encabezados"""

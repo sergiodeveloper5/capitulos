@@ -1,13 +1,104 @@
 /* Estilos mínimos para complementar las clases nativas de Odoo/Bootstrap */
 
+/* Contenedor principal del widget */
+.o_field_widget {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+/* Asegurar que el widget ocupe el ancho completo del contenedor padre */
+.o_form_view .o_field_widget,
+.o_form_sheet .o_field_widget {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    text-align: left;
+}
+
+/* Asegurar que el accordion ocupe todo el ancho disponible */
+.o_field_widget .accordion {
+    width: 100%;
+    margin: 0;
+}
+
+.o_field_widget .accordion-item {
+    width: 100%;
+    margin-bottom: 0.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.o_field_widget .accordion-body {
+    padding: 0;
+    width: 100%;
+}
+
+.o_field_widget .accordion-collapse {
+    width: 100%;
+}
+
+/* Header del widget con mejor espaciado */
+.o_field_widget .d-flex.justify-content-between {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.o_field_widget .d-flex.justify-content-between h5 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #875a7b;
+    margin: 0;
+}
+
 /* Mejoras específicas para el widget de capítulos */
 .o_field_widget .accordion-button:not(.collapsed) {
     background-color: #e7f3ff;
     border-color: #b3d9ff;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+}
+
+.o_field_widget .accordion-button {
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    color: #495057;
+    text-align: left;
+    width: 100%;
 }
 
 .o_field_widget .accordion-button:focus {
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    box-shadow: 0 0 0 0.25rem rgba(135, 90, 123, 0.25);
+    border-color: #875a7b;
+}
+
+.o_field_widget .accordion-button:hover {
+    background-color: #e9ecef;
+    color: #875a7b;
+}
+
+.o_field_widget .accordion-button.collapsed {
+    background-color: #ffffff;
+    border-bottom-color: #dee2e6;
+}
+
+/* Iconos en los headers de capítulos */
+.o_field_widget .accordion-button .fa-folder {
+    font-size: 1.2rem;
+    margin-right: 0.75rem;
+}
+
+/* Badge de totales en los headers */
+.o_field_widget .accordion-button .badge {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
 }
 
 /* Animaciones suaves para el accordion */
@@ -16,27 +107,77 @@
 }
 
 /* Estilos para las tablas de líneas */
+.o_field_widget .table {
+    width: 100%;
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
 .o_field_widget .table th {
     font-weight: 600;
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 2px solid #dee2e6;
+    background-color: #f8f9fa;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.o_field_widget .table th:first-child {
+    text-align: left;
+}
+
+.o_field_widget .table th:nth-child(3),
+.o_field_widget .table th:nth-child(4) {
+    text-align: right;
 }
 
 .o_field_widget .table td {
     vertical-align: middle;
     font-size: 0.9rem;
+    padding: 0.75rem;
+    border-top: 1px solid #dee2e6;
 }
 
 .o_field_widget .table tbody tr:hover {
-    background-color: rgba(13, 110, 253, 0.05);
+    background-color: rgba(135, 90, 123, 0.05);
+}
+
+/* Contenedor de tabla responsive */
+.o_field_widget .table-responsive {
+    width: 100%;
+    overflow-x: auto;
 }
 
 /* Estilos para los inputs en modo edición */
 .o_field_widget .form-control:focus {
     border-color: #86b7fe;
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Headers de sección */
+.o_field_widget .bg-light {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem !important;
+}
+
+.o_field_widget .bg-light .d-flex {
+    width: 100%;
+    align-items: center;
+}
+
+.o_field_widget .bg-light strong {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.o_field_widget .bg-light .fa {
+    font-size: 1.1rem;
+    margin-right: 0.75rem;
 }
 
 /* Mejoras para los botones de acción */
@@ -47,6 +188,20 @@
 .o_field_widget .btn-group .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Botones de añadir producto */
+.o_field_widget .btn-outline-success {
+    border-color: #28a745;
+    color: #28a745;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+}
+
+.o_field_widget .btn-outline-success:hover {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
 }
 
 /* Indicador visual para filas en edición */
