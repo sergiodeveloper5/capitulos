@@ -10,6 +10,11 @@ export class CapitulosAccordionWidget extends Component {
     static template = "capitulos.CapitulosAccordionWidget";
     static props = { ...standardFieldProps };
     static supportedTypes = ["text"];
+    static extractProps = ({ attrs }) => {
+        return {
+            ...standardFieldProps,
+        };
+    };
 
     setup() {
         this.state = useState({
@@ -31,7 +36,7 @@ export class CapitulosAccordionWidget extends Component {
         }
     }
 
-    get chapters() {
+    getChapters() {
         const data = this.parsedData;
         if (!data || Object.keys(data).length === 0) {
             return [];
@@ -108,4 +113,8 @@ export class CapitulosAccordionWidget extends Component {
     }
 }
 
-registry.category("fields").add("capitulos_accordion", CapitulosAccordionWidget);
+export const capitulosAccordionWidget = {
+    component: CapitulosAccordionWidget,
+};
+
+registry.category("fields").add("capitulos_accordion", capitulosAccordionWidget);
