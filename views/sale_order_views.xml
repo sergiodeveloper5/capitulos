@@ -15,6 +15,24 @@
                     <div invisible="not tiene_multiples_capitulos">
                         <h4 style="margin-bottom: 15px; color: #007bff;">📋 Capítulos del Presupuesto</h4>
                         <field name="capitulos_agrupados" widget="capitulos_accordion" nolabel="1"/>
+                        
+                        <!-- Vista editable para añadir/modificar productos -->
+                        <div style="margin-top: 20px;">
+                            <h5 style="color: #6c757d;">✏️ Editar Líneas del Presupuesto</h5>
+                            <field name="order_line" widget="section_and_note_one2many">
+                                <list decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="product_id" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                    <field name="name" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                    <field name="product_uom_qty" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                    <field name="product_uom" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                    <field name="price_unit" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                    <field name="price_subtotal"/>
+                                    <field name="es_encabezado_capitulo" invisible="1"/>
+                                    <field name="es_encabezado_seccion" invisible="1"/>
+                                </list>
+                            </field>
+                        </div>
                     </div>
                     
                     <!-- Vista tradicional cuando no hay capítulos estructurados -->

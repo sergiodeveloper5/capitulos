@@ -4,6 +4,7 @@ import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { Component, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
+import { jsonrpc } from "@web/core/network/rpc_service";
 
 export class CapitulosAccordionWidget extends Component {
     static template = "capitulos.CapitulosAccordionWidget";
@@ -68,6 +69,41 @@ export class CapitulosAccordionWidget extends Component {
 
     formatCurrency(value) {
         return (value || 0).toFixed(2);
+    }
+
+    async addProductToSection(chapterName, sectionName) {
+        console.log('Adding product to chapter:', chapterName, 'section:', sectionName);
+        
+        try {
+            const orderId = this.props.record.resId;
+            const result = await jsonrpc('/capitulos/add_product_to_section', {
+                order_id: orderId,
+                chapter_name: chapterName,
+                section_name: sectionName
+            });
+            
+            if (result.error) {
+                console.error('Error adding product:', result.error);
+                // Show error notification
+                this.env.services.notification.add(result.error, {
+                    type: 'danger',
+                    title: 'Error'
+                });
+            } else {
+                console.log('Product added successfully');
+                // Reload the view to show the new product
+                await this.props.record.model.root.load();
+                this.env.services.notification.add('Producto añadido correctamente', {
+                    type: 'success'
+                });
+            }
+        } catch (error) {
+            console.error('Error in addProductToSection:', error);
+            this.env.services.notification.add('Error al añadir el producto', {
+                type: 'danger',
+                title: 'Error'
+            });
+        }
     }
 }
 
