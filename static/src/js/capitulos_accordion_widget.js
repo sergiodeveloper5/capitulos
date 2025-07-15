@@ -4,6 +4,7 @@ import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { Component, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
+import { _t } from "@web/core/l10n/translation";
 
 export class CapitulosAccordionWidget extends Component {
     static template = "capitulos.CapitulosAccordionWidget";
@@ -13,9 +14,19 @@ export class CapitulosAccordionWidget extends Component {
 
     setup() {
         this.state = useState({ collapsedChapters: {} });
-        this.rpc = useService("rpc");
-        this.notification = useService("notification");
-        this.action = useService("action");
+        
+        // Servicios con manejo de errores
+        try {
+            this.orm = useService("orm");
+            this.notification = useService("notification");
+            this.action = useService("action");
+        } catch (error) {
+            console.error('CapitulosAccordionWidget - Error initializing services:', error);
+            // Fallback para servicios no disponibles
+            this.orm = null;
+            this.notification = null;
+            this.action = null;
+        }
     }
 
     get value() {
@@ -76,6 +87,13 @@ export class CapitulosAccordionWidget extends Component {
     async addProductToSection(chapterName, sectionName) {
         console.log('CapitulosAccordionWidget - addProductToSection called:', chapterName, sectionName);
         
+        // Verificar que los servicios estén disponibles
+        if (!this.orm || !this.notification) {
+            console.error('CapitulosAccordionWidget - Services not available');
+            alert('Error: Servicios no disponibles. Por favor, recargue la página.');
+            return;
+        }
+        
         try {
             // Mostrar diálogo de selección de producto
             const productId = await this.showProductSelectionDialog();
@@ -87,17 +105,29 @@ export class CapitulosAccordionWidget extends Component {
             // Obtener el ID del pedido actual
             const orderId = this.props.record.resId;
             
-            // Llamar al endpoint para añadir el producto
-            const result = await this.rpc('/capitulos/add_product_to_section', {
-                order_id: orderId,
-                capitulo_name: chapterName,
-                seccion_name: sectionName,
-                product_id: productId,
-                quantity: 1.0
-            });
+            if (!orderId) {
+                this.notification.add('Error: No se pudo obtener el ID del pedido', {
+                    type: 'danger',
+                    title: 'Error'
+                });
+                return;
+            }
             
-            if (result.success) {
-                this.notification.add(result.message, {
+            // Llamar al método del modelo para añadir el producto
+            const result = await this.orm.call(
+                'sale.order',
+                'add_product_to_section',
+                [orderId],
+                {
+                    capitulo_name: chapterName,
+                    seccion_name: sectionName,
+                    product_id: productId,
+                    quantity: 1.0
+                }
+            );
+            
+            if (result && result.success) {
+                this.notification.add(result.message || 'Producto añadido correctamente', {
                     type: 'success',
                     title: 'Producto añadido'
                 });
@@ -105,7 +135,7 @@ export class CapitulosAccordionWidget extends Component {
                 // Recargar la página para mostrar los cambios
                 window.location.reload();
             } else {
-                this.notification.add(result.error || 'Error desconocido', {
+                this.notification.add(result?.error || 'Error desconocido al añadir producto', {
                     type: 'danger',
                     title: 'Error al añadir producto'
                 });
@@ -113,61 +143,99 @@ export class CapitulosAccordionWidget extends Component {
             
         } catch (error) {
             console.error('CapitulosAccordionWidget - Error adding product:', error);
-            this.notification.add('Error al añadir el producto', {
-                type: 'danger',
-                title: 'Error'
-            });
+            const errorMessage = error.message || error.data?.message || 'Error al añadir el producto';
+            
+            if (this.notification) {
+                this.notification.add(errorMessage, {
+                    type: 'danger',
+                    title: 'Error'
+                });
+            } else {
+                alert('Error: ' + errorMessage);
+            }
         }
     }
 
     async showProductSelectionDialog() {
         return new Promise((resolve) => {
+            // Verificar que el servicio ORM esté disponible
+            if (!this.orm) {
+                console.error('CapitulosAccordionWidget - ORM service not available');
+                alert('Error: Servicio ORM no disponible');
+                resolve(null);
+                return;
+            }
+            
             // Crear un diálogo simple con prompt
             const productName = prompt('Ingrese el nombre del producto a buscar:');
             
-            if (!productName) {
+            if (!productName || productName.trim() === '') {
                 resolve(null);
                 return;
             }
             
             // Buscar productos
-            this.rpc('/capitulos/search_products', {
-                query: productName,
-                limit: 10
-            }).then((result) => {
-                if (result.success && result.products.length > 0) {
+            this.orm.searchRead(
+                'product.product',
+                [['sale_ok', '=', true], ['name', 'ilike', productName.trim()]],
+                ['id', 'name', 'default_code', 'list_price', 'uom_id'],
+                { limit: 10 }
+            ).then((products) => {
+                if (products && products.length > 0) {
                     // Mostrar lista de productos encontrados
                     let message = 'Productos encontrados:\n\n';
-                    result.products.forEach((product, index) => {
-                        message += `${index + 1}. ${product.name} - ${product.list_price}€\n`;
+                    products.forEach((product, index) => {
+                        const price = product.list_price || 0;
+                        const code = product.default_code ? `[${product.default_code}] ` : '';
+                        message += `${index + 1}. ${code}${product.name} - ${price.toFixed(2)}€\n`;
                     });
-                    message += '\nIngrese el número del producto a seleccionar:';
+                    message += '\nIngrese el número del producto a seleccionar (o 0 para cancelar):';
                     
                     const selection = prompt(message);
+                    
+                    if (!selection || selection.trim() === '' || selection === '0') {
+                        resolve(null);
+                        return;
+                    }
+                    
                     const selectedIndex = parseInt(selection) - 1;
                     
-                    if (selectedIndex >= 0 && selectedIndex < result.products.length) {
-                        resolve(result.products[selectedIndex].id);
+                    if (selectedIndex >= 0 && selectedIndex < products.length) {
+                        resolve(products[selectedIndex].id);
                     } else {
-                        this.notification.add('Selección inválida', {
-                            type: 'warning',
-                            title: 'Advertencia'
-                        });
+                        if (this.notification) {
+                            this.notification.add('Selección inválida', {
+                                type: 'warning',
+                                title: 'Advertencia'
+                            });
+                        } else {
+                            alert('Selección inválida');
+                        }
                         resolve(null);
                     }
                 } else {
-                    this.notification.add('No se encontraron productos', {
-                        type: 'warning',
-                        title: 'Sin resultados'
-                    });
+                    if (this.notification) {
+                        this.notification.add('No se encontraron productos', {
+                            type: 'warning',
+                            title: 'Sin resultados'
+                        });
+                    } else {
+                        alert('No se encontraron productos');
+                    }
                     resolve(null);
                 }
             }).catch((error) => {
                 console.error('Error searching products:', error);
-                this.notification.add('Error al buscar productos', {
-                    type: 'danger',
-                    title: 'Error'
-                });
+                const errorMessage = error.message || error.data?.message || 'Error al buscar productos';
+                
+                if (this.notification) {
+                    this.notification.add(errorMessage, {
+                        type: 'danger',
+                        title: 'Error'
+                    });
+                } else {
+                    alert('Error: ' + errorMessage);
+                }
                 resolve(null);
             });
         });
