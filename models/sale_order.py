@@ -112,6 +112,69 @@ class SaleOrder(models.Model):
             self.capitulos_agrupados = json.dumps(capitulos)
         
         return {'type': 'ir.actions.client', 'tag': 'reload'}
+    
+    def add_product_to_section(self, capitulo_name, seccion_name, product_id, quantity=1.0):
+        """Añade un producto a una sección específica de un capítulo"""
+        self.ensure_one()
+        
+        if not product_id:
+            raise UserError("Debe seleccionar un producto")
+        
+        product = self.env['product.product'].browse(product_id)
+        if not product.exists():
+            raise UserError("El producto seleccionado no existe")
+        
+        # Buscar la línea de encabezado del capítulo
+        capitulo_line = None
+        seccion_line = None
+        
+        for line in self.order_line.sorted('sequence'):
+            if line.es_encabezado_capitulo and line.name == capitulo_name:
+                capitulo_line = line
+            elif capitulo_line and line.es_encabezado_seccion and line.name == seccion_name:
+                seccion_line = line
+                break
+        
+        if not capitulo_line:
+            raise UserError(f"No se encontró el capítulo: {capitulo_name}")
+        
+        if not seccion_line:
+            raise UserError(f"No se encontró la sección: {seccion_name} en el capítulo: {capitulo_name}")
+        
+        # Encontrar la posición donde insertar el nuevo producto
+        # Debe ir después de la línea de sección pero antes del siguiente encabezado
+        insert_sequence = seccion_line.sequence + 1
+        
+        # Ajustar las secuencias de las líneas posteriores
+        lines_to_update = self.order_line.filtered(
+            lambda l: l.sequence >= insert_sequence
+        )
+        for line in lines_to_update:
+            line.sequence += 1
+        
+        # Crear la nueva línea de producto
+        new_line_vals = {
+            'order_id': self.id,
+            'product_id': product.id,
+            'name': product.name,
+            'product_uom_qty': quantity,
+            'product_uom': product.uom_id.id,
+            'price_unit': product.list_price,
+            'sequence': insert_sequence,
+            'es_encabezado_capitulo': False,
+            'es_encabezado_seccion': False,
+        }
+        
+        # Crear la línea con contexto especial para evitar restricciones
+        new_line = self.env['sale.order.line'].with_context(
+            from_capitulo_wizard=True
+        ).create(new_line_vals)
+        
+        return {
+            'success': True,
+            'message': f'Producto {product.name} añadido a {seccion_name}',
+            'line_id': new_line.id
+        }
 
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'

@@ -40,9 +40,17 @@
                                     <!-- Fila de sección -->
                                     <tr style="background-color: #fff3cd; font-weight: 500;">
                                         <td></td>
-                                        <td colspan="6">
+                                        <td colspan="5">
                                             <i class="fa fa-tag me-2"></i>
                                             <t t-esc="section.name"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    type="button"
+                                                    t-on-click="() => this.addProductToSection(chapter.name, section.name)"
+                                                    title="Añadir producto a esta sección">
+                                                <i class="fa fa-plus"></i>
+                                            </button>
                                         </td>
                                     </tr>
                                     

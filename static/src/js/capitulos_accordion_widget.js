@@ -13,6 +13,9 @@ export class CapitulosAccordionWidget extends Component {
 
     setup() {
         this.state = useState({ collapsedChapters: {} });
+        this.rpc = useService("rpc");
+        this.notification = useService("notification");
+        this.action = useService("action");
     }
 
     get value() {
@@ -68,6 +71,106 @@ export class CapitulosAccordionWidget extends Component {
 
     formatCurrency(value) {
         return (value || 0).toFixed(2);
+    }
+
+    async addProductToSection(chapterName, sectionName) {
+        console.log('CapitulosAccordionWidget - addProductToSection called:', chapterName, sectionName);
+        
+        try {
+            // Mostrar diálogo de selección de producto
+            const productId = await this.showProductSelectionDialog();
+            
+            if (!productId) {
+                return; // Usuario canceló
+            }
+            
+            // Obtener el ID del pedido actual
+            const orderId = this.props.record.resId;
+            
+            // Llamar al endpoint para añadir el producto
+            const result = await this.rpc('/capitulos/add_product_to_section', {
+                order_id: orderId,
+                capitulo_name: chapterName,
+                seccion_name: sectionName,
+                product_id: productId,
+                quantity: 1.0
+            });
+            
+            if (result.success) {
+                this.notification.add(result.message, {
+                    type: 'success',
+                    title: 'Producto añadido'
+                });
+                
+                // Recargar la página para mostrar los cambios
+                window.location.reload();
+            } else {
+                this.notification.add(result.error || 'Error desconocido', {
+                    type: 'danger',
+                    title: 'Error al añadir producto'
+                });
+            }
+            
+        } catch (error) {
+            console.error('CapitulosAccordionWidget - Error adding product:', error);
+            this.notification.add('Error al añadir el producto', {
+                type: 'danger',
+                title: 'Error'
+            });
+        }
+    }
+
+    async showProductSelectionDialog() {
+        return new Promise((resolve) => {
+            // Crear un diálogo simple con prompt
+            const productName = prompt('Ingrese el nombre del producto a buscar:');
+            
+            if (!productName) {
+                resolve(null);
+                return;
+            }
+            
+            // Buscar productos
+            this.rpc('/capitulos/search_products', {
+                query: productName,
+                limit: 10
+            }).then((result) => {
+                if (result.success && result.products.length > 0) {
+                    // Mostrar lista de productos encontrados
+                    let message = 'Productos encontrados:\n\n';
+                    result.products.forEach((product, index) => {
+                        message += `${index + 1}. ${product.name} - ${product.list_price}€\n`;
+                    });
+                    message += '\nIngrese el número del producto a seleccionar:';
+                    
+                    const selection = prompt(message);
+                    const selectedIndex = parseInt(selection) - 1;
+                    
+                    if (selectedIndex >= 0 && selectedIndex < result.products.length) {
+                        resolve(result.products[selectedIndex].id);
+                    } else {
+                        this.notification.add('Selección inválida', {
+                            type: 'warning',
+                            title: 'Advertencia'
+                        });
+                        resolve(null);
+                    }
+                } else {
+                    this.notification.add('No se encontraron productos', {
+                        type: 'warning',
+                        title: 'Sin resultados'
+                    });
+                    resolve(null);
+                }
+            }).catch((error) => {
+                console.error('Error searching products:', error);
+                this.notification.add('Error al buscar productos', {
+                    type: 'danger',
+                    title: 'Error'
+                });
+                resolve(null);
+            });
+        });
     }
 }
 
