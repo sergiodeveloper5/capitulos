@@ -4,6 +4,9 @@ import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { Component, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
+import { _t } from "@web/core/l10n/translation";
+import { Dialog } from "@web/core/dialog/dialog";
+import { Many2OneField } from "@web/views/fields/many2one/many2one_field";
 
 export class CapitulosAccordionWidget extends Component {
     static template = "capitulos.CapitulosAccordionWidget";
@@ -16,11 +19,15 @@ export class CapitulosAccordionWidget extends Component {
         this.state = useState({ 
             collapsedChapters: {},
             editingLine: null,
-            editValues: {}
+            editValues: {},
+            showProductDialog: false,
+            currentSection: null,
+            currentChapter: null
         });
         
         this.orm = useService("orm");
         this.notification = useService("notification");
+        this.dialog = useService("dialog");
     }
 
     get value() {
@@ -72,6 +79,7 @@ export class CapitulosAccordionWidget extends Component {
 
     async addProductToSection(chapterName, sectionName) {
         try {
+            // Abrir el diálogo de selección de productos
             const productId = await this.openProductSelector();
             
             if (!productId) {
@@ -87,72 +95,42 @@ export class CapitulosAccordionWidget extends Component {
                 [orderId, chapterName, sectionName, productId, 1.0]
             );
             
-            if (result.success) {
-                this.notification.add(result.message, {
-                    type: 'success'
-                });
+            if (result && result.success) {
+                this.notification.add(
+                    _t('Producto añadido correctamente'),
+                    { type: 'success' }
+                );
                 
-                // Recargar los datos del registro
+                // Recargar los datos del widget
                 await this.props.record.load();
             } else {
-                this.notification.add(result.message || 'Error al añadir el producto', {
-                    type: 'danger'
-                });
+                this.notification.add(
+                    result?.error || _t('Error al añadir el producto'),
+                    { type: 'danger' }
+                );
             }
             
         } catch (error) {
-            console.error('Error adding product:', error);
-            this.notification.add('Error al añadir el producto: ' + (error.message || error), {
-                type: 'danger'
-            });
+            console.error('Error al añadir producto:', error);
+            this.notification.add(
+                _t('Error al añadir producto a la sección'),
+                { type: 'danger' }
+            );
         }
     }
 
     async openProductSelector() {
-        try {
-            const searchTerm = prompt('Ingrese el nombre del producto a buscar:');
-            
-            if (!searchTerm) {
-                return null;
-            }
-            
-            const products = await this.orm.searchRead(
-                'product.product',
-                [['name', 'ilike', searchTerm]],
-                ['id', 'name', 'list_price'],
-                { limit: 10 }
-            );
-            
-            if (products.length === 0) {
-                alert('No se encontraron productos');
-                return null;
-            }
-            
-            let productList = 'Seleccione un producto:\n\n';
-            products.forEach((product, index) => {
-                productList += `${index + 1}. ${product.name} - $${product.list_price}\n`;
+        return new Promise((resolve) => {
+            this.dialog.add(ProductSelectorDialog, {
+                title: _t("Seleccionar Producto"),
+                onConfirm: (productId) => {
+                    resolve(productId);
+                },
+                onCancel: () => {
+                    resolve(null);
+                }
             });
-            
-            const selection = prompt(productList + '\nIngrese el número:');
-            
-            if (!selection) {
-                return null;
-            }
-            
-            const selectedIndex = parseInt(selection) - 1;
-            
-            if (selectedIndex >= 0 && selectedIndex < products.length) {
-                return products[selectedIndex].id;
-            } else {
-                alert('Selección inválida');
-                return null;
-            }
-            
-        } catch (error) {
-            console.error('Error selecting product:', error);
-            alert('Error al buscar productos');
-            return null;
-        }
+        });
     }
 
     // Métodos para edición inline
@@ -183,42 +161,80 @@ export class CapitulosAccordionWidget extends Component {
         
         try {
             const lineId = this.state.editingLine;
+            
+            // Validar valores antes de guardar
+            const quantity = parseFloat(this.state.editValues.product_uom_qty);
+            const price = parseFloat(this.state.editValues.price_unit);
+            
+            if (isNaN(quantity) || quantity < 0) {
+                this.notification.add(
+                    _t('La cantidad debe ser un número válido mayor o igual a 0'),
+                    { type: 'warning' }
+                );
+                return;
+            }
+            
+            if (isNaN(price) || price < 0) {
+                this.notification.add(
+                    _t('El precio debe ser un número válido mayor o igual a 0'),
+                    { type: 'warning' }
+                );
+                return;
+            }
+            
             const updateValues = {
-                product_uom_qty: parseFloat(this.state.editValues.product_uom_qty) || 0,
-                price_unit: parseFloat(this.state.editValues.price_unit) || 0,
+                product_uom_qty: quantity,
+                price_unit: price,
                 name: this.state.editValues.name || ''
             };
             
             await this.orm.write('sale.order.line', [parseInt(lineId)], updateValues);
             
-            this.notification.add('Línea actualizada', { type: 'success' });
+            this.notification.add(
+                _t('Línea actualizada correctamente'),
+                { type: 'success' }
+            );
             
             this.state.editingLine = null;
             this.state.editValues = {};
             
+            // Recargar los datos del widget
             await this.props.record.load();
             
         } catch (error) {
-            console.error('Error saving edit:', error);
-            this.notification.add('Error al guardar', { type: 'danger' });
+            console.error('Error al guardar:', error);
+            this.notification.add(
+                _t('Error al guardar los cambios'),
+                { type: 'danger' }
+            );
         }
     }
 
     async deleteLine(lineId) {
-        if (!confirm('¿Eliminar esta línea?')) {
-            return;
-        }
-        
         try {
+            // Usar el servicio de diálogo para confirmación
+            const confirmed = await new Promise((resolve) => {
+                this.dialog.add(Dialog, {
+                    title: _t("Confirmar eliminación"),
+                    body: _t("¿Está seguro de que desea eliminar esta línea?"),
+                    confirm: () => resolve(true),
+                    cancel: () => resolve(false),
+                });
+            });
+            
+            if (!confirmed) {
+                return;
+            }
+            
             await this.orm.unlink('sale.order.line', [parseInt(lineId)]);
             
-            this.notification.add('Línea eliminada', { type: 'success' });
+            this.notification.add(_t('Línea eliminada correctamente'), { type: 'success' });
             
             await this.props.record.load();
             
         } catch (error) {
             console.error('Error deleting line:', error);
-            this.notification.add('Error al eliminar', { type: 'danger' });
+            this.notification.add(_t('Error al eliminar la línea'), { type: 'danger' });
         }
     }
 
@@ -258,6 +274,90 @@ export class CapitulosAccordionWidget extends Component {
 
 // Hacer el widget accesible globalmente para depuración
 window.CapitulosAccordionWidget = CapitulosAccordionWidget;
+
+// Componente de diálogo para selección de productos
+class ProductSelectorDialog extends Component {
+    static template = "capitulos.ProductSelectorDialog";
+    static components = { Dialog };
+    static props = {
+        title: String,
+        onConfirm: Function,
+        onCancel: Function,
+        close: Function,
+    };
+
+    setup() {
+        this.state = useState({
+            selectedProduct: null,
+            searchTerm: '',
+            products: [],
+            isLoading: false
+        });
+        
+        this.orm = useService("orm");
+        this.notification = useService("notification");
+        
+        // Cargar productos iniciales
+        this.searchProducts();
+    }
+
+    async searchProducts() {
+        this.state.isLoading = true;
+        try {
+            const domain = [['sale_ok', '=', true]];
+            if (this.state.searchTerm) {
+                domain.push(['name', 'ilike', this.state.searchTerm]);
+            }
+            
+            const products = await this.orm.searchRead(
+                'product.product',
+                domain,
+                ['id', 'name', 'list_price', 'default_code', 'uom_id'],
+                { limit: 20 }
+            );
+            
+            this.state.products = products;
+        } catch (error) {
+            console.error('Error al buscar productos:', error);
+            this.notification.add(
+                _t('Error al buscar productos'),
+                { type: 'danger' }
+            );
+        } finally {
+            this.state.isLoading = false;
+        }
+    }
+
+    onSearchInput(ev) {
+        this.state.searchTerm = ev.target.value;
+        // Debounce la búsqueda
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => {
+            this.searchProducts();
+        }, 300);
+    }
+
+    selectProduct(product) {
+        this.state.selectedProduct = product;
+    }
+
+    onConfirm() {
+        if (this.state.selectedProduct) {
+            this.props.onConfirm(this.state.selectedProduct.id);
+            this.props.close();
+        } else {
+            this.notification.add(
+                _t('Por favor seleccione un producto'),
+                { type: 'warning' }
+            );
+        }
+    }
+
+    onCancel() {
+        this.props.onCancel();
+        this.props.close();
+    }
+}
 
 registry.category("fields").add("capitulos_accordion", {
     component: CapitulosAccordionWidget,

@@ -132,8 +132,16 @@ class SaleOrder(models.Model):
         seccion_line = None
         
         for line in order.order_line.sorted('sequence'):
-            if line.es_encabezado_capitulo and line.name == capitulo_name:
-                capitulo_line = line
+            if line.es_encabezado_capitulo:
+                # Comparar tanto el nombre exacto como el nombre base (sin contador)
+                line_name = line.name
+                # Extraer el nombre base si tiene formato "Nombre (contador)"
+                import re
+                base_name_match = re.match(r'^(.+?)(?:\s*\(\d+\))?$', capitulo_name)
+                capitulo_base_name = base_name_match.group(1) if base_name_match else capitulo_name
+                
+                if line_name == capitulo_name or line_name == capitulo_base_name:
+                    capitulo_line = line
             elif capitulo_line and line.es_encabezado_seccion and line.name == seccion_name:
                 seccion_line = line
                 break

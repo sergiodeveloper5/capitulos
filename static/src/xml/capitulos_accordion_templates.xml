@@ -41,9 +41,10 @@
                                                 <i class="fa fa-wrench me-2 text-info"/> 
                                                 <strong t-esc="section.name"/>
                                             </div>
-                                            <button class="btn btn-sm btn-primary" 
-                                                    t-on-click="() => this.addProductToSection(chapter.name, section.name)">
-                                                <i class="fa fa-plus me-1"/> Añadir
+                                            <button class="btn btn-sm btn-outline-success" 
+                                                    t-on-click="() => this.addProductToSection(chapter.name, section.name)"
+                                                    title="Añadir producto a esta sección">
+                                                <i class="fa fa-plus me-1"/> Añadir Producto
                                             </button>
                                         </div>
                                         
@@ -74,53 +75,80 @@
                                                             </td>
                                                             
                                                             <td class="text-center align-middle">
-                                                                <t t-if="state.editingLine === line.id">
-                                                                    <input type="number" class="form-control form-control-sm text-center" 
-                                                                           t-att-value="state.editValues.product_uom_qty || 0"
-                                                                           t-on-input="(ev) => this.updateEditValue('product_uom_qty', ev.target.value)"/>
-                                                                </t>
-                                                                <t t-else="">
-                                                                    <span t-esc="line.product_uom_qty || 0"/>
-                                                                </t>
-                                                            </td>
+                                                <t t-if="state.editingLine === line.id">
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" 
+                                                               class="form-control" 
+                                                               t-att-value="state.editValues.product_uom_qty || 0"
+                                                               t-on-input="(ev) => this.updateEditValue('product_uom_qty', ev.target.value)"
+                                                               step="0.01" 
+                                                               min="0"
+                                                               placeholder="Cantidad"/>
+                                                        <span class="input-group-text" t-if="line.product_uom">
+                                                            <small t-esc="line.product_uom[1]"/>
+                                                        </span>
+                                                    </div>
+                                                </t>
+                                                <t t-else="">
+                                                    <span t-esc="line.product_uom_qty || 0"/>
+                                                    <small class="text-muted d-block" t-if="line.product_uom">
+                                                        <t t-esc="line.product_uom[1]"/>
+                                                    </small>
+                                                </t>
+                                            </td>
                                                             
                                                             <td class="text-end align-middle">
-                                                                <t t-if="state.editingLine === line.id">
-                                                                    <input type="number" class="form-control form-control-sm text-end" step="0.01"
-                                                                           t-att-value="state.editValues.price_unit || 0"
-                                                                           t-on-input="(ev) => this.updateEditValue('price_unit', ev.target.value)"/>
-                                                                </t>
-                                                                <t t-else="">
-                                                                    <span t-esc="formatCurrency(line.price_unit || 0)"/>
-                                                                </t>
-                                                            </td>
+                                                <t t-if="state.editingLine === line.id">
+                                                    <div class="input-group input-group-sm">
+                                                        <span class="input-group-text">$</span>
+                                                        <input type="number" 
+                                                               class="form-control text-end" 
+                                                               t-att-value="state.editValues.price_unit || 0"
+                                                               t-on-input="(ev) => this.updateEditValue('price_unit', ev.target.value)"
+                                                               step="0.01" 
+                                                               min="0"
+                                                               placeholder="0.00"/>
+                                                    </div>
+                                                </t>
+                                                <t t-else="">
+                                                    <span class="fw-bold">$<t t-esc="(line.price_unit || 0).toFixed(2)"/></span>
+                                                </t>
+                                            </td>
                                                             
                                                             <td class="text-end align-middle">
-                                                                <strong t-esc="formatCurrency((line.product_uom_qty || 0) * (line.price_unit || 0))"/>
-                                                            </td>
+                                                <span class="fw-bold text-primary">$<t t-esc="((line.product_uom_qty || 0) * (line.price_unit || 0)).toFixed(2)"/></span>
+                                            </td>
                                                             
                                                             <td class="text-center align-middle">
-                                                                <div class="btn-group btn-group-sm" role="group">
-                                                                    <t t-if="state.editingLine === line.id">
-                                                                        <button class="btn btn-success" t-on-click="() => this.saveEdit()" title="Guardar">
-                                                                            <i class="fa fa-check"/>
-                                                                        </button>
-                                                                        <button class="btn btn-secondary" t-on-click="() => this.cancelEdit()" title="Cancelar">
-                                                                            <i class="fa fa-times"/>
-                                                                        </button>
-                                                                    </t>
-                                                                    <t t-else="">
-                                                                        <button class="btn btn-outline-primary" 
-                                                                                t-on-click="() => this.startEditLine(line.id)" title="Editar">
-                                                                            <i class="fa fa-edit"/>
-                                                                        </button>
-                                                                        <button class="btn btn-outline-danger" 
-                                                                                t-on-click="() => this.deleteLine(line.id)" title="Eliminar">
-                                                                            <i class="fa fa-trash"/>
-                                                                        </button>
-                                                                    </t>
-                                                                </div>
-                                                            </td>
+                                                <t t-if="state.editingLine === line.id">
+                                                    <div class="btn-group" role="group">
+                                                        <button class="btn btn-success btn-sm" 
+                                                                t-on-click="() => this.saveEdit()"
+                                                                title="Guardar cambios">
+                                                            <i class="fa fa-check"/>
+                                                        </button>
+                                                        <button class="btn btn-secondary btn-sm" 
+                                                                t-on-click="() => this.cancelEdit()"
+                                                                title="Cancelar">
+                                                            <i class="fa fa-times"/>
+                                                        </button>
+                                                    </div>
+                                                </t>
+                                                <t t-else="">
+                                                    <div class="btn-group" role="group">
+                                                        <button class="btn btn-outline-primary btn-sm" 
+                                                                t-on-click="() => this.startEditLine(line.id)"
+                                                                title="Editar línea">
+                                                            <i class="fa fa-edit"/>
+                                                        </button>
+                                                        <button class="btn btn-outline-danger btn-sm" 
+                                                                t-on-click="() => this.deleteLine(line.id)"
+                                                                title="Eliminar línea">
+                                                            <i class="fa fa-trash"/>
+                                                        </button>
+                                                    </div>
+                                                </t>
+                                            </td>
                                                         </tr>
                                                     </t>
                                                 </tbody>
@@ -135,4 +163,86 @@
             </div>
         </div>
     </t>
+    <!-- Diálogo de selección de productos -->
+    <t t-name="capitulos.ProductSelectorDialog" owl="1">
+        <Dialog size="'lg'" title="props.title">
+            <div class="modal-body">
+                <!-- Barra de búsqueda -->
+                <div class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fa fa-search"/>
+                        </span>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            placeholder="Buscar productos..."
+                            t-model="state.searchTerm"
+                            t-on-input="onSearchInput"
+                        />
+                    </div>
+                </div>
+                
+                <!-- Lista de productos -->
+                <div class="product-list" style="max-height: 400px; overflow-y: auto;">
+                    <div t-if="state.isLoading" class="text-center p-3">
+                        <i class="fa fa-spinner fa-spin"/> Cargando productos...
+                    </div>
+                    
+                    <div t-elif="state.products.length === 0" class="text-center text-muted p-3">
+                        <i class="fa fa-info-circle"/> No se encontraron productos
+                    </div>
+                    
+                    <div t-else="">
+                        <div 
+                            t-foreach="state.products" 
+                            t-as="product" 
+                            t-key="product.id"
+                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                            t-att-class="state.selectedProduct?.id === product.id ? 'active' : ''"
+                            t-on-click="() => this.selectProduct(product)"
+                            style="cursor: pointer;"
+                        >
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">
+                                    <t t-esc="product.name"/>
+                                </div>
+                                <small class="text-muted" t-if="product.default_code">
+                                    Código: <t t-esc="product.default_code"/>
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-primary">
+                                    $<t t-esc="product.list_price.toFixed(2)"/>
+                                </span>
+                                <br/>
+                                <small class="text-muted" t-if="product.uom_id">
+                                    <t t-esc="product.uom_id[1]"/>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button 
+                    type="button" 
+                    class="btn btn-secondary" 
+                    t-on-click="onCancel"
+                >
+                    <i class="fa fa-times"/> Cancelar
+                </button>
+                <button 
+                    type="button" 
+                    class="btn btn-primary" 
+                    t-on-click="onConfirm"
+                    t-att-disabled="!state.selectedProduct"
+                >
+                    <i class="fa fa-check"/> Seleccionar
+                </button>
+            </div>
+        </Dialog>
+    </t>
+
 </templates>
