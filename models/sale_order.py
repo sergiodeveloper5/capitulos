@@ -112,54 +112,6 @@ class SaleOrder(models.Model):
             self.capitulos_agrupados = json.dumps(capitulos)
         
         return {'type': 'ir.actions.client', 'tag': 'reload'}
-    
-    def add_product_to_section(self, chapter_name, section_name):
-        """Añade una nueva línea de producto a una sección específica"""
-        self.ensure_one()
-        
-        # Buscar la posición donde insertar el nuevo producto
-        chapter_found = False
-        section_found = False
-        insert_sequence = 0
-        
-        for line in self.order_line.sorted('sequence'):
-            if line.es_encabezado_capitulo and line.name == chapter_name:
-                chapter_found = True
-                section_found = False
-                continue
-                
-            if chapter_found and line.es_encabezado_seccion and line.name == section_name:
-                section_found = True
-                insert_sequence = line.sequence + 1
-                continue
-                
-            if chapter_found and section_found:
-                if line.es_encabezado_capitulo or line.es_encabezado_seccion:
-                    # Llegamos al siguiente capítulo o sección
-                    break
-                insert_sequence = line.sequence + 1
-        
-        if not chapter_found or not section_found:
-            raise UserError(f"No se encontró el capítulo '{chapter_name}' o la sección '{section_name}'")
-        
-        # Ajustar secuencias de líneas posteriores
-        lines_to_update = self.order_line.filtered(lambda l: l.sequence >= insert_sequence)
-        for line in lines_to_update:
-            line.sequence += 1
-        
-        # Crear nueva línea de producto
-        new_line = self.env['sale.order.line'].create({
-            'order_id': self.id,
-            'sequence': insert_sequence,
-            'name': 'Nuevo producto',
-            'product_uom_qty': 1.0,
-            'price_unit': 0.0,
-        })
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'reload'
-        }
 
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
@@ -193,16 +145,8 @@ class SaleOrderLine(models.Model):
     
     def write(self, vals):
         """Previene la modificación de campos críticos en encabezados"""
-        # Permitir modificaciones desde wizard o durante generación de reportes
-        if (self.env.context.get('from_capitulo_wizard') or 
-            self.env.context.get('report_generation') or
-            self.env.context.get('mail_post_autofollow') or
-            self.env.context.get('active_test', True) == False or
-            self.env.context.get('inherit_branding') or
-            self.env.context.get('translatable') or
-            'docs' in self.env.context or
-            'doc_ids' in self.env.context or
-            'doc_model' in self.env.context):
+        # Si se está modificando desde el wizard de capítulos, permitir la modificación
+        if self.env.context.get('from_capitulo_wizard'):
             return super().write(vals)
             
         protected_fields = ['name', 'product_id', 'product_uom_qty', 'price_unit', 'sequence', 'display_type']
@@ -223,24 +167,29 @@ class SaleOrderLine(models.Model):
     @api.model
     def create(self, vals):
         """Controla la creación de nuevas líneas cuando hay capítulos estructurados"""
-        # Permitir creación desde wizard o durante generación de reportes
-        if (self.env.context.get('from_capitulo_wizard') or 
-            self.env.context.get('report_generation') or
-            self.env.context.get('mail_post_autofollow') or
-            self.env.context.get('active_test', True) == False or
-            self.env.context.get('inherit_branding') or
-            self.env.context.get('translatable') or
-            'docs' in self.env.context or
-            'doc_ids' in self.env.context or
-            'doc_model' in self.env.context):
+        # Si se está creando desde el wizard de capítulos, permitir la creación
+        if self.env.context.get('from_capitulo_wizard'):
             return super().create(vals)
         
-        # Solo bloquear la creación manual de encabezados de capítulos y secciones
+        # Bloquear la creación manual de encabezados de capítulos y secciones
         if vals.get('es_encabezado_capitulo') or vals.get('es_encabezado_seccion'):
             raise UserError(
                 "No se pueden crear encabezados de capítulos o secciones manualmente.\n"
                 "Use el botón 'Gestionar Capítulos' para añadir capítulos estructurados."
             )
         
-        # Permitir todo lo demás (productos normales, secciones, notas, etc.)
+        # Bloquear la creación de líneas de tipo 'line_section' que no sean productos normales
+        if vals.get('display_type') in ['line_section', 'line_note'] and not vals.get('product_id'):
+            order_id = vals.get('order_id')
+            if order_id:
+                order = self.env['sale.order'].browse(order_id)
+                existing_headers = order.order_line.filtered(
+                    lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion
+                )
+                if existing_headers:
+                    raise UserError(
+                        "No se pueden añadir secciones o notas manualmente cuando el presupuesto tiene capítulos estructurados.\n"
+                        "Use el botón 'Gestionar Capítulos' para gestionar la estructura."
+                    )
+        
         return super().create(vals)

@@ -38,7 +38,6 @@
             <xpath expr="//field[@name='order_line']" position="after">
                 <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
                 <field name="tiene_multiples_capitulos" invisible="1"/>
-                <field name="capitulos_agrupados" invisible="1"/>
             </xpath>
         </field>
     </record>
