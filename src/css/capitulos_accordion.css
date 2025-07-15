@@ -1,6 +1,93 @@
-.o_capitulos_accordion {
-    font-family: "Lucida Grande", Helvetica, Verdana, Arial, sans-serif;
-    font-size: 13px;
+/* Estilos mínimos para complementar las clases nativas de Odoo/Bootstrap */
+
+/* Mejoras específicas para el widget de capítulos */
+.o_field_widget .accordion-button:not(.collapsed) {
+    background-color: #e7f3ff;
+    border-color: #b3d9ff;
+}
+
+.o_field_widget .accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Animaciones suaves para el accordion */
+.accordion-collapse {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Estilos para las tablas de líneas */
+.o_field_widget .table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.o_field_widget .table td {
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+
+.o_field_widget .table tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* Estilos para los inputs en modo edición */
+.o_field_widget .form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Mejoras para los botones de acción */
+.o_field_widget .btn-group .btn {
+    transition: all 0.2s ease;
+}
+
+.o_field_widget .btn-group .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Indicador visual para filas en edición */
+.o_field_widget .table tbody tr:has(.form-control) {
+    background-color: #fff3cd;
+    border-left: 3px solid #ffc107;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .o_field_widget .table-responsive {
+        font-size: 0.8rem;
+    }
+    
+    .o_field_widget .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .o_field_widget .form-control-sm {
+        font-size: 0.8rem;
+    }
+}
+
+/* Loading state */
+.o_field_widget .loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+.o_field_widget .loading i {
+    margin-right: 0.5rem;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* Estilo para headers de grupo (capítulos) */
