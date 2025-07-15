@@ -63,6 +63,7 @@ class SaleOrder(models.Model):
                 elif current_capitulo_key and current_seccion_name:
                     # Producto dentro de la sección actual
                     line_data = {
+                        'id': line.id,  # Añadir ID para edición
                         'sequence': line.sequence,
                         'product_name': line.product_id.name if line.product_id else '',
                         'name': line.name,
@@ -113,9 +114,11 @@ class SaleOrder(models.Model):
         
         return {'type': 'ir.actions.client', 'tag': 'reload'}
     
-    def add_product_to_section(self, capitulo_name, seccion_name, product_id, quantity=1.0):
+    @api.model
+    def add_product_to_section(self, order_id, capitulo_name, seccion_name, product_id, quantity=1.0):
         """Añade un producto a una sección específica de un capítulo"""
-        self.ensure_one()
+        order = self.browse(order_id)
+        order.ensure_one()
         
         if not product_id:
             raise UserError("Debe seleccionar un producto")
@@ -128,7 +131,7 @@ class SaleOrder(models.Model):
         capitulo_line = None
         seccion_line = None
         
-        for line in self.order_line.sorted('sequence'):
+        for line in order.order_line.sorted('sequence'):
             if line.es_encabezado_capitulo and line.name == capitulo_name:
                 capitulo_line = line
             elif capitulo_line and line.es_encabezado_seccion and line.name == seccion_name:
@@ -146,7 +149,7 @@ class SaleOrder(models.Model):
         insert_sequence = seccion_line.sequence + 1
         
         # Ajustar las secuencias de las líneas posteriores
-        lines_to_update = self.order_line.filtered(
+        lines_to_update = order.order_line.filtered(
             lambda l: l.sequence >= insert_sequence
         )
         for line in lines_to_update:
@@ -154,7 +157,7 @@ class SaleOrder(models.Model):
         
         # Crear la nueva línea de producto
         new_line_vals = {
-            'order_id': self.id,
+            'order_id': order.id,
             'product_id': product.id,
             'name': product.name,
             'product_uom_qty': quantity,

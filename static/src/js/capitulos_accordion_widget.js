@@ -5,6 +5,8 @@ import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { Component, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
+import { Dialog } from "@web/core/dialog/dialog";
+import { useRef } from "@odoo/owl";
 
 export class CapitulosAccordionWidget extends Component {
     static template = "capitulos.CapitulosAccordionWidget";
@@ -13,19 +15,25 @@ export class CapitulosAccordionWidget extends Component {
     };
 
     setup() {
-        this.state = useState({ collapsedChapters: {} });
+        this.state = useState({ 
+            collapsedChapters: {},
+            editingLine: null,
+            editValues: {}
+        });
         
         // Servicios con manejo de errores
         try {
             this.orm = useService("orm");
             this.notification = useService("notification");
             this.action = useService("action");
+            this.dialog = useService("dialog");
         } catch (error) {
             console.error('CapitulosAccordionWidget - Error initializing services:', error);
             // Fallback para servicios no disponibles
             this.orm = null;
             this.notification = null;
             this.action = null;
+            this.dialog = null;
         }
     }
 
@@ -90,13 +98,16 @@ export class CapitulosAccordionWidget extends Component {
         // Verificar que los servicios estén disponibles
         if (!this.orm || !this.notification) {
             console.error('CapitulosAccordionWidget - Services not available');
-            alert('Error: Servicios no disponibles. Por favor, recargue la página.');
+            this.notification?.add('Error: Servicios no disponibles. Por favor, recargue la página.', {
+                type: 'danger',
+                title: 'Error'
+            }) || alert('Error: Servicios no disponibles');
             return;
         }
         
         try {
-            // Mostrar diálogo de selección de producto
-            const productId = await this.showProductSelectionDialog();
+            // Abrir selector de productos usando el action service
+            const productId = await this.openProductSelector();
             
             if (!productId) {
                 return; // Usuario canceló
@@ -117,13 +128,7 @@ export class CapitulosAccordionWidget extends Component {
             const result = await this.orm.call(
                 'sale.order',
                 'add_product_to_section',
-                [orderId],
-                {
-                    capitulo_name: chapterName,
-                    seccion_name: sectionName,
-                    product_id: productId,
-                    quantity: 1.0
-                }
+                [orderId, chapterName, sectionName, productId, 1.0]
             );
             
             if (result && result.success) {
@@ -132,8 +137,9 @@ export class CapitulosAccordionWidget extends Component {
                     title: 'Producto añadido'
                 });
                 
-                // Recargar la página para mostrar los cambios
-                window.location.reload();
+                // Actualizar el record para reflejar los cambios
+                await this.props.record.load();
+                this.render();
             } else {
                 this.notification.add(result?.error || 'Error desconocido al añadir producto', {
                     type: 'danger',
@@ -145,15 +151,44 @@ export class CapitulosAccordionWidget extends Component {
             console.error('CapitulosAccordionWidget - Error adding product:', error);
             const errorMessage = error.message || error.data?.message || 'Error al añadir el producto';
             
-            if (this.notification) {
-                this.notification.add(errorMessage, {
-                    type: 'danger',
-                    title: 'Error'
-                });
-            } else {
-                alert('Error: ' + errorMessage);
-            }
+            this.notification.add(errorMessage, {
+                type: 'danger',
+                title: 'Error'
+            });
         }
+    }
+
+    async openProductSelector() {
+        return new Promise((resolve) => {
+            if (!this.action) {
+                // Fallback al método anterior si no hay action service
+                this.showProductSelectionDialog().then(resolve);
+                return;
+            }
+            
+            // Usar el selector de productos nativo de Odoo
+            this.action.doAction({
+                type: 'ir.actions.act_window',
+                name: 'Seleccionar Producto',
+                res_model: 'product.product',
+                view_mode: 'list',
+                views: [[false, 'list']],
+                target: 'new',
+                domain: [['sale_ok', '=', true]],
+                context: {
+                    search_default_filter_to_sell: 1,
+                    default_detailed_type: 'product'
+                }
+            }, {
+                onClose: (result) => {
+                    if (result && result.resIds && result.resIds.length > 0) {
+                        resolve(result.resIds[0]);
+                    } else {
+                        resolve(null);
+                    }
+                }
+            });
+        });
     }
 
     async showProductSelectionDialog() {
@@ -203,42 +238,132 @@ export class CapitulosAccordionWidget extends Component {
                     if (selectedIndex >= 0 && selectedIndex < products.length) {
                         resolve(products[selectedIndex].id);
                     } else {
-                        if (this.notification) {
-                            this.notification.add('Selección inválida', {
-                                type: 'warning',
-                                title: 'Advertencia'
-                            });
-                        } else {
-                            alert('Selección inválida');
-                        }
+                        this.notification?.add('Selección inválida', {
+                            type: 'warning',
+                            title: 'Advertencia'
+                        }) || alert('Selección inválida');
                         resolve(null);
                     }
                 } else {
-                    if (this.notification) {
-                        this.notification.add('No se encontraron productos', {
-                            type: 'warning',
-                            title: 'Sin resultados'
-                        });
-                    } else {
-                        alert('No se encontraron productos');
-                    }
+                    this.notification?.add('No se encontraron productos', {
+                        type: 'warning',
+                        title: 'Sin resultados'
+                    }) || alert('No se encontraron productos');
                     resolve(null);
                 }
             }).catch((error) => {
                 console.error('Error searching products:', error);
                 const errorMessage = error.message || error.data?.message || 'Error al buscar productos';
                 
-                if (this.notification) {
-                    this.notification.add(errorMessage, {
-                        type: 'danger',
-                        title: 'Error'
-                    });
-                } else {
-                    alert('Error: ' + errorMessage);
-                }
+                this.notification?.add(errorMessage, {
+                    type: 'danger',
+                    title: 'Error'
+                }) || alert('Error: ' + errorMessage);
                 resolve(null);
             });
         });
+    }
+
+    // Métodos para edición inline
+    startEditLine(lineId) {
+        this.state.editingLine = lineId;
+        // Obtener los valores actuales de la línea para edición
+        const line = this.findLineById(lineId);
+        if (line) {
+            this.state.editValues = {
+                product_uom_qty: line.product_uom_qty,
+                price_unit: line.price_unit,
+                name: line.name
+            };
+        }
+    }
+
+    cancelEdit() {
+        this.state.editingLine = null;
+        this.state.editValues = {};
+    }
+
+    async saveEdit(lineId) {
+        if (!this.orm) {
+            this.notification?.add('Error: Servicio ORM no disponible', {
+                type: 'danger',
+                title: 'Error'
+            });
+            return;
+        }
+
+        try {
+            await this.orm.write('sale.order.line', [lineId], this.state.editValues);
+            
+            this.notification?.add('Línea actualizada correctamente', {
+                type: 'success',
+                title: 'Actualizado'
+            });
+            
+            this.state.editingLine = null;
+            this.state.editValues = {};
+            
+            // Actualizar el record
+            await this.props.record.load();
+            this.render();
+        } catch (error) {
+            console.error('Error updating line:', error);
+            this.notification?.add('Error al actualizar la línea', {
+                type: 'danger',
+                title: 'Error'
+            });
+        }
+    }
+
+    async deleteLine(lineId) {
+        if (!this.orm) {
+            this.notification?.add('Error: Servicio ORM no disponible', {
+                type: 'danger',
+                title: 'Error'
+            });
+            return;
+        }
+
+        if (!confirm('¿Está seguro de que desea eliminar esta línea?')) {
+            return;
+        }
+
+        try {
+            await this.orm.unlink('sale.order.line', [lineId]);
+            
+            this.notification?.add('Línea eliminada correctamente', {
+                type: 'success',
+                title: 'Eliminado'
+            });
+            
+            // Actualizar el record
+            await this.props.record.load();
+            this.render();
+        } catch (error) {
+            console.error('Error deleting line:', error);
+            this.notification?.add('Error al eliminar la línea', {
+                type: 'danger',
+                title: 'Error'
+            });
+        }
+    }
+
+    findLineById(lineId) {
+        // Buscar la línea en los datos parseados
+        const data = this.parsedData;
+        for (const chapterName in data) {
+            const chapter = data[chapterName];
+            for (const sectionName in chapter.sections) {
+                const section = chapter.sections[sectionName];
+                const line = section.lines.find(l => l.id === lineId);
+                if (line) return line;
+            }
+        }
+        return null;
+    }
+
+    updateEditValue(field, value) {
+        this.state.editValues[field] = value;
     }
 }
 

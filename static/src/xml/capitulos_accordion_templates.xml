@@ -38,36 +38,100 @@
                             <tbody>
                                 <t t-foreach="getSections(chapter.data)" t-as="section" t-key="section.id">
                                     <!-- Fila de sección -->
-                                    <tr style="background-color: #fff3cd; font-weight: 500;">
+                                    <tr class="section-row">
                                         <td></td>
                                         <td colspan="5">
                                             <i class="fa fa-tag me-2"></i>
                                             <t t-esc="section.name"/>
                                         </td>
                                         <td class="text-center">
-                                            <button class="btn btn-sm btn-outline-primary"
+                                            <button class="btn-add-product"
                                                     type="button"
                                                     t-on-click="() => this.addProductToSection(chapter.name, section.name)"
                                                     title="Añadir producto a esta sección">
-                                                <i class="fa fa-plus"></i>
+                                                <i class="fa fa-plus"></i> Añadir
                                             </button>
                                         </td>
                                     </tr>
                                     
                                     <!-- Líneas de la sección -->
-                                    <tr t-foreach="section.lines" t-as="line" t-key="line.id">
+                                    <tr t-foreach="section.lines" t-as="line" t-key="line.id" class="o_data_row">
                                         <td t-esc="line.sequence || ''"></td>
                                         <td t-esc="line.product_name || ''"></td>
-                                        <td t-esc="line.name || ''"></td>
-                                        <td class="text-end" t-esc="line.product_uom_qty || 0"></td>
+                                        <td>
+                                            <t t-if="state.editingLine === line.id">
+                                                <input type="text" 
+                                                       class="form-control form-control-sm"
+                                                       t-model="state.editValues.name"
+                                                       t-on-input="(ev) => this.updateEditValue('name', ev.target.value)"/>
+                                            </t>
+                                            <t t-else="">
+                                                <span t-esc="line.name || ''"></span>
+                                            </t>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-if="state.editingLine === line.id">
+                                                <input type="number" 
+                                                       class="form-control form-control-sm text-end"
+                                                       step="0.01"
+                                                       t-model="state.editValues.product_uom_qty"
+                                                       t-on-input="(ev) => this.updateEditValue('product_uom_qty', parseFloat(ev.target.value))"/>
+                                            </t>
+                                            <t t-else="">
+                                                <span t-esc="line.product_uom_qty || 0"></span>
+                                            </t>
+                                        </td>
                                         <td t-esc="line.product_uom || ''"></td>
-                                        <td class="text-end" t-esc="formatCurrency(line.price_unit)"></td>
-                                        <td class="text-end" t-esc="formatCurrency(line.price_subtotal)"></td>
+                                        <td class="text-end">
+                                            <t t-if="state.editingLine === line.id">
+                                                <input type="number" 
+                                                       class="form-control form-control-sm text-end"
+                                                       step="0.01"
+                                                       t-model="state.editValues.price_unit"
+                                                       t-on-input="(ev) => this.updateEditValue('price_unit', parseFloat(ev.target.value))"/>
+                                            </t>
+                                            <t t-else="">
+                                                <span t-esc="formatCurrency(line.price_unit)"></span>
+                                            </t>
+                                        </td>
+                                        <td class="text-end">
+                                            <span t-esc="formatCurrency(line.price_subtotal)"></span>
+                                            <div class="btn-group btn-group-sm ms-2" role="group">
+                                                <t t-if="state.editingLine === line.id">
+                                                    <button class="btn btn-success btn-sm"
+                                                            type="button"
+                                                            t-on-click="() => this.saveEdit(line.id)"
+                                                            title="Guardar cambios">
+                                                        <i class="fa fa-check"></i>
+                                                    </button>
+                                                    <button class="btn btn-secondary btn-sm"
+                                                            type="button"
+                                                            t-on-click="() => this.cancelEdit()"
+                                                            title="Cancelar">
+                                                        <i class="fa fa-times"></i>
+                                                    </button>
+                                                </t>
+                                                <t t-else="">
+                                                    <button class="btn btn-outline-primary btn-sm"
+                                                            type="button"
+                                                            t-on-click="() => this.startEditLine(line.id)"
+                                                            title="Editar línea">
+                                                        <i class="fa fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger btn-sm"
+                                                            type="button"
+                                                            t-on-click="() => this.deleteLine(line.id)"
+                                                            title="Eliminar línea">
+                                                        <i class="fa fa-trash"></i>
+                                                    </button>
+                                                </t>
+                                            </div>
+                                        </td>
                                     </tr>
                                 </t>
                                 
                                 <!-- Fila de total del capítulo -->
-                                <tr style="background-color: #d4edda; font-weight: bold;">
+                                <tr class="total-row">
                                     <td colspan="6" class="text-end">
                                         Total <t t-esc="chapter.name"/>:
                                     </td>
