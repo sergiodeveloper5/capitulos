@@ -47,11 +47,28 @@ export class CapitulosAccordionWidget extends Component {
         try {
             const data = this.value ? JSON.parse(this.value) : {};
             console.log('CapitulosAccordionWidget - parsedData:', data);
+            this.debugDataStructure(data);
             return data;
         } catch (e) {
             console.error('CapitulosAccordionWidget - Error parsing data:', e, 'Raw value:', this.value);
             return {};
         }
+    }
+
+    debugDataStructure(data) {
+        console.log('=== DEBUG DATA STRUCTURE ===');
+        for (const chapterName in data) {
+            console.log(`Chapter: ${chapterName}`);
+            const chapter = data[chapterName];
+            for (const sectionName in chapter.sections) {
+                console.log(`  Section: ${sectionName}`);
+                const section = chapter.sections[sectionName];
+                section.lines.forEach((line, index) => {
+                    console.log(`    Line ${index}: ID=${line.id} (${typeof line.id}), Name=${line.name}`);
+                });
+            }
+        }
+        console.log('=== END DEBUG ===');
     }
 
     get chapters() {
@@ -82,10 +99,10 @@ export class CapitulosAccordionWidget extends Component {
     getSections(chapter) {
         return Object.keys(chapter.sections || {}).map((sectionName, index) => ({
             name: sectionName,
-            id: `section_${Date.now()}_${index}`,
+            id: `section_${sectionName.replace(/\s+/g, '_')}_${index}`,
             lines: (chapter.sections[sectionName].lines || []).map((line, lineIndex) => ({
                 ...line,
-                id: `line_${Date.now()}_${index}_${lineIndex}`
+                id: line.id || line.line_id || `line_${lineIndex}_${sectionName.replace(/\s+/g, '_')}`
             }))
         }));
     }
@@ -270,16 +287,20 @@ export class CapitulosAccordionWidget extends Component {
 
     // Métodos para edición inline
     startEditLine(lineId) {
+        console.log('CapitulosAccordionWidget - startEditLine called with ID:', lineId, typeof lineId);
         this.state.editingLine = lineId;
         // Obtener los valores actuales de la línea para edición
         const line = this.findLineById(lineId);
         if (line) {
+            console.log('CapitulosAccordionWidget - Line found for editing:', line);
             this.state.editValues = {
                 product_uom_qty: line.product_uom_qty,
                 price_unit: line.price_unit,
                 name: line.name,
                 product_name: line.product_name
             };
+        } else {
+            console.error('CapitulosAccordionWidget - Line not found for editing, ID:', lineId);
         }
     }
 
@@ -289,6 +310,7 @@ export class CapitulosAccordionWidget extends Component {
     }
 
     async saveEdit(lineId) {
+        console.log('CapitulosAccordionWidget - saveEdit called with ID:', lineId, typeof lineId);
         if (!this.orm) {
             this.notification?.add('Error: Servicio ORM no disponible', {
                 type: 'danger',
@@ -333,6 +355,7 @@ export class CapitulosAccordionWidget extends Component {
     }
 
     async deleteLine(lineId) {
+        console.log('CapitulosAccordionWidget - deleteLine called with ID:', lineId, typeof lineId);
         if (!this.orm) {
             this.notification?.add('Error: Servicio ORM no disponible', {
                 type: 'danger',
@@ -367,22 +390,60 @@ export class CapitulosAccordionWidget extends Component {
 
     findLineById(lineId) {
         // Buscar la línea en los datos parseados
+        console.log('CapitulosAccordionWidget - findLineById searching for:', lineId, typeof lineId);
         const data = this.parsedData;
         for (const chapterName in data) {
             const chapter = data[chapterName];
             for (const sectionName in chapter.sections) {
                 const section = chapter.sections[sectionName];
-                const line = section.lines.find(l => l.id === lineId);
-                if (line) return line;
+                const line = section.lines.find(l => {
+                    // Comparar tanto como número como string
+                    return l.id == lineId || l.id === lineId || String(l.id) === String(lineId);
+                });
+                if (line) {
+                    console.log('CapitulosAccordionWidget - Line found:', line);
+                    return line;
+                }
             }
         }
+        console.log('CapitulosAccordionWidget - Line not found for ID:', lineId);
         return null;
     }
 
     updateEditValue(field, value) {
         this.state.editValues[field] = value;
     }
+
+    // Método de prueba para depuración
+    testMethods() {
+        console.log('=== TESTING METHODS ===');
+        const data = this.parsedData;
+        for (const chapterName in data) {
+            const chapter = data[chapterName];
+            for (const sectionName in chapter.sections) {
+                const section = chapter.sections[sectionName];
+                if (section.lines.length > 0) {
+                    const testLine = section.lines[0];
+                    console.log(`Testing with line ID: ${testLine.id} (${typeof testLine.id})`);
+                    
+                    // Probar findLineById
+                    const foundLine = this.findLineById(testLine.id);
+                    console.log('Found line:', foundLine);
+                    
+                    // Probar startEditLine
+                    this.startEditLine(testLine.id);
+                    console.log('Edit state:', this.state.editingLine, this.state.editValues);
+                    
+                    return; // Solo probar con la primera línea
+                }
+            }
+        }
+        console.log('=== END TESTING ===');
+    }
 }
+
+// Hacer el widget accesible globalmente para depuración
+window.CapitulosAccordionWidget = CapitulosAccordionWidget;
 
 registry.category("fields").add("capitulos_accordion", {
     component: CapitulosAccordionWidget,

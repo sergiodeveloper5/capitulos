@@ -5,117 +5,124 @@
             <div t-if="!chapters.length" class="alert alert-info">
                 No hay capítulos para mostrar
             </div>
-            <div t-else="" class="accordion" id="capitulosAccordion">
-                <div t-foreach="chapters" t-as="chapter" t-key="chapter.id" class="card mb-2">
-                    <!-- Header del capítulo -->
-                    <div class="card-header p-2" style="background-color: #f8f9fa; border-bottom: 1px solid #dee2e6;">
-                        <button class="btn btn-link text-left w-100 d-flex justify-content-between align-items-center"
-                                type="button"
-                                t-on-click="() => this.toggleChapter(chapter.name)"
-                                style="text-decoration: none; color: #495057; font-weight: 500;">
-                            <span>
-                                <i class="fa fa-folder-o me-2"></i>
-                                <t t-esc="chapter.name"/>
-                            </span>
-                            <i t-attf-class="fa fa-chevron-{{ this.isChapterCollapsed(chapter.name) ? 'right' : 'down' }}"></i>
-                        </button>
+            <div t-else="" class="o_list_view">
+                <div t-foreach="chapters" t-as="chapter" t-key="chapter.id" class="o_group_header mb-3">
+                    <!-- Header del capítulo estilo Odoo -->
+                    <div class="o_group_name d-flex align-items-center p-2" 
+                         style="background-color: #f0f0f0; border: 1px solid #ddd; cursor: pointer;"
+                         t-on-click="() => this.toggleChapter(chapter.name)">
+                        <i t-attf-class="fa fa-caret-{{ this.isChapterCollapsed(chapter.name) ? 'right' : 'down' }} me-2"></i>
+                        <i class="fa fa-folder-o me-2 text-primary"></i>
+                        <strong t-esc="chapter.name"></strong>
+                        <span class="ms-auto text-muted">
+                            Total: <span t-esc="formatCurrency(chapter.data.total)"></span>
+                        </span>
                     </div>
                     
-                    <!-- Contenido del capítulo -->
-                    <div t-if="!this.isChapterCollapsed(chapter.name)" class="card-body p-0">
-                        <table class="table table-sm mb-0">
-                            <thead style="background-color: #e9ecef;">
+                    <!-- Contenido del capítulo estilo tabla Odoo -->
+                    <div t-if="!this.isChapterCollapsed(chapter.name)" class="o_list_table_wrapper">
+                        <table class="o_list_table table table-sm table-hover mb-0">
+                            <thead class="o_list_table_header">
                                 <tr>
-                                    <th style="width: 40px;">Seq</th>
-                                    <th>Producto</th>
-                                    <th>Descripción</th>
-                                    <th style="width: 80px;">Cantidad</th>
-                                    <th style="width: 80px;">Unidad</th>
-                                    <th style="width: 100px;">Precio Unit.</th>
-                                    <th style="width: 100px;">Subtotal</th>
+                                    <th class="o_list_char" style="width: 50px;"></th>
+                                    <th class="o_list_char">Producto</th>
+                                    <th class="o_list_text">Descripción</th>
+                                    <th class="o_list_number text-end" style="width: 100px;">Cantidad</th>
+                                    <th class="o_list_char" style="width: 80px;">Unidad</th>
+                                    <th class="o_list_monetary text-end" style="width: 120px;">Precio Unit.</th>
+                                    <th class="o_list_monetary text-end" style="width: 120px;">Subtotal</th>
+                                    <th class="o_list_record_selector" style="width: 80px;"></th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="o_list_table_body">
                                 <t t-foreach="getSections(chapter.data)" t-as="section" t-key="section.id">
-                                    <!-- Fila de sección -->
-                                    <tr class="section-row">
+                                    <!-- Fila de sección estilo Odoo -->
+                                    <tr class="o_group_header">
                                         <td></td>
-                                        <td colspan="5">
-                                            <i class="fa fa-tag me-2"></i>
-                                            <t t-esc="section.name"/>
+                                        <td colspan="6" class="o_group_name">
+                                            <i class="fa fa-tag me-2 text-info"></i>
+                                            <strong t-esc="section.name"></strong>
                                         </td>
                                         <td class="text-center">
-                                            <button class="btn-add-product"
+                                            <button class="btn btn-sm btn-outline-primary o_list_button_add"
                                                     type="button"
                                                     t-on-click="() => this.addProductToSection(chapter.name, section.name)"
-                                                    title="Añadir producto a esta sección">
-                                                <i class="fa fa-plus"></i> Añadir
+                                                    title="Añadir producto">
+                                                <i class="fa fa-plus"></i>
                                             </button>
                                         </td>
                                     </tr>
                                     
-                                    <!-- Líneas de la sección -->
-                                    <tr t-foreach="section.lines" t-as="line" t-key="line.id" class="o_data_row">
-                                        <td t-esc="line.sequence || ''"></td>
-                                        <td>
+                                    <!-- Líneas de productos estilo Odoo -->
+                                    <tr t-foreach="section.lines" t-as="line" t-key="line.id" 
+                                        class="o_data_row" 
+                                        t-attf-class="{{ state.editingLine === line.id ? 'o_selected_row' : '' }}">
+                                        <td class="o_list_record_selector">
+                                            <span class="text-muted" t-esc="line.sequence || ''"></span>
+                                        </td>
+                                        <td class="o_data_cell o_list_char">
                                             <t t-if="state.editingLine === line.id">
                                                 <input type="text" 
-                                                       class="form-control form-control-sm"
+                                                       class="o_input"
                                                        t-model="state.editValues.product_name"
                                                        t-on-input="(ev) => this.updateEditValue('product_name', ev.target.value)"/>
                                             </t>
                                             <t t-else="">
-                                                <span t-esc="line.product_name || ''"></span>
+                                                <span class="o_field_char" t-esc="line.product_name || ''"></span>
                                             </t>
                                         </td>
-                                        <td>
+                                        <td class="o_data_cell o_list_text">
                                             <t t-if="state.editingLine === line.id">
-                                                <textarea class="form-control form-control-sm"
+                                                <textarea class="o_input"
                                                          rows="2"
                                                          t-model="state.editValues.name"
                                                          t-on-input="(ev) => this.updateEditValue('name', ev.target.value)"
                                                          placeholder="Descripción / Condiciones particulares"></textarea>
                                             </t>
                                             <t t-else="">
-                                                <span t-esc="line.name || ''"></span>
+                                                <span class="o_field_text" t-esc="line.name || ''"></span>
                                             </t>
                                         </td>
-                                        <td class="text-end">
+                                        <td class="o_data_cell o_list_number text-end">
                                             <t t-if="state.editingLine === line.id">
                                                 <input type="number" 
-                                                       class="form-control form-control-sm text-end"
+                                                       class="o_input text-end"
                                                        step="0.01"
                                                        t-model="state.editValues.product_uom_qty"
                                                        t-on-input="(ev) => this.updateEditValue('product_uom_qty', parseFloat(ev.target.value))"/>
                                             </t>
                                             <t t-else="">
-                                                <span t-esc="line.product_uom_qty || 0"></span>
+                                                <span class="o_field_number" t-esc="line.product_uom_qty || 0"></span>
                                             </t>
                                         </td>
-                                        <td t-esc="line.product_uom || ''"></td>
-                                        <td class="text-end">
+                                        <td class="o_data_cell o_list_char">
+                                            <span class="o_field_char" t-esc="line.product_uom || ''"></span>
+                                        </td>
+                                        <td class="o_data_cell o_list_monetary text-end">
                                             <t t-if="state.editingLine === line.id">
                                                 <input type="number" 
-                                                       class="form-control form-control-sm text-end"
+                                                       class="o_input text-end"
                                                        step="0.01"
                                                        t-model="state.editValues.price_unit"
                                                        t-on-input="(ev) => this.updateEditValue('price_unit', parseFloat(ev.target.value))"/>
                                             </t>
                                             <t t-else="">
-                                                <span t-esc="formatCurrency(line.price_unit)"></span>
+                                                <span class="o_field_monetary" t-esc="formatCurrency(line.price_unit)"></span>
                                             </t>
                                         </td>
-                                        <td class="text-end">
-                                            <span t-esc="formatCurrency(line.price_subtotal)"></span>
-                                            <div class="btn-group btn-group-sm ms-2" role="group">
+                                        <td class="o_data_cell o_list_monetary text-end">
+                                            <span class="o_field_monetary" t-esc="formatCurrency(line.price_subtotal)"></span>
+                                        </td>
+                                        <td class="o_data_cell o_list_record_selector">
+                                            <div class="o_dropdown_kanban dropdown">
                                                 <t t-if="state.editingLine === line.id">
-                                                    <button class="btn btn-success btn-sm"
+                                                    <button class="btn btn-sm btn-success me-1"
                                                             type="button"
                                                             t-on-click="() => this.saveEdit(line.id)"
-                                                            title="Guardar cambios">
+                                                            title="Guardar">
                                                         <i class="fa fa-check"></i>
                                                     </button>
-                                                    <button class="btn btn-secondary btn-sm"
+                                                    <button class="btn btn-sm btn-secondary"
                                                             type="button"
                                                             t-on-click="() => this.cancelEdit()"
                                                             title="Cancelar">
@@ -123,31 +130,23 @@
                                                     </button>
                                                 </t>
                                                 <t t-else="">
-                                                    <button class="btn btn-outline-primary btn-sm"
+                                                    <button class="btn btn-sm btn-link text-action"
                                                             type="button"
                                                             t-on-click="() => this.startEditLine(line.id)"
-                                                            title="Editar línea">
-                                                        <i class="fa fa-edit"></i>
+                                                            title="Editar">
+                                                        <i class="fa fa-pencil"></i>
                                                     </button>
-                                                    <button class="btn btn-outline-danger btn-sm"
+                                                    <button class="btn btn-sm btn-link text-danger"
                                                             type="button"
                                                             t-on-click="() => this.deleteLine(line.id)"
-                                                            title="Eliminar línea">
-                                                        <i class="fa fa-trash"></i>
+                                                            title="Eliminar">
+                                                        <i class="fa fa-trash-o"></i>
                                                     </button>
                                                 </t>
                                             </div>
                                         </td>
                                     </tr>
                                 </t>
-                                
-                                <!-- Fila de total del capítulo -->
-                                <tr class="total-row">
-                                    <td colspan="6" class="text-end">
-                                        Total <t t-esc="chapter.name"/>:
-                                    </td>
-                                    <td class="text-end" t-esc="formatCurrency(chapter.data.total)"></td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>
