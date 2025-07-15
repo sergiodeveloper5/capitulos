@@ -4,6 +4,7 @@ import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { Component, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
+import { rpc } from "@web/core/network/rpc";
 import { _t } from "@web/core/l10n/translation";
 
 export class CapitulosAccordionWidget extends Component {
@@ -20,9 +21,17 @@ export class CapitulosAccordionWidget extends Component {
         this.state = useState({
             collapsedChapters: {}
         });
-        this.rpc = useService("rpc");
-        this.notification = useService("notification");
-        this.action = useService("action");
+        // Usar importación directa de rpc y servicios disponibles
+        this.rpc = rpc;
+        try {
+            this.notification = useService("notification");
+            this.action = useService("action");
+        } catch (error) {
+            console.warn('Some services not available in current context:', error);
+            // Fallback para cuando los servicios no están disponibles
+            this.notification = null;
+            this.action = null;
+        }
     }
 
     get parsedData() {
@@ -45,7 +54,7 @@ export class CapitulosAccordionWidget extends Component {
             return {
                 name: chapterName,
                 data: data[chapterName],
-                id: 'chapter_' + Date.now() + '_' + index,
+                id: 'chapter_' + chapterName.replace(/\s+/g, '_'),
                 collapsed: this.state.collapsedChapters[chapterName] || false
             };
         });
@@ -60,10 +69,10 @@ export class CapitulosAccordionWidget extends Component {
         return Object.keys(chapter.sections || {}).map((sectionName, index) => {
             return {
                 name: sectionName,
-                id: 'section_' + Date.now() + '_' + index,
+                id: 'section_' + sectionName.replace(/\s+/g, '_'),
                 lines: (chapter.sections[sectionName].lines || []).map((line, lineIndex) => {
                     return Object.assign({}, line, {
-                        id: 'line_' + Date.now() + '_' + index + '_' + lineIndex
+                        id: 'line_' + (line.id || lineIndex)
                     });
                 })
             };
@@ -88,27 +97,44 @@ export class CapitulosAccordionWidget extends Component {
             
             if (result.error) {
                 console.error('Error adding product:', result.error);
-                this.notification.add(result.error, {
+                if (this.notification) {
+                    this.notification.add(result.error, {
+                        type: 'danger',
+                        title: _t('Error')
+                    });
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } else {
+                console.log('Product added successfully');
+                if (this.notification) {
+                    this.notification.add(_t('Producto añadido correctamente'), {
+                        type: 'success'
+                    });
+                } else {
+                    alert('Producto añadido correctamente');
+                }
+                // Trigger reload
+                if (this.action) {
+                    await this.action.doAction({
+                        type: 'ir.actions.client',
+                        tag: 'reload'
+                    });
+                } else {
+                    // Fallback: reload the page
+                    window.location.reload();
+                }
+            }
+        } catch (error) {
+            console.error('Error in addProductToSection:', error);
+            if (this.notification) {
+                this.notification.add(_t('Error al añadir el producto'), {
                     type: 'danger',
                     title: _t('Error')
                 });
             } else {
-                console.log('Product added successfully');
-                this.notification.add(_t('Producto añadido correctamente'), {
-                    type: 'success'
-                });
-                // Trigger reload
-                await this.action.doAction({
-                    type: 'ir.actions.client',
-                    tag: 'reload'
-                });
+                alert('Error al añadir el producto: ' + error.message);
             }
-        } catch (error) {
-            console.error('Error in addProductToSection:', error);
-            this.notification.add(_t('Error al añadir el producto'), {
-                type: 'danger',
-                title: _t('Error')
-            });
         }
     }
 }
