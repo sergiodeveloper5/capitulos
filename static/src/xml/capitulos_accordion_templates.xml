@@ -57,13 +57,24 @@
                                     <!-- Líneas de la sección -->
                                     <tr t-foreach="section.lines" t-as="line" t-key="line.id" class="o_data_row">
                                         <td t-esc="line.sequence || ''"></td>
-                                        <td t-esc="line.product_name || ''"></td>
                                         <td>
                                             <t t-if="state.editingLine === line.id">
                                                 <input type="text" 
                                                        class="form-control form-control-sm"
-                                                       t-model="state.editValues.name"
-                                                       t-on-input="(ev) => this.updateEditValue('name', ev.target.value)"/>
+                                                       t-model="state.editValues.product_name"
+                                                       t-on-input="(ev) => this.updateEditValue('product_name', ev.target.value)"/>
+                                            </t>
+                                            <t t-else="">
+                                                <span t-esc="line.product_name || ''"></span>
+                                            </t>
+                                        </td>
+                                        <td>
+                                            <t t-if="state.editingLine === line.id">
+                                                <textarea class="form-control form-control-sm"
+                                                         rows="2"
+                                                         t-model="state.editValues.name"
+                                                         t-on-input="(ev) => this.updateEditValue('name', ev.target.value)"
+                                                         placeholder="Descripción / Condiciones particulares"></textarea>
                                             </t>
                                             <t t-else="">
                                                 <span t-esc="line.name || ''"></span>

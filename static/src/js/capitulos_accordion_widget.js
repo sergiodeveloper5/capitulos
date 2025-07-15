@@ -27,6 +27,7 @@ export class CapitulosAccordionWidget extends Component {
             this.notification = useService("notification");
             this.action = useService("action");
             this.dialog = useService("dialog");
+            this.rpc = useService("rpc");
         } catch (error) {
             console.error('CapitulosAccordionWidget - Error initializing services:', error);
             // Fallback para servicios no disponibles
@@ -34,6 +35,7 @@ export class CapitulosAccordionWidget extends Component {
             this.notification = null;
             this.action = null;
             this.dialog = null;
+            this.rpc = null;
         }
     }
 
@@ -96,7 +98,7 @@ export class CapitulosAccordionWidget extends Component {
         console.log('CapitulosAccordionWidget - addProductToSection called:', chapterName, sectionName);
         
         // Verificar que los servicios estén disponibles
-        if (!this.orm || !this.notification) {
+        if (!this.rpc || !this.notification) {
             console.error('CapitulosAccordionWidget - Services not available');
             this.notification?.add('Error: Servicios no disponibles. Por favor, recargue la página.', {
                 type: 'danger',
@@ -124,12 +126,14 @@ export class CapitulosAccordionWidget extends Component {
                 return;
             }
             
-            // Llamar al método del modelo para añadir el producto
-            const result = await this.orm.call(
-                'sale.order',
-                'add_product_to_section',
-                [orderId, chapterName, sectionName, productId, 1.0]
-            );
+            // Llamar al controlador HTTP para añadir el producto
+            const result = await this.rpc('/capitulos/add_product_to_section', {
+                order_id: orderId,
+                capitulo_name: chapterName,
+                seccion_name: sectionName,
+                product_id: productId,
+                quantity: 1.0
+            });
             
             if (result && result.success) {
                 this.notification.add(result.message || 'Producto añadido correctamente', {
@@ -273,7 +277,8 @@ export class CapitulosAccordionWidget extends Component {
             this.state.editValues = {
                 product_uom_qty: line.product_uom_qty,
                 price_unit: line.price_unit,
-                name: line.name
+                name: line.name,
+                product_name: line.product_name
             };
         }
     }
@@ -293,9 +298,21 @@ export class CapitulosAccordionWidget extends Component {
         }
 
         try {
-            await this.orm.write('sale.order.line', [lineId], this.state.editValues);
+            // Preparar los valores para actualizar
+            const updateValues = {
+                product_uom_qty: this.state.editValues.product_uom_qty,
+                price_unit: this.state.editValues.price_unit,
+                name: this.state.editValues.name
+            };
             
-            this.notification?.add('Línea actualizada correctamente', {
+            // Si hay un product_name, también actualizarlo
+            if (this.state.editValues.product_name !== undefined) {
+                updateValues.product_name = this.state.editValues.product_name;
+            }
+            
+            await this.orm.write('sale.order.line', [lineId], updateValues);
+            
+            this.notification?.add('Línea actualizada correctamente (incluyendo condiciones particulares)', {
                 type: 'success',
                 title: 'Actualizado'
             });
@@ -308,7 +325,7 @@ export class CapitulosAccordionWidget extends Component {
             this.render();
         } catch (error) {
             console.error('Error updating line:', error);
-            this.notification?.add('Error al actualizar la línea', {
+            this.notification?.add('Error al actualizar la línea: ' + (error.message || 'Error desconocido'), {
                 type: 'danger',
                 title: 'Error'
             });
