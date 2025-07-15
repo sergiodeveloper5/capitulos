@@ -4,29 +4,29 @@ import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { Component, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
-import { jsonrpc } from "@web/core/network/rpc_service";
+import { _t } from "@web/core/l10n/translation";
 
 export class CapitulosAccordionWidget extends Component {
     static template = "capitulos.CapitulosAccordionWidget";
-    static props = {
-        ...standardFieldProps,
-    };
+    static props = { ...standardFieldProps };
+    static supportedTypes = ["text"];
 
     setup() {
-        this.state = useState({ collapsedChapters: {} });
-    }
-
-    get value() {
-        return this.props.record.data[this.props.name];
+        this.state = useState({
+            collapsedChapters: {}
+        });
+        this.rpc = useService("rpc");
+        this.notification = useService("notification");
+        this.action = useService("action");
     }
 
     get parsedData() {
         try {
-            const data = this.value ? JSON.parse(this.value) : {};
+            const data = this.props.value ? JSON.parse(this.props.value) : {};
             console.log('CapitulosAccordionWidget - parsedData:', data);
             return data;
         } catch (e) {
-            console.error('CapitulosAccordionWidget - Error parsing data:', e, 'Raw value:', this.value);
+            console.error('CapitulosAccordionWidget - Error parsing data:', e, 'Raw value:', this.props.value);
             return {};
         }
     }
@@ -36,35 +36,33 @@ export class CapitulosAccordionWidget extends Component {
         if (!data || Object.keys(data).length === 0) {
             return [];
         }
-        return Object.keys(data).map((chapterName, index) => ({
-            name: chapterName,
-            data: data[chapterName],
-            id: `chapter_${Date.now()}_${index}`
-        }));
+        return Object.keys(data).map((chapterName, index) => {
+            return {
+                name: chapterName,
+                data: data[chapterName],
+                id: 'chapter_' + Date.now() + '_' + index,
+                collapsed: this.state.collapsedChapters[chapterName] || false
+            };
+        });
     }
 
     toggleChapter(chapterName) {
         console.log('CapitulosAccordionWidget - toggleChapter called for:', chapterName);
-        this.state.collapsedChapters = {
-            ...this.state.collapsedChapters,
-            [chapterName]: !this.state.collapsedChapters[chapterName]
-        };
-        console.log('CapitulosAccordionWidget - new state:', this.state.collapsedChapters);
-    }
-
-    isChapterCollapsed(chapterName) {
-        return this.state.collapsedChapters[chapterName] || false;
+        this.state.collapsedChapters[chapterName] = !this.state.collapsedChapters[chapterName];
     }
 
     getSections(chapter) {
-        return Object.keys(chapter.sections || {}).map((sectionName, index) => ({
-            name: sectionName,
-            id: `section_${Date.now()}_${index}`,
-            lines: (chapter.sections[sectionName].lines || []).map((line, lineIndex) => ({
-                ...line,
-                id: `line_${Date.now()}_${index}_${lineIndex}`
-            }))
-        }));
+        return Object.keys(chapter.sections || {}).map((sectionName, index) => {
+            return {
+                name: sectionName,
+                id: 'section_' + Date.now() + '_' + index,
+                lines: (chapter.sections[sectionName].lines || []).map((line, lineIndex) => {
+                    return Object.assign({}, line, {
+                        id: 'line_' + Date.now() + '_' + index + '_' + lineIndex
+                    });
+                })
+            };
+        });
     }
 
     formatCurrency(value) {
@@ -74,9 +72,10 @@ export class CapitulosAccordionWidget extends Component {
     async addProductToSection(chapterName, sectionName) {
         console.log('Adding product to chapter:', chapterName, 'section:', sectionName);
         
+        const orderId = this.props.record.resId;
+        
         try {
-            const orderId = this.props.record.resId;
-            const result = await jsonrpc('/capitulos/add_product_to_section', {
+            const result = await this.rpc('/capitulos/add_product_to_section', {
                 order_id: orderId,
                 chapter_name: chapterName,
                 section_name: sectionName
@@ -84,29 +83,29 @@ export class CapitulosAccordionWidget extends Component {
             
             if (result.error) {
                 console.error('Error adding product:', result.error);
-                // Show error notification
-                this.env.services.notification.add(result.error, {
+                this.notification.add(result.error, {
                     type: 'danger',
-                    title: 'Error'
+                    title: _t('Error')
                 });
             } else {
                 console.log('Product added successfully');
-                // Reload the view to show the new product
-                await this.props.record.model.root.load();
-                this.env.services.notification.add('Producto añadido correctamente', {
+                this.notification.add(_t('Producto añadido correctamente'), {
                     type: 'success'
+                });
+                // Trigger reload
+                await this.action.doAction({
+                    type: 'ir.actions.client',
+                    tag: 'reload'
                 });
             }
         } catch (error) {
             console.error('Error in addProductToSection:', error);
-            this.env.services.notification.add('Error al añadir el producto', {
+            this.notification.add(_t('Error al añadir el producto'), {
                 type: 'danger',
-                title: 'Error'
+                title: _t('Error')
             });
         }
     }
 }
 
-registry.category("fields").add("capitulos_accordion", {
-    component: CapitulosAccordionWidget,
-});
+registry.category("fields").add("capitulos_accordion", CapitulosAccordionWidget);
