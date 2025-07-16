@@ -201,7 +201,39 @@ class SaleOrder(models.Model):
                     break
                 elif line.es_encabezado_seccion:
                     _logger.info(f"DEBUG ADD_PRODUCT: Comparando sección '{line.name}' con '{seccion_name}'")
-                    if line.name == seccion_name:
+                    
+                    # Comparación flexible para secciones (similar a capítulos)
+                    line_name = line.name.strip()
+                    seccion_name_clean = seccion_name.strip()
+                    
+                    # Log detallado de caracteres para depurar problemas de codificación
+                    _logger.info(f"DEBUG ADD_PRODUCT: Caracteres de línea: {[ord(c) for c in line_name[:20]]}")
+                    _logger.info(f"DEBUG ADD_PRODUCT: Caracteres de sección: {[ord(c) for c in seccion_name_clean[:20]]}")
+                    
+                    # Extraer el nombre base de la sección (sin numeración)
+                    import re
+                    base_name_match = re.match(r'^(.+?)(?:\s*\(\d+\))?$', seccion_name_clean)
+                    seccion_base_name = base_name_match.group(1) if base_name_match else seccion_name_clean
+                    
+                    # Extraer también el nombre base de la línea
+                    line_base_match = re.match(r'^(.+?)(?:\s*\(\d+\))?$', line_name)
+                    line_base_name = line_base_match.group(1) if line_base_match else line_name
+                    
+                    _logger.info(f"DEBUG ADD_PRODUCT: Comparando sección '{line_name}' (base: '{line_base_name}') con '{seccion_name_clean}' (base: '{seccion_base_name}')")
+                    
+                    # Comparación múltiple: exacta, base, y sin caracteres especiales
+                    matches = [
+                        line_name == seccion_name_clean,
+                        line_name == seccion_base_name,
+                        line_base_name == seccion_name_clean,
+                        line_base_name == seccion_base_name,
+                        # Comparación sin emojis y caracteres especiales
+                        re.sub(r'[^\w\s]', '', line_name).strip().upper() == re.sub(r'[^\w\s]', '', seccion_name_clean).strip().upper()
+                    ]
+                    
+                    _logger.info(f"DEBUG ADD_PRODUCT: Resultados de comparación: {matches}")
+                    
+                    if any(matches):
                         seccion_line = line
                         _logger.info(f"DEBUG ADD_PRODUCT: ✅ Sección encontrada: {line.name}")
                         break
@@ -216,6 +248,12 @@ class SaleOrder(models.Model):
         if not seccion_line:
             raise UserError(f"No se encontró la sección: {seccion_name} en el capítulo: {capitulo_name}")
         
+        # VALIDACIÓN: Verificar si es una sección de solo texto (condiciones particulares)
+        seccion_name_lower = seccion_name.lower().strip()
+        if 'condiciones particulares' in seccion_name_lower:
+            _logger.warning(f"DEBUG ADD_PRODUCT: ❌ Intento de añadir producto a sección de solo texto: '{seccion_name}'")
+            raise UserError(f"No se pueden añadir productos a la sección '{seccion_name}'. Esta sección es solo para texto editable.")
+        
         # Encontrar la posición donde insertar el nuevo producto
         # Debe ir inmediatamente después de la línea de sección
         
@@ -224,13 +262,16 @@ class SaleOrder(models.Model):
         next_header_sequence = None
         
         # Buscar productos existentes en esta sección y el siguiente encabezado
+        # IMPORTANTE: Solo considerar productos hasta el siguiente encabezado (capítulo O sección)
         for line in order.order_line.filtered(lambda l: l.sequence > seccion_line.sequence).sorted('sequence'):
             if line.es_encabezado_capitulo or line.es_encabezado_seccion:
                 next_header_sequence = line.sequence
+                _logger.info(f"DEBUG: Encontrado siguiente encabezado '{line.name}' en secuencia: {line.sequence}")
                 break
             else:
                 # Es un producto en esta sección
                 existing_products_in_section.append(line)
+                _logger.info(f"DEBUG: Producto encontrado en sección: '{line.name}' (seq: {line.sequence})")
         
         _logger.info(f"DEBUG: Productos existentes en sección: {len(existing_products_in_section)}")
         _logger.info(f"DEBUG: Siguiente encabezado en secuencia: {next_header_sequence}")
@@ -245,6 +286,14 @@ class SaleOrder(models.Model):
             # Si no hay productos, insertar inmediatamente después de la sección
             insert_sequence = seccion_line.sequence + 1
             _logger.info(f"DEBUG: Insertando inmediatamente después de la sección en secuencia: {seccion_line.sequence}")
+        
+        # VALIDACIÓN CRÍTICA: Asegurar que no insertamos después del siguiente encabezado
+        if next_header_sequence and insert_sequence >= next_header_sequence:
+            # Si la inserción sería después del siguiente encabezado, ajustar
+            insert_sequence = next_header_sequence
+            _logger.info(f"DEBUG: ⚠️ AJUSTE: Inserción ajustada a {insert_sequence} para evitar insertar después del siguiente encabezado")
+        
+        _logger.info(f"DEBUG: Secuencia final de inserción: {insert_sequence}")
         
         # Ajustar las secuencias de las líneas posteriores
         lines_to_update = order.order_line.filtered(
