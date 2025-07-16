@@ -8,15 +8,6 @@
                     <i class="fa fa-list-alt me-2"/> Capítulos del Presupuesto
                 </h5>
                 <div class="d-flex align-items-center gap-2">
-                    <!-- BOTONES DE DEBUGGING TEMPORAL -->
-                    <div class="debug-buttons" style="display: flex; gap: 5px;">
-                        <button type="button" class="btn btn-sm btn-secondary" t-on-click="debugState" title="Debug State">
-                            🐛 Debug
-                        </button>
-                        <button type="button" class="btn btn-sm btn-warning" t-on-click="forceRefresh" title="Force Refresh">
-                            🔄 Refresh
-                        </button>
-                    </div>
                     <span class="badge bg-info text-dark">
                         Total: <span t-esc="formatCurrency(0)"/>
                     </span>

@@ -85,6 +85,16 @@ export class CapitulosAccordionWidget extends Component {
                 orderId: this.props.record.resId
             });
             
+            // Debug: Mostrar todos los capítulos y secciones disponibles
+            console.log('DEBUG: Capítulos disponibles en parsedData:');
+            const data = this.parsedData;
+            for (const [capName, capData] of Object.entries(data || {})) {
+                console.log(`DEBUG: - Capítulo: '${capName}'`);
+                for (const [secName, secData] of Object.entries(capData.sections || {})) {
+                    console.log(`DEBUG:   - Sección: '${secName}'`);
+                }
+            }
+            
             // Abrir el diálogo de selección de productos
             const productId = await this.openProductSelector();
             
@@ -113,28 +123,27 @@ export class CapitulosAccordionWidget extends Component {
                     { type: 'success' }
                 );
                 
-                // ESTRATEGIA DE RECARGA AGRESIVA
-                console.log('DEBUG: Iniciando recarga agresiva de datos...');
+                // ESTRATEGIA DE RECARGA MEJORADA
+                console.log('DEBUG: Iniciando recarga de datos...');
                 
-                // 1. Invalidar cache del registro
-                this.props.record.invalidateCache();
-                
-                // 2. Recargar el registro completo
+                // 1. Recargar el registro completo
                 await this.props.record.load();
                 console.log('DEBUG: Registro recargado');
                 
-                // 3. Forzar recálculo del modelo raíz
-                await this.props.record.model.root.load();
-                console.log('DEBUG: Modelo raíz recargado');
+                // 2. Forzar recálculo del modelo raíz si existe
+                if (this.props.record.model && this.props.record.model.root) {
+                    await this.props.record.model.root.load();
+                    console.log('DEBUG: Modelo raíz recargado');
+                }
                 
-                // 4. Forzar actualización del estado reactivo
+                // 3. Forzar actualización del estado reactivo
                 this.state.collapsedChapters = { ...this.state.collapsedChapters };
                 
-                // 5. Forzar re-renderizado usando el método correcto de Owl
-                this.render(true);
-                
-                // 6. Esperar un tick para que se procesen los cambios
+                // 4. Esperar un tick para que se procesen los cambios
                 await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // 5. Forzar re-renderizado del componente
+                this.render();
                 
                 console.log('DEBUG: Datos después de recarga:', this.parsedData);
                 console.log('DEBUG: Capítulos encontrados:', this.chapters.length);
@@ -391,7 +400,7 @@ export class CapitulosAccordionWidget extends Component {
             console.log('🔄 FORCE REFRESH: Capítulos:', Object.keys(newData).length);
             
             // Forzar re-render
-            this.render(true);
+            this.render();
             
             console.log('🔄 FORCE REFRESH: ✅ Actualización completada');
             

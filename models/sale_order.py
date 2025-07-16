@@ -159,6 +159,11 @@ class SaleOrder(models.Model):
         capitulo_line = None
         seccion_line = None
         
+        _logger.info(f"DEBUG ADD_PRODUCT: Buscando capítulo '{capitulo_name}' y sección '{seccion_name}'")
+        _logger.info(f"DEBUG ADD_PRODUCT: Líneas en el pedido:")
+        for line in order.order_line.sorted('sequence'):
+            _logger.info(f"DEBUG ADD_PRODUCT: - Línea {line.sequence}: '{line.name}' (Capítulo: {line.es_encabezado_capitulo}, Sección: {line.es_encabezado_seccion})")
+        
         for line in order.order_line.sorted('sequence'):
             if line.es_encabezado_capitulo:
                 # Comparar tanto el nombre exacto como el nombre base (sin contador)
@@ -168,13 +173,34 @@ class SaleOrder(models.Model):
                 base_name_match = re.match(r'^(.+?)(?:\s*\(\d+\))?$', capitulo_name)
                 capitulo_base_name = base_name_match.group(1) if base_name_match else capitulo_name
                 
+                _logger.info(f"DEBUG ADD_PRODUCT: Comparando capítulo '{line_name}' con '{capitulo_name}' (base: '{capitulo_base_name}')")
+                
                 if line_name == capitulo_name or line_name == capitulo_base_name:
                     capitulo_line = line
-                    _logger.info(f"DEBUG: Capítulo encontrado: {line.name}")
-            elif capitulo_line and line.es_encabezado_seccion and line.name == seccion_name:
-                seccion_line = line
-                _logger.info(f"DEBUG: Sección encontrada: {line.name}")
-                break
+                    _logger.info(f"DEBUG ADD_PRODUCT: ✅ Capítulo encontrado: {line.name}")
+                    break
+                else:
+                    _logger.info(f"DEBUG ADD_PRODUCT: ❌ Capítulo no coincide")
+        
+        if capitulo_line:
+            _logger.info(f"DEBUG ADD_PRODUCT: Buscando sección '{seccion_name}' después del capítulo '{capitulo_line.name}'")
+            for line in order.order_line.filtered(lambda l: l.sequence > capitulo_line.sequence).sorted('sequence'):
+                _logger.info(f"DEBUG ADD_PRODUCT: Revisando línea {line.sequence}: '{line.name}' (Capítulo: {line.es_encabezado_capitulo}, Sección: {line.es_encabezado_seccion})")
+                
+                if line.es_encabezado_capitulo:
+                    # Si encontramos otro capítulo, paramos la búsqueda
+                    _logger.info(f"DEBUG ADD_PRODUCT: Encontrado otro capítulo, parando búsqueda")
+                    break
+                elif line.es_encabezado_seccion:
+                    _logger.info(f"DEBUG ADD_PRODUCT: Comparando sección '{line.name}' con '{seccion_name}'")
+                    if line.name == seccion_name:
+                        seccion_line = line
+                        _logger.info(f"DEBUG ADD_PRODUCT: ✅ Sección encontrada: {line.name}")
+                        break
+                    else:
+                        _logger.info(f"DEBUG ADD_PRODUCT: ❌ Sección no coincide")
+        else:
+            _logger.error(f"DEBUG ADD_PRODUCT: ❌ No se encontró el capítulo '{capitulo_name}'")
         
         if not capitulo_line:
             raise UserError(f"No se encontró el capítulo: {capitulo_name}")
