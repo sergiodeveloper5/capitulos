@@ -74,7 +74,8 @@ class SaleOrder(models.Model):
                     # Nueva sección dentro del capítulo actual
                     current_seccion_name = line.name
                     capitulos_dict[current_capitulo_key]['sections'][current_seccion_name] = {
-                        'lines': []
+                        'lines': [],
+                        'condiciones_particulares': line.condiciones_particulares or ''
                     }
                     
                 elif current_capitulo_key and current_seccion_name:
@@ -322,6 +323,47 @@ class SaleOrder(models.Model):
             'message': f'Producto {product.name} añadido a {seccion_name}',
             'line_id': new_line.id
         }
+    
+    @api.model
+    def save_condiciones_particulares(self, order_id, capitulo_name, seccion_name, condiciones_text):
+        """Guarda las condiciones particulares de una sección específica"""
+        import logging
+        _logger = logging.getLogger(__name__)
+        
+        _logger.info(f"DEBUG SAVE_CONDICIONES: Guardando condiciones para capítulo '{capitulo_name}', sección '{seccion_name}'")
+        _logger.info(f"DEBUG SAVE_CONDICIONES: Texto: {condiciones_text[:100]}...")
+        
+        order = self.browse(order_id)
+        order.ensure_one()
+        
+        # Buscar la línea de la sección específica
+        seccion_line = None
+        for line in order.order_line.sorted('sequence'):
+            if line.es_encabezado_seccion:
+                line_base_name = self._get_base_name(line.name)
+                seccion_base_name = self._get_base_name(seccion_name)
+                
+                if line_base_name.upper() == seccion_base_name.upper():
+                    seccion_line = line
+                    break
+        
+        if not seccion_line:
+            _logger.error(f"DEBUG SAVE_CONDICIONES: ❌ No se encontró la sección '{seccion_name}'")
+            raise UserError(f"No se encontró la sección: {seccion_name}")
+        
+        try:
+            # Guardar las condiciones particulares en la línea de sección
+            seccion_line.with_context(from_capitulo_wizard=True).condiciones_particulares = condiciones_text
+            _logger.info(f"DEBUG SAVE_CONDICIONES: ✅ Condiciones guardadas en línea {seccion_line.id}")
+            
+            return {
+                'success': True,
+                'message': f'Condiciones particulares guardadas para {seccion_name}'
+            }
+            
+        except Exception as e:
+            _logger.error(f"DEBUG SAVE_CONDICIONES: ❌ Error al guardar: {str(e)}")
+            raise UserError(f"Error al guardar las condiciones particulares: {str(e)}")
 
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
@@ -336,6 +378,11 @@ class SaleOrderLine(models.Model):
         string='Es Encabezado de Sección',
         default=False,
         help="Indica si esta línea es un encabezado de sección (no modificable)"
+    )
+    
+    condiciones_particulares = fields.Text(
+        string='Condiciones Particulares',
+        help="Texto libre para condiciones particulares de esta sección"
     )
     
     def unlink(self):

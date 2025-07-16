@@ -538,24 +538,14 @@ class CapituloWizard(models.TransientModel):
         # Añadir condiciones particulares si existen
         if self.condiciones_particulares:
             # Añadir sección de condiciones particulares
-            SaleOrderLine.with_context(from_capitulo_wizard=True).create({
+            condiciones_section = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
                 'name': "=== CONDICIONES PARTICULARES ===",
                 'product_uom_qty': 0,
                 'price_unit': 0,
                 'display_type': 'line_section',
                 'es_encabezado_seccion': True,
-                'sequence': current_sequence,
-            })
-            current_sequence += 10
-            
-            # Añadir las condiciones como nota
-            SaleOrderLine.with_context(from_capitulo_wizard=True).create({
-                'order_id': order.id,
-                'name': self.condiciones_particulares,
-                'product_uom_qty': 0,
-                'price_unit': 0,
-                'display_type': 'line_note',
+                'condiciones_particulares': self.condiciones_particulares,  # Guardar en el campo correcto
                 'sequence': current_sequence,
             })
             current_sequence += 10
@@ -746,24 +736,14 @@ class CapituloWizard(models.TransientModel):
         # Añadir condiciones particulares si existen
         if self.condiciones_particulares:
             # Añadir sección de condiciones particulares
-            SaleOrderLine.with_context(from_capitulo_wizard=True).create({
+            condiciones_section = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
                 'name': "=== CONDICIONES PARTICULARES ===",
                 'product_uom_qty': 0,
                 'price_unit': 0,
                 'display_type': 'line_section',
                 'es_encabezado_seccion': True,
-                'sequence': current_sequence,
-            })
-            current_sequence += 10
-            
-            # Añadir las condiciones como nota
-            SaleOrderLine.with_context(from_capitulo_wizard=True).create({
-                'order_id': order.id,
-                'name': self.condiciones_particulares,
-                'product_uom_qty': 0,
-                'price_unit': 0,
-                'display_type': 'line_note',
+                'condiciones_particulares': self.condiciones_particulares,  # Guardar en el campo correcto
                 'sequence': current_sequence,
             })
             current_sequence += 10

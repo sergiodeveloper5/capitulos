@@ -373,14 +373,50 @@ export class CapitulosAccordionWidget extends Component {
         // Log para depuración
         console.log(`Condiciones particulares actualizadas para ${sectionKey}:`, value);
         console.log('Estado completo de condiciones:', this.state.condicionesParticulares);
+        
+        // Guardar automáticamente en el servidor
+        this.saveCondicionesParticulares(chapterName, sectionName, value);
+    }
+
+    async saveCondicionesParticulares(chapterName, sectionName, value) {
+        try {
+            const orderId = this.props.record.resId;
+            console.log(`Guardando condiciones particulares para ${chapterName}::${sectionName}:`, value);
+            
+            await this.orm.call('sale.order', 'save_condiciones_particulares', [
+                orderId, chapterName, sectionName, value
+            ]);
+            
+            console.log('✅ Condiciones particulares guardadas correctamente');
+        } catch (error) {
+            console.error('❌ Error al guardar condiciones particulares:', error);
+            this.notification.add(
+                _t('Error al guardar las condiciones particulares'),
+                { type: 'danger' }
+            );
+        }
     }
 
     getCondicionesParticulares(chapterName, sectionName) {
         // Crear clave única para esta sección específica
         const sectionKey = `${chapterName}::${sectionName}`;
         
-        // Retornar el valor guardado para esta sección específica o un string vacío
-        return this.state.condicionesParticulares[sectionKey] || '';
+        // Primero intentar obtener desde el estado local (cambios no guardados)
+        if (this.state.condicionesParticulares[sectionKey] !== undefined) {
+            return this.state.condicionesParticulares[sectionKey];
+        }
+        
+        // Si no está en el estado local, obtener desde los datos del servidor
+        const data = this.parsedData;
+        if (data && data[chapterName] && data[chapterName].sections && data[chapterName].sections[sectionName]) {
+            const serverValue = data[chapterName].sections[sectionName].condiciones_particulares || '';
+            // Guardar en el estado local para futuras referencias
+            this.state.condicionesParticulares[sectionKey] = serverValue;
+            return serverValue;
+        }
+        
+        // Retornar string vacío si no se encuentra en ningún lado
+        return '';
     }
     
     // MÉTODO DE DEBUGGING - FORZAR ACTUALIZACIÓN MANUAL
