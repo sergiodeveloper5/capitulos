@@ -146,12 +146,20 @@ class SaleOrder(models.Model):
         
         _logger.info(f"DEBUG ADD_PRODUCT: Pedido {order.id} tiene {len(order.order_line)} líneas antes de añadir")
         
-        if not product_id:
-            raise UserError("Debe seleccionar un producto")
-        
-        product = self.env['product.product'].browse(product_id)
-        if not product.exists():
-            raise UserError("El producto seleccionado no existe")
+        try:
+            if not product_id:
+                _logger.error(f"DEBUG ADD_PRODUCT: ❌ No se proporcionó product_id")
+                raise UserError("Debe seleccionar un producto")
+            
+            product = self.env['product.product'].browse(product_id)
+            if not product.exists():
+                _logger.error(f"DEBUG ADD_PRODUCT: ❌ Producto {product_id} no existe")
+                raise UserError("El producto seleccionado no existe")
+                
+            _logger.info(f"DEBUG ADD_PRODUCT: ✅ Producto encontrado: {product.name} (ID: {product.id})")
+        except Exception as e:
+            _logger.error(f"DEBUG ADD_PRODUCT: ❌ Error al validar producto: {str(e)}")
+            raise
         
         _logger.info(f"DEBUG ADD_PRODUCT: Producto encontrado: {product.name}")
         
@@ -252,22 +260,34 @@ class SaleOrder(models.Model):
         _logger.info(f"DEBUG: Nueva línea se insertará en secuencia: {insert_sequence}")
         
         # Crear la nueva línea de producto
-        new_line_vals = {
-            'order_id': order.id,
-            'product_id': product.id,
-            'name': product.name,
-            'product_uom_qty': quantity,
-            'product_uom': product.uom_id.id,
-            'price_unit': product.list_price,
-            'sequence': insert_sequence,
-            'es_encabezado_capitulo': False,
-            'es_encabezado_seccion': False,
-        }
-        
-        # Crear la línea con contexto especial para evitar restricciones
-        new_line = self.env['sale.order.line'].with_context(
-            from_capitulo_wizard=True
-        ).create(new_line_vals)
+        try:
+            new_line_vals = {
+                'order_id': order.id,
+                'product_id': product.id,
+                'name': product.name,
+                'product_uom_qty': quantity,
+                'product_uom': product.uom_id.id,
+                'price_unit': product.list_price,
+                'sequence': insert_sequence,
+                'es_encabezado_capitulo': False,
+                'es_encabezado_seccion': False,
+            }
+            
+            _logger.info(f"DEBUG ADD_PRODUCT: Valores para nueva línea: {new_line_vals}")
+            
+            # Crear la línea con contexto especial para evitar restricciones
+            _logger.info(f"DEBUG ADD_PRODUCT: Creando línea con contexto from_capitulo_wizard=True")
+            new_line = self.env['sale.order.line'].with_context(
+                from_capitulo_wizard=True
+            ).create(new_line_vals)
+            
+            _logger.info(f"DEBUG ADD_PRODUCT: ✅ Línea creada exitosamente con ID: {new_line.id}")
+            
+        except Exception as e:
+            _logger.error(f"DEBUG ADD_PRODUCT: ❌ Error al crear línea: {str(e)}")
+            import traceback
+            _logger.error(f"DEBUG ADD_PRODUCT: Traceback completo: {traceback.format_exc()}")
+            raise UserError(f"Error al crear la línea de producto: {str(e)}")
         
         # Forzar la escritura de los datos pendientes sin commit
         self.env.cr.flush()
@@ -367,12 +387,29 @@ class SaleOrderLine(models.Model):
     @api.model
     def create(self, vals):
         """Controla la creación de nuevas líneas cuando hay capítulos estructurados"""
+        import logging
+        _logger = logging.getLogger(__name__)
+        
+        _logger.info(f"DEBUG CREATE: Creando línea con valores: {vals}")
+        _logger.info(f"DEBUG CREATE: Contexto: {dict(self.env.context)}")
+        _logger.info(f"DEBUG CREATE: from_capitulo_wizard: {self.env.context.get('from_capitulo_wizard')}")
+        
         # Si se está creando desde el wizard de capítulos, permitir la creación
         if self.env.context.get('from_capitulo_wizard'):
-            return super().create(vals)
+            _logger.info(f"DEBUG CREATE: ✅ Creación permitida por contexto from_capitulo_wizard")
+            try:
+                result = super().create(vals)
+                _logger.info(f"DEBUG CREATE: ✅ Línea creada exitosamente con ID: {result.id}")
+                return result
+            except Exception as e:
+                _logger.error(f"DEBUG CREATE: ❌ Error en super().create(): {str(e)}")
+                import traceback
+                _logger.error(f"DEBUG CREATE: Traceback: {traceback.format_exc()}")
+                raise
         
         # Bloquear la creación manual de encabezados de capítulos y secciones
         if vals.get('es_encabezado_capitulo') or vals.get('es_encabezado_seccion'):
+            _logger.error(f"DEBUG CREATE: ❌ Intento de crear encabezado manualmente")
             raise UserError(
                 "No se pueden crear encabezados de capítulos o secciones manualmente.\n"
                 "Use el botón 'Gestionar Capítulos' para añadir capítulos estructurados."
@@ -387,9 +424,19 @@ class SaleOrderLine(models.Model):
                     lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion
                 )
                 if existing_headers:
+                    _logger.error(f"DEBUG CREATE: ❌ Intento de crear sección/nota con capítulos estructurados")
                     raise UserError(
                         "No se pueden añadir secciones o notas manualmente cuando el presupuesto tiene capítulos estructurados.\n"
                         "Use el botón 'Gestionar Capítulos' para gestionar la estructura."
                     )
         
-        return super().create(vals)
+        _logger.info(f"DEBUG CREATE: ✅ Validaciones pasadas, creando línea normal")
+        try:
+            result = super().create(vals)
+            _logger.info(f"DEBUG CREATE: ✅ Línea normal creada exitosamente con ID: {result.id}")
+            return result
+        except Exception as e:
+            _logger.error(f"DEBUG CREATE: ❌ Error en super().create() para línea normal: {str(e)}")
+            import traceback
+            _logger.error(f"DEBUG CREATE: Traceback: {traceback.format_exc()}")
+            raise
