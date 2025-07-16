@@ -465,6 +465,10 @@ class CapituloWizard(models.TransientModel):
         for seccion in self.seccion_ids:
             seccion.es_fija = True
         
+        # Obtener la siguiente secuencia disponible
+        max_sequence = max(order.order_line.mapped('sequence')) if order.order_line else 0
+        current_sequence = max_sequence + 10
+        
         # Añadir título del capítulo como encabezado principal
         nombre_capitulo = capitulo.name if self.modo_creacion == 'existente' else self.nuevo_capitulo_nombre
         SaleOrderLine.with_context(from_capitulo_wizard=True).create({
@@ -474,7 +478,9 @@ class CapituloWizard(models.TransientModel):
             'price_unit': 0,
             'display_type': 'line_section',
             'es_encabezado_capitulo': True,
+            'sequence': current_sequence,
         })
+        current_sequence += 10
         
         # Crear líneas de pedido organizadas por secciones (solo secciones que tienen productos)
         for seccion in secciones_con_productos:
@@ -486,7 +492,9 @@ class CapituloWizard(models.TransientModel):
                 'price_unit': 0,
                 'display_type': 'line_section',
                 'es_encabezado_seccion': True,
+                'sequence': current_sequence,
             })
+            current_sequence += 10
             
             # Si la sección es fija, marcar la línea como no editable
             if seccion.es_fija:
@@ -506,9 +514,11 @@ class CapituloWizard(models.TransientModel):
                         'price_unit': line.precio_unitario,
                         'product_uom_qty': line.cantidad,
                         'product_uom': line.product_id.uom_id.id,
+                        'sequence': current_sequence,
                     }
                     
                     product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
+                    current_sequence += 10
             else:
                 # Si no hay productos, añadir una línea informativa
                 SaleOrderLine.with_context(from_capitulo_wizard=True).create({
@@ -517,7 +527,9 @@ class CapituloWizard(models.TransientModel):
                     'product_uom_qty': 0,
                     'price_unit': 0,
                     'display_type': 'line_note',
+                    'sequence': current_sequence,
                 })
+                current_sequence += 10
 
         # Nota: No añadimos el capítulo a capitulo_ids para permitir capítulos duplicados
         # La información del capítulo se mantiene en las líneas del pedido
@@ -533,7 +545,9 @@ class CapituloWizard(models.TransientModel):
                 'price_unit': 0,
                 'display_type': 'line_section',
                 'es_encabezado_seccion': True,
+                'sequence': current_sequence,
             })
+            current_sequence += 10
             
             # Añadir las condiciones como nota
             SaleOrderLine.with_context(from_capitulo_wizard=True).create({
@@ -542,7 +556,9 @@ class CapituloWizard(models.TransientModel):
                 'product_uom_qty': 0,
                 'price_unit': 0,
                 'display_type': 'line_note',
+                'sequence': current_sequence,
             })
+            current_sequence += 10
 
         return {'type': 'ir.actions.act_window_close'}
     
@@ -668,6 +684,10 @@ class CapituloWizard(models.TransientModel):
         for seccion in self.seccion_ids:
             seccion.es_fija = True
         
+        # Obtener la siguiente secuencia disponible
+        max_sequence = max(order.order_line.mapped('sequence')) if order.order_line else 0
+        current_sequence = max_sequence + 10
+        
         # Añadir título del capítulo como encabezado principal
         nombre_capitulo = capitulo.name if self.modo_creacion == 'existente' else self.nuevo_capitulo_nombre
         SaleOrderLine.with_context(from_capitulo_wizard=True).create({
@@ -677,7 +697,9 @@ class CapituloWizard(models.TransientModel):
             'price_unit': 0,
             'display_type': 'line_section',
             'es_encabezado_capitulo': True,
+            'sequence': current_sequence,
         })
+        current_sequence += 10
         
         # Crear líneas de pedido organizadas por secciones (solo secciones que tienen productos)
         for seccion in secciones_con_productos:
@@ -689,7 +711,9 @@ class CapituloWizard(models.TransientModel):
                 'price_unit': 0,
                 'display_type': 'line_section',
                 'es_encabezado_seccion': True,
+                'sequence': current_sequence,
             })
+            current_sequence += 10
             
             # Si la sección es fija, marcar la línea como no editable
             if seccion.es_fija:
@@ -709,9 +733,11 @@ class CapituloWizard(models.TransientModel):
                         'price_unit': line.precio_unitario,
                         'product_uom_qty': line.cantidad,
                         'product_uom': line.product_id.uom_id.id,
+                        'sequence': current_sequence,
                     }
                     
                     product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
+                    current_sequence += 10
 
         # Nota: No añadimos el capítulo a capitulo_ids para permitir capítulos duplicados
         # La información del capítulo se mantiene en las líneas del pedido
@@ -727,7 +753,9 @@ class CapituloWizard(models.TransientModel):
                 'price_unit': 0,
                 'display_type': 'line_section',
                 'es_encabezado_seccion': True,
+                'sequence': current_sequence,
             })
+            current_sequence += 10
             
             # Añadir las condiciones como nota
             SaleOrderLine.with_context(from_capitulo_wizard=True).create({
@@ -736,7 +764,9 @@ class CapituloWizard(models.TransientModel):
                 'product_uom_qty': 0,
                 'price_unit': 0,
                 'display_type': 'line_note',
+                'sequence': current_sequence,
             })
+            current_sequence += 10
         
         # Crear un nuevo wizard para añadir otro capítulo
         # Mantener el capítulo seleccionado para facilitar la adición de duplicados

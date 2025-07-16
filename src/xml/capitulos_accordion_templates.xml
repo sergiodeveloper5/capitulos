@@ -50,14 +50,14 @@
                                             
                                             <!-- Área de texto editable para Condiciones Particulares -->
                                             <div class="p-3">
-                                                <label for="condiciones-particulares" class="form-label visually-hidden">Condiciones Particulares</label>
-                                                <textarea id="condiciones-particulares"
-                                                         name="condiciones-particulares"
+                                                <label t-att-for="'condiciones-particulares-' + chapter.name + '-' + section.name" class="form-label visually-hidden">Condiciones Particulares</label>
+                                                <textarea t-att-id="'condiciones-particulares-' + chapter.name + '-' + section.name"
+                                                         t-att-name="'condiciones-particulares-' + chapter.name + '-' + section.name"
                                                          class="form-control" 
                                                          rows="4" 
-                                                         placeholder="Escriba aquí las condiciones particulares del presupuesto..."
-                                                         t-on-input="(ev) => this.updateCondicionesParticulares(ev.target.value)"
-                                                         t-att-value="this.getCondicionesParticulares()"></textarea>
+                                                         placeholder="Escriba aquí las condiciones particulares de esta sección..."
+                                                         t-on-input="(ev) => this.updateCondicionesParticulares(chapter.name, section.name, ev.target.value)"
+                                                         t-att-value="this.getCondicionesParticulares(chapter.name, section.name)"></textarea>
                                             </div>
                                         </t>
                                         

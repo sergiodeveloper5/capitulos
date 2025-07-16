@@ -22,7 +22,7 @@ export class CapitulosAccordionWidget extends Component {
             showProductDialog: false,
             currentSection: null,
             currentChapter: null,
-            condicionesParticulares: ''
+            condicionesParticulares: {} // Objeto para almacenar condiciones por sección
         });
         
         this.orm = useService("orm");
@@ -363,18 +363,24 @@ export class CapitulosAccordionWidget extends Component {
     }
 
     // Métodos para manejar las condiciones particulares
-    updateCondicionesParticulares(value) {
-        // Guardar el valor en el estado local
-        this.state.condicionesParticulares = value;
+    updateCondicionesParticulares(chapterName, sectionName, value) {
+        // Crear clave única para esta sección específica
+        const sectionKey = `${chapterName}::${sectionName}`;
         
-        // Aquí podrías implementar un debounce para guardar automáticamente
-        // Por ahora, se guardará cuando se guarde el presupuesto
-        console.log('Condiciones particulares actualizadas:', value);
+        // Guardar el valor en el estado local para esta sección específica
+        this.state.condicionesParticulares[sectionKey] = value;
+        
+        // Log para depuración
+        console.log(`Condiciones particulares actualizadas para ${sectionKey}:`, value);
+        console.log('Estado completo de condiciones:', this.state.condicionesParticulares);
     }
 
-    getCondicionesParticulares() {
-        // Retornar el valor guardado o un string vacío
-        return this.state.condicionesParticulares || '';
+    getCondicionesParticulares(chapterName, sectionName) {
+        // Crear clave única para esta sección específica
+        const sectionKey = `${chapterName}::${sectionName}`;
+        
+        // Retornar el valor guardado para esta sección específica o un string vacío
+        return this.state.condicionesParticulares[sectionKey] || '';
     }
     
     // MÉTODO DE DEBUGGING - FORZAR ACTUALIZACIÓN MANUAL

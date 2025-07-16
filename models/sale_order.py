@@ -21,6 +21,17 @@ class SaleOrder(models.Model):
         compute='_compute_tiene_multiples_capitulos',
         help="Indica si el pedido tiene capítulos para mostrar en acordeón"
     )
+
+    def _get_base_name(self, decorated_name):
+        """Extrae el nombre base de un capítulo o sección decorado."""
+        import re
+        name = str(decorated_name)
+        # 1. Eliminar sufijos como (SECCIÓN FIJA) o contadores
+        name = re.sub(r'\s*\((SECCIÓN FIJA|\d+)\)$', '', name).strip()
+        # 2. Eliminar caracteres decorativos de los extremos
+        decorative_chars = ' \t\n\r=═🔒📋'
+        name = name.strip(decorative_chars)
+        return name
     
     @api.depends('order_line', 'order_line.es_encabezado_capitulo', 'order_line.es_encabezado_seccion', 
                  'order_line.name', 'order_line.product_id', 'order_line.product_uom_qty', 
@@ -159,7 +170,7 @@ class SaleOrder(models.Model):
             _logger.info(f"DEBUG ADD_PRODUCT: ✅ Producto encontrado: {product.name} (ID: {product.id})")
         except Exception as e:
             _logger.error(f"DEBUG ADD_PRODUCT: ❌ Error al validar producto: {str(e)}")
-            raise
+            raise e
         
         _logger.info(f"DEBUG ADD_PRODUCT: Producto encontrado: {product.name}")
         
@@ -174,25 +185,37 @@ class SaleOrder(models.Model):
         
         for line in order.order_line.sorted('sequence'):
             if line.es_encabezado_capitulo:
-                # Comparar tanto el nombre exacto como el nombre base (sin contador)
-                line_name = line.name
-                # Extraer el nombre base si tiene formato "Nombre (contador)"
-                import re
-                base_name_match = re.match(r'^(.+?)(?:\s*\(\d+\))?$', capitulo_name)
-                capitulo_base_name = base_name_match.group(1) if base_name_match else capitulo_name
+                line_base_name = self._get_base_name(line.name)
+                capitulo_base_name = self._get_base_name(capitulo_name)
                 
-                _logger.info(f"DEBUG ADD_PRODUCT: Comparando capítulo '{line_name}' con '{capitulo_name}' (base: '{capitulo_base_name}')")
+                _logger.info(f"DEBUG ADD_PRODUCT: Comparando capítulo base '{line_base_name}' con '{capitulo_base_name}'")
                 
-                if line_name == capitulo_name or line_name == capitulo_base_name:
+                if line_base_name.upper() == capitulo_base_name.upper():
                     capitulo_line = line
                     _logger.info(f"DEBUG ADD_PRODUCT: ✅ Capítulo encontrado: {line.name}")
                     break
-                else:
-                    _logger.info(f"DEBUG ADD_PRODUCT: ❌ Capítulo no coincide")
         
         if capitulo_line:
             _logger.info(f"DEBUG ADD_PRODUCT: Buscando sección '{seccion_name}' después del capítulo '{capitulo_line.name}'")
-            for line in order.order_line.filtered(lambda l: l.sequence > capitulo_line.sequence).sorted('sequence'):
+            _logger.info(f"DEBUG ADD_PRODUCT: Capítulo encontrado en secuencia: {capitulo_line.sequence}")
+            
+            # Obtener todas las líneas después del capítulo
+            # Si todas las líneas tienen la misma secuencia, usar el ID para ordenar
+            all_lines = order.order_line.sorted(lambda l: (l.sequence, l.id))
+            capitulo_index = None
+            for i, line in enumerate(all_lines):
+                if line.id == capitulo_line.id:
+                    capitulo_index = i
+                    break
+            
+            if capitulo_index is not None:
+                lines_after_chapter = all_lines[capitulo_index + 1:]
+            else:
+                lines_after_chapter = order.order_line.filtered(lambda l: l.sequence > capitulo_line.sequence).sorted('sequence')
+            
+            _logger.info(f"DEBUG ADD_PRODUCT: Líneas después del capítulo: {len(lines_after_chapter)}")
+            
+            for line in lines_after_chapter:
                 _logger.info(f"DEBUG ADD_PRODUCT: Revisando línea {line.sequence}: '{line.name}' (Capítulo: {line.es_encabezado_capitulo}, Sección: {line.es_encabezado_seccion})")
                 
                 if line.es_encabezado_capitulo:
@@ -200,45 +223,17 @@ class SaleOrder(models.Model):
                     _logger.info(f"DEBUG ADD_PRODUCT: Encontrado otro capítulo, parando búsqueda")
                     break
                 elif line.es_encabezado_seccion:
-                    _logger.info(f"DEBUG ADD_PRODUCT: Comparando sección '{line.name}' con '{seccion_name}'")
+                    line_base_name = self._get_base_name(line.name)
+                    seccion_base_name = self._get_base_name(seccion_name)
                     
-                    # Comparación flexible para secciones (similar a capítulos)
-                    line_name = line.name.strip()
-                    seccion_name_clean = seccion_name.strip()
+                    _logger.info(f"DEBUG ADD_PRODUCT: Comparando sección base '{line_base_name}' con '{seccion_base_name}'")
                     
-                    # Log detallado de caracteres para depurar problemas de codificación
-                    _logger.info(f"DEBUG ADD_PRODUCT: Caracteres de línea: {[ord(c) for c in line_name[:20]]}")
-                    _logger.info(f"DEBUG ADD_PRODUCT: Caracteres de sección: {[ord(c) for c in seccion_name_clean[:20]]}")
-                    
-                    # Extraer el nombre base de la sección (sin numeración)
-                    import re
-                    base_name_match = re.match(r'^(.+?)(?:\s*\(\d+\))?$', seccion_name_clean)
-                    seccion_base_name = base_name_match.group(1) if base_name_match else seccion_name_clean
-                    
-                    # Extraer también el nombre base de la línea
-                    line_base_match = re.match(r'^(.+?)(?:\s*\(\d+\))?$', line_name)
-                    line_base_name = line_base_match.group(1) if line_base_match else line_name
-                    
-                    _logger.info(f"DEBUG ADD_PRODUCT: Comparando sección '{line_name}' (base: '{line_base_name}') con '{seccion_name_clean}' (base: '{seccion_base_name}')")
-                    
-                    # Comparación múltiple: exacta, base, y sin caracteres especiales
-                    matches = [
-                        line_name == seccion_name_clean,
-                        line_name == seccion_base_name,
-                        line_base_name == seccion_name_clean,
-                        line_base_name == seccion_base_name,
-                        # Comparación sin emojis y caracteres especiales
-                        re.sub(r'[^\w\s]', '', line_name).strip().upper() == re.sub(r'[^\w\s]', '', seccion_name_clean).strip().upper()
-                    ]
-                    
-                    _logger.info(f"DEBUG ADD_PRODUCT: Resultados de comparación: {matches}")
-                    
-                    if any(matches):
+                    if line_base_name.upper() == seccion_base_name.upper():
                         seccion_line = line
                         _logger.info(f"DEBUG ADD_PRODUCT: ✅ Sección encontrada: {line.name}")
                         break
-                    else:
-                        _logger.info(f"DEBUG ADD_PRODUCT: ❌ Sección no coincide")
+                else:
+                    _logger.info(f"DEBUG ADD_PRODUCT: Línea de producto: '{line.name}' (secuencia: {line.sequence})")
         else:
             _logger.error(f"DEBUG ADD_PRODUCT: ❌ No se encontró el capítulo '{capitulo_name}'")
         
@@ -254,59 +249,24 @@ class SaleOrder(models.Model):
             _logger.warning(f"DEBUG ADD_PRODUCT: ❌ Intento de añadir producto a sección de solo texto: '{seccion_name}'")
             raise UserError(f"No se pueden añadir productos a la sección '{seccion_name}'. Esta sección es solo para texto editable.")
         
-        # Encontrar la posición donde insertar el nuevo producto
-        # Debe ir inmediatamente después de la línea de sección
+        # Estrategia simplificada: insertar inmediatamente después del encabezado de sección
+        # Esto garantiza que el producto aparezca en la sección correcta
+        insert_sequence = seccion_line.sequence + 1
+        _logger.info(f"DEBUG: Insertando producto inmediatamente después de la sección '{seccion_line.name}' (seq: {seccion_line.sequence})")
+        _logger.info(f"DEBUG: Secuencia de inserción: {insert_sequence}")
+
+        # Desplazar todas las líneas que tengan secuencia >= insert_sequence
+        lines_to_shift = order.order_line.filtered(lambda l: l.sequence >= insert_sequence)
+        _logger.info(f"DEBUG: {len(lines_to_shift)} líneas para desplazar.")
+
+        # Ordenamos de forma descendente para evitar conflictos de clave única al actualizar
+        for line_to_shift in lines_to_shift.sorted(key=lambda r: r.sequence, reverse=True):
+            new_seq = line_to_shift.sequence + 1
+            _logger.info(f"DEBUG: Desplazando línea '{line_to_shift.name}' de {line_to_shift.sequence} a {new_seq}.")
+            # Usamos el contexto para saltar la validación de escritura en encabezados
+            line_to_shift.with_context(from_capitulo_wizard=True).sequence = new_seq
         
-        # Buscar si ya hay productos en esta sección
-        existing_products_in_section = []
-        next_header_sequence = None
-        
-        # Buscar productos existentes en esta sección y el siguiente encabezado
-        # IMPORTANTE: Solo considerar productos hasta el siguiente encabezado (capítulo O sección)
-        for line in order.order_line.filtered(lambda l: l.sequence > seccion_line.sequence).sorted('sequence'):
-            if line.es_encabezado_capitulo or line.es_encabezado_seccion:
-                next_header_sequence = line.sequence
-                _logger.info(f"DEBUG: Encontrado siguiente encabezado '{line.name}' en secuencia: {line.sequence}")
-                break
-            else:
-                # Es un producto en esta sección
-                existing_products_in_section.append(line)
-                _logger.info(f"DEBUG: Producto encontrado en sección: '{line.name}' (seq: {line.sequence})")
-        
-        _logger.info(f"DEBUG: Productos existentes en sección: {len(existing_products_in_section)}")
-        _logger.info(f"DEBUG: Siguiente encabezado en secuencia: {next_header_sequence}")
-        
-        # Determinar la secuencia de inserción
-        if existing_products_in_section:
-            # Si ya hay productos, insertar después del último producto de la sección
-            last_product_sequence = max(p.sequence for p in existing_products_in_section)
-            insert_sequence = last_product_sequence + 1
-            _logger.info(f"DEBUG: Insertando después del último producto en secuencia: {last_product_sequence}")
-        else:
-            # Si no hay productos, insertar inmediatamente después de la sección
-            insert_sequence = seccion_line.sequence + 1
-            _logger.info(f"DEBUG: Insertando inmediatamente después de la sección en secuencia: {seccion_line.sequence}")
-        
-        # VALIDACIÓN CRÍTICA: Asegurar que no insertamos después del siguiente encabezado
-        if next_header_sequence and insert_sequence >= next_header_sequence:
-            # Si la inserción sería después del siguiente encabezado, ajustar
-            insert_sequence = next_header_sequence
-            _logger.info(f"DEBUG: ⚠️ AJUSTE: Inserción ajustada a {insert_sequence} para evitar insertar después del siguiente encabezado")
-        
-        _logger.info(f"DEBUG: Secuencia final de inserción: {insert_sequence}")
-        
-        # Ajustar las secuencias de las líneas posteriores
-        lines_to_update = order.order_line.filtered(
-            lambda l: l.sequence >= insert_sequence
-        )
-        _logger.info(f"DEBUG: Actualizando secuencias de {len(lines_to_update)} líneas")
-        
-        for line in lines_to_update:
-            old_sequence = line.sequence
-            line.sequence += 1
-            _logger.info(f"DEBUG: Línea '{line.name}' secuencia {old_sequence} -> {line.sequence}")
-        
-        _logger.info(f"DEBUG: Nueva línea se insertará en secuencia: {insert_sequence}")
+        _logger.info(f"DEBUG: Secuencia de inserción final: {insert_sequence}")
         
         # Crear la nueva línea de producto
         try:
@@ -410,7 +370,7 @@ class SaleOrderLine(models.Model):
             return result
         except Exception as e:
             _logger.error(f"DEBUG UNLINK: Error durante eliminación: {str(e)}")
-            raise
+            raise e
     
     def write(self, vals):
         """Previene la modificación de campos críticos en encabezados"""
@@ -454,7 +414,7 @@ class SaleOrderLine(models.Model):
                 _logger.error(f"DEBUG CREATE: ❌ Error en super().create(): {str(e)}")
                 import traceback
                 _logger.error(f"DEBUG CREATE: Traceback: {traceback.format_exc()}")
-                raise
+                raise e
         
         # Bloquear la creación manual de encabezados de capítulos y secciones
         if vals.get('es_encabezado_capitulo') or vals.get('es_encabezado_seccion'):
@@ -488,4 +448,4 @@ class SaleOrderLine(models.Model):
             _logger.error(f"DEBUG CREATE: ❌ Error en super().create() para línea normal: {str(e)}")
             import traceback
             _logger.error(f"DEBUG CREATE: Traceback: {traceback.format_exc()}")
-            raise
+            raise e
