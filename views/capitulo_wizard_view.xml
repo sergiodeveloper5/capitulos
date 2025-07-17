@@ -1,20 +1,96 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    ARCHIVO: capitulo_wizard_view.xml
+    PROPÓSITO: Definición de vistas para el wizard de gestión de capítulos técnicos
+    
+    FUNCIONALIDAD PRINCIPAL:
+    - Interfaz de usuario para crear y gestionar capítulos técnicos en presupuestos
+    - Soporte para dos modos: usar capítulos existentes o crear nuevos
+    - Gestión visual de secciones con productos y configuraciones
+    - Interfaz intuitiva con toggles, handles y formularios embebidos
+    
+    COMPONENTES PRINCIPALES:
+    1. Vista formulario del wizard (capitulo_wizard_form_view)
+    2. Acción para abrir el wizard (capitulo_wizard_action)
+    
+    CARACTERÍSTICAS DE UX:
+    - Diseño responsivo con alertas informativas
+    - Campos condicionales según el modo seleccionado
+    - Interfaz drag-and-drop para reordenar elementos
+    - Botones de acción claramente diferenciados
+    - Validaciones visuales y ayudas contextuales
+    
+    INTEGRACIÓN:
+    - Se abre desde el formulario de pedidos de venta
+    - Interactúa con modelos: capitulo.wizard, capitulo.wizard.seccion, capitulo.wizard.line
+    - Retorna al presupuesto después de completar las acciones
+    
+    TECNOLOGÍAS UTILIZADAS:
+    - Widgets especializados: radio, boolean_toggle, handle
+    - Bootstrap classes para alertas y estilos
+    - Notebooks para organización por pestañas
+    - Formularios embebidos para edición detallada
+-->
 <odoo>
+    <!-- 
+        VISTA PRINCIPAL DEL WIZARD DE CAPÍTULOS
+        =====================================
+        
+        PROPÓSITO:
+        - Interfaz principal para gestionar capítulos técnicos en presupuestos
+        - Permite crear nuevos capítulos o usar existentes
+        - Gestión completa de secciones y productos
+        
+        ESTRUCTURA:
+        1. Selector de modo (existente/nuevo)
+        2. Campos específicos por modo
+        3. Gestión de secciones y productos
+        4. Condiciones particulares
+        5. Botones de acción
+        
+        CARACTERÍSTICAS UX:
+        - Alertas informativas para guiar al usuario
+        - Campos condicionales que se muestran según el contexto
+        - Interfaz visual con iconos y colores distintivos
+        - Validaciones en tiempo real
+    -->
     <record id="capitulo_wizard_form_view" model="ir.ui.view">
         <field name="name">capitulo.wizard.form</field>
         <field name="model">capitulo.wizard</field>
         <field name="arch" type="xml">
             <form>
                 <sheet>
+                    <!-- 
+                        ALERTA INFORMATIVA PRINCIPAL
+                        ===========================
+                        Proporciona contexto inmediato sobre la funcionalidad del wizard
+                    -->
                     <div class="alert alert-info" role="alert">
                         <strong>Gestión de Capítulos:</strong> Puede usar un capítulo existente o crear uno nuevo desde cero.
                     </div>
                     
+                    <!-- 
+                        SELECTOR DE MODO DE OPERACIÓN
+                        ============================
+                        Widget radio horizontal para selección clara entre modos:
+                        - 'existente': Usar un capítulo ya creado
+                        - 'nuevo': Crear un capítulo desde cero
+                    -->
                     <group>
                         <field name="modo_creacion" widget="radio" options="{'horizontal': true}"/>
                     </group>
                     
-                    <!-- Campos para capítulo existente -->
+                    <!-- 
+                        SECCIÓN: CAPÍTULO EXISTENTE
+                        ==========================
+                        Campos visibles solo cuando modo_creacion == 'existente'
+                        
+                        CARACTERÍSTICAS:
+                        - Campo de selección con opciones restringidas (no_create, no_edit)
+                        - Placeholder descriptivo para guiar la selección
+                        - Help text explicativo
+                        - Validación requerida condicional
+                    -->
                     <group invisible="modo_creacion != 'existente'">
                         <field name="capitulo_id" options="{'no_create': True, 'no_edit': True}" 
                                placeholder="Seleccione un capítulo existente..." 
@@ -22,9 +98,20 @@
                                required="modo_creacion == 'existente'"/>
                     </group>
                     
-
-                    
-                    <!-- Campos para nuevo capítulo -->
+                    <!-- 
+                        SECCIÓN: NUEVO CAPÍTULO
+                        =======================
+                        Campos visibles solo cuando modo_creacion == 'nuevo'
+                        
+                        CAMPOS:
+                        - nuevo_capitulo_nombre: Nombre requerido del capítulo
+                        - nuevo_capitulo_descripcion: Descripción opcional
+                        
+                        CARACTERÍSTICAS:
+                        - Placeholders descriptivos
+                        - Help text explicativo
+                        - Validación requerida condicional
+                    -->
                     <group invisible="modo_creacion != 'nuevo'">
                         <field name="nuevo_capitulo_nombre" placeholder="Nombre del nuevo capítulo..." 
                                help="Especifique el nombre para el nuevo capítulo"
@@ -32,19 +119,60 @@
                         <field name="nuevo_capitulo_descripcion" placeholder="Descripción del capítulo..."/>
                     </group>
                     
-
-                    
+                    <!-- 
+                        NOTEBOOK: ORGANIZACIÓN POR PESTAÑAS
+                        ==================================
+                        Divide la funcionalidad en secciones lógicas:
+                        1. Secciones y Productos (pestaña principal)
+                        2. Condiciones Particulares (pestaña secundaria)
+                    -->
                     <notebook>
+                        <!-- 
+                            PESTAÑA: SECCIONES Y PRODUCTOS
+                            ==============================
+                            Pestaña principal con toda la gestión de contenido del capítulo
+                        -->
                         <page string="Secciones y Productos">
-                            <!-- Título prominente del capítulo -->
+                            <!-- 
+                                TÍTULO DINÁMICO DEL CAPÍTULO EXISTENTE
+                                =====================================
+                                Muestra prominentemente el nombre del capítulo seleccionado
+                                
+                                CARACTERÍSTICAS:
+                                - Visible solo en modo 'existente' con capítulo seleccionado
+                                - Estilo destacado con Bootstrap alert-primary
+                                - Icono 📋 para identificación visual
+                                - Campo readonly embebido para mostrar el nombre
+                            -->
                             <div invisible="modo_creacion != 'existente' or not capitulo_id" class="alert alert-primary" role="alert" style="margin-bottom: 15px; text-align: center; font-size: 18px; border: 2px solid #007bff;">
                                 <strong>📋 CAPÍTULO: </strong><field name="capitulo_id" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
                             </div>
                             
+                            <!-- 
+                                TÍTULO DINÁMICO DEL NUEVO CAPÍTULO
+                                =================================
+                                Muestra prominentemente el nombre del nuevo capítulo
+                                
+                                CARACTERÍSTICAS:
+                                - Visible solo en modo 'nuevo' con nombre especificado
+                                - Estilo destacado con Bootstrap alert-primary
+                                - Icono 📋 para identificación visual
+                                - Campo readonly embebido para mostrar el nombre
+                            -->
                             <div invisible="modo_creacion != 'nuevo' or not nuevo_capitulo_nombre" class="alert alert-primary" role="alert" style="margin-bottom: 15px; text-align: center; font-size: 18px; border: 2px solid #007bff;">
                                 <strong>📋 NUEVO CAPÍTULO: </strong><field name="nuevo_capitulo_nombre" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
                             </div>
                             
+                            <!-- 
+                                INSTRUCCIONES DE USO
+                                ===================
+                                Guía paso a paso para el usuario
+                                
+                                PASOS:
+                                1. Marcar secciones a incluir
+                                2. Añadir productos a cada sección
+                                3. Ejecutar la acción de añadir al presupuesto
+                            -->
                             <div class="alert alert-info" role="alert" style="margin-bottom: 15px;">
                                 <strong>📋 Instrucciones:</strong><br/>
                                 <strong>1.</strong> Marque las secciones que desea incluir<br/>
@@ -52,41 +180,119 @@
                                 <strong>3.</strong> Haga clic en "Añadir al Presupuesto"
                             </div>
                             
+                            <!-- 
+                                GESTIÓN DE SECCIONES
+                                ===================
+                                Campo One2many para gestionar las secciones del capítulo
+                                
+                                VISTA LISTA:
+                                - Handle para reordenamiento drag-and-drop
+                                - Nombre de sección con estilo destacado
+                                - Toggle para incluir/excluir sección
+                                - Indicador de sección fija (readonly)
+                                - Opciones: create, delete habilitados; edit deshabilitado
+                                
+                                VISTA FORMULARIO EMBEBIDA:
+                                - Formulario completo para edición detallada de secciones
+                                - Gestión de productos dentro de cada sección
+                            -->
                             <field name="seccion_ids">
+                                <!-- 
+                                    VISTA LISTA DE SECCIONES
+                                    =======================
+                                    Interfaz compacta para gestión rápida de secciones
+                                -->
                                 <list create="true" delete="true" edit="false">
+                                    <!-- Handle para reordenamiento visual -->
                                     <field name="sequence" widget="handle"/>
+                                    <!-- Nombre con estilo destacado -->
                                     <field name="name" string="Sección" decoration-bf="1" style="font-weight: bold; font-size: 14px;"/>
+                                    <!-- Toggle para inclusión en presupuesto -->
                                     <field name="incluir" string="Incluir" widget="boolean_toggle"/>
+                                    <!-- Indicador de sección fija (no editable) -->
                                     <field name="es_fija" string="Fija" widget="boolean_toggle" readonly="1"/>
                                 </list>
+                                
+                                <!-- 
+                                    FORMULARIO EMBEBIDO DE SECCIÓN
+                                    =============================
+                                    Interfaz completa para edición detallada de cada sección
+                                -->
                                 <form>
                                     <sheet>
+                                        <!-- 
+                                            TÍTULO DE LA SECCIÓN
+                                            ===================
+                                            Campo principal con estilo destacado
+                                        -->
                                         <div class="oe_title">
                                             <h1>
                                                 <field name="name" placeholder="Nombre de la sección..." required="1" style="font-size: 18px; font-weight: bold;"/>
                                             </h1>
                                         </div>
                                         
+                                        <!-- 
+                                            CONFIGURACIÓN DE LA SECCIÓN
+                                            ==========================
+                                            Campos de configuración organizados en grupos
+                                        -->
                                         <group>
                                             <group>
+                                                <!-- Toggle para incluir en presupuesto -->
                                                 <field name="incluir" string="Incluir en Presupuesto" widget="boolean_toggle"/>
+                                                <!-- Secuencia para ordenamiento -->
                                                 <field name="sequence"/>
+                                                <!-- Categoría de productos para filtrado -->
+                                                <field name="product_category_id" string="Categoría de Productos" 
+                                                       help="Selecciona una categoría para filtrar los productos disponibles"/>
                                             </group>
                                             <group>
+                                                <!-- Indicador de sección fija (readonly) -->
                                                 <field name="es_fija" readonly="1"/>
                                             </group>
                                         </group>
                                         
+                                        <!-- 
+                                            NOTEBOOK DE SECCIÓN
+                                            ==================
+                                            Organización por pestañas del contenido de la sección
+                                        -->
                                         <notebook>
+                                            <!-- 
+                                                PESTAÑA: PRODUCTOS
+                                                =================
+                                                Gestión de productos dentro de la sección
+                                            -->
                                             <page string="Productos">
+                                                <!-- 
+                                                    LISTA EDITABLE DE PRODUCTOS
+                                                    ==========================
+                                                    Interfaz para gestionar productos de la sección
+                                                    
+                                                    CARACTERÍSTICAS:
+                                                    - Edición inline (editable="bottom")
+                                                    - Handle para reordenamiento
+                                                    - Campos principales: producto, descripción, cantidad, precio
+                                                    - Toggles para inclusión y marcado como opcional
+                                                    - Suma automática de cantidades
+                                                -->
                                                 <field name="line_ids">
                                                     <list editable="bottom">
+                                                        <!-- Handle para reordenamiento -->
                                                         <field name="sequence" widget="handle"/>
-                                                        <field name="product_id" string="Producto" required="1"/>
+                                                        <!-- Selección de producto (requerido) con filtrado por categoría -->
+                                                        <field name="product_id" string="Producto" required="1" 
+                                                               domain="[('sale_ok', '=', True), '|', ('categ_id', 'child_of', parent.product_category_id), ('categ_id', '=', False)]"
+                                                               context="{'default_sale_ok': True}"/>
+                                                        <!-- Descripción personalizable -->
                                                         <field name="descripcion_personalizada" string="Descripción"/>
+                                                        <!-- Cantidad con suma automática -->
                                                         <field name="cantidad" string="Cantidad" sum="Total"/>
+                                                        <!-- Precio unitario -->
                                                         <field name="precio_unitario" string="Precio Unitario"/>
+                                                        <!-- Toggle para incluir producto -->
                                                         <field name="incluir" string="Incluir" widget="boolean_toggle"/>
+                                                        <!-- Toggle para marcar como opcional -->
                                                         <field name="es_opcional" string="Opcional" widget="boolean_toggle"/>
                                                     </list>
                                                 </field>
@@ -97,21 +303,72 @@
                             </field>
                         </page>
                         
+                        <!-- 
+                            PESTAÑA: CONDICIONES PARTICULARES
+                            ================================
+                            Área de texto para especificar condiciones especiales del presupuesto
+                            
+                            CARACTERÍSTICAS:
+                            - Campo de texto largo
+                            - Placeholder descriptivo
+                            - Contenido opcional
+                        -->
                         <page string="Condiciones Particulares">
                             <field name="condiciones_particulares" placeholder="Escriba aquí las condiciones particulares para este presupuesto..."/>
                         </page>
                     </notebook>
                 </sheet>
+                
+                <!-- 
+                    FOOTER: BOTONES DE ACCIÓN
+                    ========================
+                    Conjunto de botones para las acciones principales del wizard
+                    
+                    BOTONES:
+                    1. "Añadir al Presupuesto" (btn-primary) - Acción principal
+                    2. "Añadir Sección" (btn-secondary) - Acción auxiliar
+                    3. "Añadir Otro Capítulo" (btn-secondary) - Acción de continuidad
+                    4. "Cancelar" (btn-secondary) - Acción de salida
+                    
+                    CARACTERÍSTICAS:
+                    - Botón principal destacado visualmente
+                    - Botones secundarios con funcionalidades específicas
+                    - Botón de cancelar con comportamiento especial
+                -->
                 <footer>
-                        <button name="add_to_order" string="Añadir al Presupuesto" type="object" class="btn-primary"/>
-                        <button name="add_seccion" string="Añadir Sección" type="object" class="btn-secondary"/>
-                        <button name="add_another_chapter" string="Añadir Otro Capítulo" type="object" class="btn-secondary"/>
-                        <button string="Cancelar" class="btn-secondary" special="cancel"/>
-                    </footer>
+                    <!-- Acción principal: añadir capítulo al presupuesto -->
+                    <button name="add_to_order" string="Añadir al Presupuesto" type="object" class="btn-primary"/>
+                    <!-- Acción auxiliar: añadir nueva sección -->
+                    <button name="add_seccion" string="Añadir Sección" type="object" class="btn-secondary"/>
+                    <!-- Acción de continuidad: añadir otro capítulo -->
+                    <button name="add_another_chapter" string="Añadir Otro Capítulo" type="object" class="btn-secondary"/>
+                    <!-- Acción de salida: cancelar wizard -->
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
             </form>
         </field>
     </record>
 
+    <!-- 
+        ACCIÓN DEL WIZARD
+        ================
+        
+        PROPÓSITO:
+        - Define la acción para abrir el wizard de gestión de capítulos
+        - Configuración para ventana modal (target="new")
+        - Integración con el sistema de acciones de Odoo
+        
+        CARACTERÍSTICAS:
+        - Nombre descriptivo para menús y referencias
+        - Modelo objetivo: capitulo.wizard
+        - Modo de vista: formulario únicamente
+        - Target: nueva ventana (modal)
+        
+        USO:
+        - Se invoca desde botones en vistas de pedidos de venta
+        - Puede ser llamada desde acciones de servidor
+        - Integrable en menús si se requiere acceso directo
+    -->
     <record id="capitulo_wizard_action" model="ir.actions.act_window">
         <field name="name">Gestionar Capítulos del Presupuesto</field>
         <field name="res_model">capitulo.wizard</field>

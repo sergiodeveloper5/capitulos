@@ -1,48 +1,364 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    ARCHIVO: product_views.xml
+    PROPÓSITO: Extensiones de vistas de productos para integración con capítulos técnicos
+    
+    FUNCIONALIDAD PRINCIPAL:
+    - Herencia de vistas estándar de productos (product.template)
+    - Integración de campos de capítulos y tipos de sección
+    - Mejoras en búsqueda, filtrado y visualización
+    - Agrupación por criterios específicos de capítulos
+    
+    VISTAS MODIFICADAS:
+    1. Vista búsqueda (product_template_search_view_inherit)
+    2. Vista lista (product_template_tree_view_inherit)
+    3. Vista formulario (product_template_form_view_inherit)
+    
+    CARACTERÍSTICAS DE UX:
+    - Búsqueda combinada por capítulo y tipo de sección
+    - Filtros rápidos por tipos de sección predefinidos
+    - Agrupación visual por capítulo y tipo
+    - Integración transparente con vistas existentes
+    
+    FUNCIONALIDADES AÑADIDAS:
+    - Campo de búsqueda combinado "Capítulo > Tipo de Sección"
+    - Filtros específicos: Alquiler, Montaje, Desmontaje, Portes, Otros
+    - Agrupaciones: Por Capítulo, Por Tipo de Sección
+    - Visualización de tipo de sección en lista
+    - Grupo dedicado en formulario para campos de capítulos
+    
+    INTEGRACIÓN:
+    - Modelo base: product.template
+    - Campos añadidos: capitulo_id, tipo_seccion
+    - Herencia de vistas estándar de Odoo
+    - Compatibilidad con funcionalidades existentes
+    
+    TECNOLOGÍAS:
+    - XPath para modificaciones precisas
+    - Herencia de vistas XML
+    - Filtros con dominios específicos
+    - Agrupaciones contextuales
+-->
 <odoo>
-    <!-- Heredar vista de búsqueda de productos -->
+    <!-- 
+        HERENCIA: VISTA BÚSQUEDA DE PRODUCTOS
+        ===================================
+        
+        PROPÓSITO:
+        - Extender capacidades de búsqueda de productos
+        - Añadir filtros específicos para capítulos técnicos
+        - Mejorar la experiencia de búsqueda y filtrado
+        
+        MODIFICACIONES:
+        1. Campo de búsqueda combinado para capítulo y tipo
+        2. Campo de búsqueda específico para tipo de sección
+        3. Filtros rápidos por tipos de sección
+        4. Agrupaciones por capítulo y tipo de sección
+        
+        HERENCIA:
+        - Vista base: product.product_template_search_view
+        - Método: XPath insertion inside search element
+        - Compatibilidad: Mantiene funcionalidad existente
+    -->
     <record id="product_template_search_view_inherit" model="ir.ui.view">
         <field name="name">product.template.search.inherit.capitulos</field>
         <field name="model">product.template</field>
         <field name="inherit_id" ref="product.product_template_search_view"/>
         <field name="arch" type="xml">
             <xpath expr="//search" position="inside">
-                <field name="capitulo_id" string="Capítulo > Tipo de Sección" filter_domain="['|', ('capitulo_id', 'ilike', self), ('tipo_seccion', 'ilike', self)]"/>
+                <!-- 
+                    CAMPO DE BÚSQUEDA COMBINADO
+                    ==========================
+                    
+                    PROPÓSITO: Búsqueda unificada por capítulo y tipo de sección
+                    FUNCIONALIDAD: Permite buscar en ambos campos simultáneamente
+                    
+                    CARACTERÍSTICAS:
+                    - String: "Capítulo > Tipo de Sección" (descriptivo)
+                    - Filter domain: Búsqueda OR en capitulo_id y tipo_seccion
+                    - Operador: 'ilike' para búsqueda parcial insensible a mayúsculas
+                    
+                    LÓGICA DEL DOMINIO:
+                    ['|', ('capitulo_id', 'ilike', self), ('tipo_seccion', 'ilike', self)]
+                    - '|': Operador OR lógico
+                    - Primera condición: capitulo_id contiene el texto buscado
+                    - Segunda condición: tipo_seccion contiene el texto buscado
+                    - Resultado: Productos que coincidan en cualquiera de los dos campos
+                -->
+                <field name="capitulo_id" 
+                       string="Capítulo > Tipo de Sección" 
+                       filter_domain="['|', ('capitulo_id', 'ilike', self), ('tipo_seccion', 'ilike', self)]"/>
+                
+                <!-- 
+                    CAMPO DE BÚSQUEDA ESPECÍFICO
+                    ===========================
+                    
+                    PROPÓSITO: Búsqueda directa por tipo de sección
+                    FUNCIONALIDAD: Búsqueda específica en el campo tipo_seccion
+                    
+                    CARACTERÍSTICAS:
+                    - Campo directo sin filtros personalizados
+                    - Búsqueda estándar por tipo de sección
+                    - Complementa la búsqueda combinada anterior
+                -->
                 <field name="tipo_seccion"/>
-                <filter string="Alquiler" name="alquiler" domain="[('tipo_seccion', '=', 'alquiler')]"/>
-                <filter string="Montaje" name="montaje" domain="[('tipo_seccion', '=', 'montaje')]"/>
-                <filter string="Desmontaje" name="desmontaje" domain="[('tipo_seccion', '=', 'desmontaje')]"/>
-                <filter string="Portes" name="portes" domain="[('tipo_seccion', '=', 'portes')]"/>
-                <filter string="Otros" name="otros" domain="[('tipo_seccion', '=', 'otros')]"/>
+                
+                <!-- 
+                    FILTROS RÁPIDOS POR TIPO DE SECCIÓN
+                    ==================================
+                    
+                    PROPÓSITO: Acceso rápido a productos por tipo específico
+                    FUNCIONALIDAD: Filtros predefinidos para tipos comunes
+                    
+                    TIPOS INCLUIDOS:
+                    1. Alquiler - Productos de alquiler
+                    2. Montaje - Productos de montaje
+                    3. Desmontaje - Productos de desmontaje
+                    4. Portes - Productos de transporte
+                    5. Otros - Productos de categoría general
+                    
+                    CARACTERÍSTICAS:
+                    - Dominios exactos con operador '='
+                    - Nombres descriptivos y claros
+                    - Acceso con un solo clic
+                    - Filtros mutuamente excluyentes
+                -->
+                
+                <!-- Filtro: Productos de Alquiler -->
+                <filter string="Alquiler" 
+                        name="alquiler" 
+                        domain="[('tipo_seccion', '=', 'alquiler')]"/>
+                
+                <!-- Filtro: Productos de Montaje -->
+                <filter string="Montaje" 
+                        name="montaje" 
+                        domain="[('tipo_seccion', '=', 'montaje')]"/>
+                
+                <!-- Filtro: Productos de Desmontaje -->
+                <filter string="Desmontaje" 
+                        name="desmontaje" 
+                        domain="[('tipo_seccion', '=', 'desmontaje')]"/>
+                
+                <!-- Filtro: Productos de Portes -->
+                <filter string="Portes" 
+                        name="portes" 
+                        domain="[('tipo_seccion', '=', 'portes')]"/>
+                
+                <!-- Filtro: Productos Otros -->
+                <filter string="Otros" 
+                        name="otros" 
+                        domain="[('tipo_seccion', '=', 'otros')]"/>
+                
+                <!-- 
+                    AGRUPACIONES ESPECIALIZADAS
+                    ===========================
+                    
+                    PROPÓSITO: Organizar productos por criterios de capítulos
+                    FUNCIONALIDAD: Agrupación visual en la vista lista
+                    
+                    CARACTERÍSTICAS:
+                    - Grupo colapsable (expand="0")
+                    - Contexto group_by para cada agrupación
+                    - Integración con agrupaciones existentes
+                    
+                    AGRUPACIONES DISPONIBLES:
+                    1. Por Capítulo - Agrupa por capitulo_id
+                    2. Por Tipo de Sección - Agrupa por tipo_seccion
+                    
+                    BENEFICIOS:
+                    - Visualización organizada de productos
+                    - Fácil identificación de patrones
+                    - Navegación mejorada en listas grandes
+                    - Análisis rápido de distribución
+                -->
                 <group expand="0" string="Group By">
-                    <filter string="Capítulo" name="capitulo" context="{'group_by': 'capitulo_id'}"/>
-                    <filter string="Tipo de Sección" name="tipo_seccion" context="{'group_by': 'tipo_seccion'}"/>
+                    <!-- 
+                        AGRUPACIÓN POR CAPÍTULO
+                        ======================
+                        
+                        PROPÓSITO: Agrupar productos por capítulo técnico
+                        CONTEXTO: {'group_by': 'capitulo_id'}
+                        
+                        CARACTERÍSTICAS:
+                        - Muestra productos organizados por capítulo
+                        - Facilita la gestión de productos por área técnica
+                        - Permite identificar productos sin capítulo asignado
+                    -->
+                    <filter string="Capítulo" 
+                            name="capitulo" 
+                            context="{'group_by': 'capitulo_id'}"/>
+                    
+                    <!-- 
+                        AGRUPACIÓN POR TIPO DE SECCIÓN
+                        ==============================
+                        
+                        PROPÓSITO: Agrupar productos por tipo de sección
+                        CONTEXTO: {'group_by': 'tipo_seccion'}
+                        
+                        CARACTERÍSTICAS:
+                        - Organiza productos por función (alquiler, montaje, etc.)
+                        - Facilita la identificación de productos por actividad
+                        - Permite análisis de distribución por tipo de servicio
+                    -->
+                    <filter string="Tipo de Sección" 
+                            name="tipo_seccion" 
+                            context="{'group_by': 'tipo_seccion'}"/>
                 </group>
             </xpath>
         </field>
     </record>
 
-    <!-- Heredar vista de lista de productos -->
+    <!-- 
+        HERENCIA: VISTA LISTA DE PRODUCTOS
+        =================================
+        
+        PROPÓSITO:
+        - Mostrar información de capítulos en la vista lista
+        - Mejorar la visibilidad de clasificación de productos
+        - Integrar información relevante sin sobrecargar la vista
+        
+        MODIFICACIONES:
+        - Añadir campo tipo_seccion después del nombre
+        - Mantener diseño y funcionalidad existente
+        - Proporcionar información contextual rápida
+        
+        HERENCIA:
+        - Vista base: product.product_template_tree_view
+        - Método: XPath position after en campo name
+        - Impacto: Mínimo, solo añade una columna
+    -->
     <record id="product_template_tree_view_inherit" model="ir.ui.view">
         <field name="name">product.template.tree.inherit.capitulos</field>
         <field name="model">product.template</field>
         <field name="inherit_id" ref="product.product_template_tree_view"/>
         <field name="arch" type="xml">
+            <!-- 
+                INSERCIÓN DE CAMPO EN LISTA
+                ===========================
+                
+                PROPÓSITO: Mostrar tipo de sección junto al nombre del producto
+                UBICACIÓN: Inmediatamente después del campo name
+                
+                CARACTERÍSTICAS:
+                - Posición estratégica para visibilidad
+                - Información contextual importante
+                - No interfiere con campos existentes
+                - Facilita identificación rápida de productos
+                
+                BENEFICIOS:
+                - Clasificación visual inmediata
+                - Mejor organización de información
+                - Facilita selección de productos correctos
+                - Reduce necesidad de abrir formularios
+            -->
             <field name="name" position="after">
+                <!-- Campo tipo de sección en vista lista -->
                 <field name="tipo_seccion"/>
             </field>
         </field>
     </record>
 
-    <!-- Heredar vista de formulario de productos -->
+    <!-- 
+        HERENCIA: VISTA FORMULARIO DE PRODUCTOS
+        ======================================
+        
+        PROPÓSITO:
+        - Integrar campos de capítulos en el formulario de producto
+        - Proporcionar interfaz de edición para clasificación
+        - Mantener organización lógica de campos
+        
+        MODIFICACIONES:
+        - Añadir grupo "Capítulos y Secciones" en pestaña información general
+        - Incluir campos capitulo_id y tipo_seccion
+        - Mantener estructura y flujo existente
+        
+        HERENCIA:
+        - Vista base: product.product_template_form_view
+        - Método: XPath insertion inside group en pestaña general_information
+        - Ubicación: Pestaña de información general
+    -->
     <record id="product_template_form_view_inherit" model="ir.ui.view">
         <field name="name">product.template.form.inherit.capitulos</field>
         <field name="model">product.template</field>
         <field name="inherit_id" ref="product.product_template_form_view"/>
         <field name="arch" type="xml">
+            <!-- 
+                INSERCIÓN DE GRUPO EN FORMULARIO
+                ================================
+                
+                PROPÓSITO: Añadir sección dedicada para campos de capítulos
+                UBICACIÓN: Dentro de la pestaña "general_information"
+                
+                ESTRATEGIA:
+                - XPath: //page[@name='general_information']//group
+                - Posición: inside (dentro del grupo existente)
+                - Método: Añadir nuevo grupo sin alterar estructura
+                
+                ORGANIZACIÓN:
+                - Grupo con título descriptivo "Capítulos y Secciones"
+                - Campos relacionados agrupados lógicamente
+                - Integración natural con campos existentes
+            -->
             <xpath expr="//page[@name='general_information']//group" position="inside">
+                <!-- 
+                    GRUPO: CAPÍTULOS Y SECCIONES
+                    ============================
+                    
+                    PROPÓSITO: Organizar campos relacionados con capítulos técnicos
+                    CONTENIDO: Campos para clasificación y categorización
+                    
+                    CAMPOS INCLUIDOS:
+                    1. capitulo_id - Relación con capítulo técnico
+                    2. tipo_seccion - Tipo de sección del producto
+                    
+                    CARACTERÍSTICAS:
+                    - Título descriptivo y claro
+                    - Agrupación lógica de campos relacionados
+                    - Integración visual con el resto del formulario
+                    - Acceso fácil para edición y consulta
+                    
+                    FUNCIONALIDAD:
+                    - Permite asignar productos a capítulos específicos
+                    - Facilita la clasificación por tipo de sección
+                    - Mejora la organización de catálogo de productos
+                    - Habilita funcionalidades de filtrado y búsqueda
+                -->
                 <group string="Capítulos y Secciones">
+                    <!-- 
+                        CAMPO: CAPÍTULO TÉCNICO
+                        ======================
+                        
+                        PROPÓSITO: Asignar producto a un capítulo específico
+                        TIPO: Many2one hacia capitulo.contrato
+                        
+                        CARACTERÍSTICAS:
+                        - Relación opcional (puede estar vacío)
+                        - Selector con búsqueda de capítulos
+                        - Permite clasificación por área técnica
+                        - Facilita organización de presupuestos
+                    -->
                     <field name="capitulo_id"/>
+                    
+                    <!-- 
+                        CAMPO: TIPO DE SECCIÓN
+                        =====================
+                        
+                        PROPÓSITO: Clasificar producto por tipo de actividad
+                        TIPO: Selection con opciones predefinidas
+                        
+                        OPCIONES DISPONIBLES:
+                        - alquiler: Productos de alquiler
+                        - montaje: Productos de montaje
+                        - desmontaje: Productos de desmontaje
+                        - portes: Productos de transporte
+                        - otros: Productos de categoría general
+                        
+                        CARACTERÍSTICAS:
+                        - Selección obligatoria para clasificación
+                        - Opciones predefinidas para consistencia
+                        - Facilita filtrado y agrupación
+                        - Mejora organización de presupuestos
+                    -->
                     <field name="tipo_seccion"/>
                 </group>
             </xpath>
