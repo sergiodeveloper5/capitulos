@@ -1,141 +1,55 @@
-# -*- coding: utf-8 -*-
-"""
-WIZARD DE GESTIÓN DE CAPÍTULOS TÉCNICOS
-======================================
-
-Este archivo implementa el wizard (asistente) para la creación y gestión de
-capítulos técnicos en presupuestos de venta de Odoo.
-
-FUNCIONALIDAD PRINCIPAL:
-- Creación de capítulos nuevos con secciones personalizables
-- Utilización de capítulos existentes como plantillas
-- Gestión de productos por secciones técnicas
-- Configuración de condiciones particulares por capítulo
-- Integración directa con presupuestos de venta
-
-MODELOS IMPLEMENTADOS:
-1. CapituloWizardSeccion: Secciones dentro del wizard
-2. CapituloWizardLine: Líneas de productos dentro de secciones
-3. CapituloWizard: Wizard principal de gestión
-
-MODOS DE OPERACIÓN:
-- 'existente': Utiliza un capítulo predefinido como base
-- 'nuevo': Crea un capítulo completamente nuevo
-
-FLUJO DE TRABAJO:
-1. Selección de modo (existente/nuevo)
-2. Configuración de secciones y productos
-3. Validación de datos
-4. Creación de líneas en el presupuesto
-5. Estructuración jerárquica del presupuesto
-
-INTEGRACIÓN:
-- models/sale_order.py: Destino de las líneas creadas
-- models/capitulo.py: Fuente de capítulos existentes
-- views/capitulo_wizard_view.xml: Interfaz de usuario
-- controllers/main.py: Endpoints para funcionalidad AJAX
-
-REFERENCIAS:
-- models/sale_order.py: SaleOrder, SaleOrderLine
-- models/capitulo.py: CapituloContrato
-- models/capitulo_seccion.py: CapituloSeccion, CapituloSeccionLine
-- views/capitulo_wizard_view.xml: Formulario del wizard
-"""
-
 from odoo import models, fields, api
 from odoo.exceptions import UserError
 import logging
 
-# Configuración de logging para debugging y monitoreo
 _logger = logging.getLogger(__name__)
 
 class CapituloWizardSeccion(models.TransientModel):
-    """
-    Modelo transitorio para secciones dentro del wizard de capítulos.
-    
-    Representa una sección técnica (alquiler, montaje, etc.) que puede
-    contener múltiples productos y configuraciones específicas.
-    
-    HERENCIA: models.TransientModel (datos temporales)
-    TABLA: capitulo_wizard_seccion (temporal)
-    ORDENACIÓN: sequence, name (orden de aparición)
-    """
     _name = 'capitulo.wizard.seccion'
     _description = 'Sección del Wizard de Capítulo'
     _order = 'sequence, name'
 
-    # RELACIÓN CON EL WIZARD PRINCIPAL
-    wizard_id = fields.Many2one(
-        'capitulo.wizard', 
-        ondelete='cascade',                     # Eliminar secciones si se elimina wizard
-        string='Wizard',
-        help='Wizard principal al que pertenece esta sección'
-    )
-    
-    # CONFIGURACIÓN BÁSICA DE LA SECCIÓN
-    name = fields.Char(
-        string='Nombre de la Sección', 
-        required=True, 
-        default='Nueva Sección',
-        help='Nombre descriptivo de la sección técnica'
-    )
-    
-    sequence = fields.Integer(
-        string='Secuencia', 
-        default=10,
-        help='Orden de aparición en el presupuesto'
-    )
-    
-    # CONFIGURACIÓN DE COMPORTAMIENTO
-    es_fija = fields.Boolean(
-        string='Sección Fija', 
-        default=False,
-        help='Si está marcada, la sección no puede ser modificada por el usuario'
-    )
-    
-    incluir = fields.Boolean(
-        string='Incluir en Presupuesto', 
-        default=False,
-        help='Determina si esta sección se incluirá en el presupuesto final'
-    )
-    
-    # FILTRADO POR CATEGORÍA DE PRODUCTOS
-    product_category_id = fields.Many2one(
-        'product.category',
-        string='Categoría de Productos',
-        help='Categoría de productos que se mostrarán en esta sección'
-    )
-    
-    # RELACIÓN CON PRODUCTOS
-    line_ids = fields.One2many(
-        'capitulo.wizard.line', 
-        'seccion_id', 
-        string='Productos',
-        help='Lista de productos configurados en esta sección'
-    )
+    wizard_id = fields.Many2one('capitulo.wizard', ondelete='cascade')
+    name = fields.Char(string='Nombre de la Sección', required=True, default='Nueva Sección')
+    sequence = fields.Integer(string='Secuencia', default=10)
+    es_fija = fields.Boolean(string='Sección Fija', default=False)
+    incluir = fields.Boolean(string='Incluir en Presupuesto', default=False)
+    line_ids = fields.One2many('capitulo.wizard.line', 'seccion_id', string='Productos')
     
     @api.model
     def create(self, vals):
-        """
-        Sobrescribe create para asegurar valores por defecto apropiados.
-        
-        VALIDACIONES:
-        - Nombre no vacío (establece 'Nueva Sección' si está vacío)
-        - Secuencia por defecto (10 si no se especifica)
-        - Estados por defecto para incluir y es_fija
-        
-        LOGGING:
-        - Registra la creación de secciones para debugging
-        """
+        """Asegurar que siempre se cree con un nombre válido"""
+        if not vals.get('name') or not vals.get('name').strip():
+            vals['name'] = 'Nueva Sección'
+        _logger.info(f"Creando sección: {vals.get('name')}")
+        return super().create(vals)
+    
+    def unlink(self):
+        """Permite la eliminación de secciones en el wizard"""
+        return super().unlink()
+    
+    def write(self, vals):
+        """Permite la modificación de secciones en el wizard"""
+        return super().write(vals)
+    
+    @api.constrains('name')
+    def _check_name(self):
+        """Valida que el nombre de la sección no esté vacío"""
+        for record in self:
+            if not record.name or not record.name.strip():
+                raise UserError("El nombre de la sección es obligatorio y no puede estar vacío.")
+    
+    @api.model
+    def create(self, vals):
+        """Asegura que se establezcan valores por defecto apropiados"""
         original_name = vals.get('name')
         _logger.info(f"Creando sección con nombre original: '{original_name}'")
         
-        # VALIDACIÓN Y CORRECCIÓN DE NOMBRE
+        # Solo establecer 'Nueva Sección' si realmente no hay nombre
         if not vals.get('name') or vals.get('name').strip() == '':
             vals['name'] = 'Nueva Sección'
             _logger.warning(f"Nombre vacío detectado, estableciendo 'Nueva Sección'. Nombre original: '{original_name}'")
         
-        # ESTABLECIMIENTO DE VALORES POR DEFECTO
         if not vals.get('sequence'):
             vals['sequence'] = 10
         if 'incluir' not in vals:
@@ -146,176 +60,28 @@ class CapituloWizardSeccion(models.TransientModel):
         _logger.info(f"Creando sección final con nombre: '{vals['name']}', es_fija: {vals['es_fija']}")
         return super().create(vals)
     
-    def unlink(self):
-        """
-        Permite la eliminación de secciones en el wizard.
-        
-        COMPORTAMIENTO:
-        - Elimina la sección y todas sus líneas de producto asociadas
-        - Utilizado cuando el usuario elimina secciones manualmente
-        """
-        return super().unlink()
-    
-    def write(self, vals):
-        """
-        Permite la modificación de secciones en el wizard.
-        
-        COMPORTAMIENTO:
-        - Actualiza los campos de la sección según los valores proporcionados
-        - Mantiene la integridad referencial con las líneas de producto
-        """
-        return super().write(vals)
-    
-    @api.constrains('name')
-    def _check_name(self):
-        """
-        Validación de integridad para el nombre de la sección.
-        
-        VALIDACIONES:
-        - El nombre no puede estar vacío
-        - El nombre no puede contener solo espacios en blanco
-        
-        EXCEPCIONES:
-        - UserError: Si el nombre no cumple los criterios
-        """
-        for record in self:
-            if not record.name or not record.name.strip():
-                raise UserError("El nombre de la sección es obligatorio y no puede estar vacío.")
-    
     def unlink_seccion(self):
-        """
-        Método de conveniencia para eliminar la sección.
-        
-        PROPÓSITO:
-        - Proporciona una interfaz más clara para la eliminación
-        - Puede ser llamado desde botones en la vista
-        
-        RETORNA:
-        - Resultado de la operación unlink()
-        """
+        """Elimina la sección"""
         return self.unlink()
-    
-    @api.onchange('product_category_id')
-    def _onchange_product_category_id(self):
-        """
-        Filtra productos cuando cambia la categoría seleccionada.
-        
-        COMPORTAMIENTO:
-        - Limpia los productos previamente seleccionados
-        - Actualiza el dominio para mostrar solo productos de la categoría
-        - Incluye subcategorías usando 'child_of'
-        
-        RETORNA:
-        - Diccionario con el nuevo dominio para el campo product_ids
-        """
-        if self.product_category_id:
-            # Limpiar productos seleccionados cuando cambie la categoría
-            self.product_ids = [(5, 0, 0)]
-            _logger.info(f"Categoría seleccionada: {self.product_category_id.name}, "
-                        f"Filtrando productos de esta categoría")
-            return {
-                'domain': {
-                    'product_ids': [
-                        ('sale_ok', '=', True), 
-                        ('categ_id', 'child_of', self.product_category_id.id)
-                    ]
-                }
-            }
-        else:
-            # Si no hay categoría, mostrar todos los productos vendibles
-            return {
-                'domain': {
-                    'product_ids': [('sale_ok', '=', True)]
-                }
-            }
 
 class CapituloWizardLine(models.TransientModel):
-    """
-    Modelo transitorio para líneas de productos dentro de secciones del wizard.
-    
-    Representa un producto específico con su configuración (cantidad, precio, etc.)
-    dentro de una sección técnica del wizard.
-    
-    HERENCIA: models.TransientModel (datos temporales)
-    TABLA: capitulo_wizard_line (temporal)
-    """
     _name = 'capitulo.wizard.line'
     _description = 'Línea de Configurador de capítulo'
 
-    # RELACIONES JERÁRQUICAS
-    wizard_id = fields.Many2one(
-        'capitulo.wizard', 
-        ondelete='cascade',
-        string='Wizard',
-        help='Wizard principal (relación indirecta a través de sección)'
-    )
-    
-    seccion_id = fields.Many2one(
-        'capitulo.wizard.seccion', 
-        string='Sección', 
-        ondelete='cascade',
-        help='Sección a la que pertenece esta línea de producto'
-    )
-    
-    # CONFIGURACIÓN DEL PRODUCTO
-    product_id = fields.Many2one(
-        'product.product', 
-        string='Producto',
-        help='Producto seleccionado para esta línea'
-    )
-    
-    descripcion_personalizada = fields.Char(
-        string='Descripción Personalizada',
-        help='Descripción alternativa que sobrescribe el nombre del producto'
-    )
-    
-    # CONFIGURACIÓN COMERCIAL
-    cantidad = fields.Float(
-        string='Cantidad', 
-        default=1, 
-        required=True,
-        help='Cantidad del producto a incluir'
-    )
-    
-    precio_unitario = fields.Float(
-        string='Precio', 
-        default=0.0,
-        help='Precio unitario del producto'
-    )
-    
-    # CONFIGURACIÓN DE COMPORTAMIENTO
-    incluir = fields.Boolean(
-        string='Incluir', 
-        default=False,
-        help='Determina si este producto se incluirá en el presupuesto'
-    )
-    
-    es_opcional = fields.Boolean(
-        string='Opcional', 
-        default=False,
-        help='Marca el producto como opcional en el presupuesto'
-    )
-    
-    sequence = fields.Integer(
-        string='Secuencia', 
-        default=10,
-        help='Orden de aparición dentro de la sección'
-    )
+    wizard_id = fields.Many2one('capitulo.wizard', ondelete='cascade')
+    seccion_id = fields.Many2one('capitulo.wizard.seccion', string='Sección', ondelete='cascade')
+    product_id = fields.Many2one('product.product', string='Producto')
+    descripcion_personalizada = fields.Char(string='Descripción Personalizada')
+    cantidad = fields.Float(string='Cantidad', default=1, required=True)
+    precio_unitario = fields.Float(string='Precio', default=0.0)
+    incluir = fields.Boolean(string='Incluir', default=False)
+    es_opcional = fields.Boolean(string='Opcional', default=False)
+    sequence = fields.Integer(string='Secuencia', default=10)
     
     @api.model
     def create(self, vals):
-        """
-        Sobrescribe create para establecer relaciones correctas.
-        
-        LÓGICA:
-        - Establece wizard_id automáticamente desde la sección
-        - Registra la creación para debugging
-        - Valida la integridad de las relaciones
-        
-        LOGGING:
-        - Información detallada sobre la línea creada
-        """
-        # ESTABLECIMIENTO AUTOMÁTICO DE WIZARD_ID
+        """Asegurar que siempre se establezca la relación wizard_id correctamente"""
+        # Si no se proporciona wizard_id pero sí seccion_id, obtenerlo de la sección
         if not vals.get('wizard_id') and vals.get('seccion_id'):
             seccion = self.env['capitulo.wizard.seccion'].browse(vals['seccion_id'])
             if seccion.wizard_id:
@@ -323,149 +89,46 @@ class CapituloWizardLine(models.TransientModel):
                 _logger.info(f"Estableciendo wizard_id={vals['wizard_id']} para nueva línea de producto")
         
         line = super().create(vals)
-        
-        # LOGGING DE CREACIÓN
-        _logger.info(f"Línea de producto creada: ID={line.id}, "
-                    f"Producto={line.product_id.name if line.product_id else 'Sin producto'}, "
-                    f"Sección={line.seccion_id.name if line.seccion_id else 'Sin sección'}")
+        _logger.info(f"Línea de producto creada: ID={line.id}, Producto={line.product_id.name if line.product_id else 'Sin producto'}, Sección={line.seccion_id.name if line.seccion_id else 'Sin sección'}")
         return line
     
     @api.onchange('product_id')
     def _onchange_product_id(self):
-        """
-        Actualiza automáticamente el precio cuando se selecciona un producto.
-        
-        COMPORTAMIENTO:
-        - Establece precio_unitario desde product.list_price
-        - Marca automáticamente como incluido
-        - Resetea valores si se deselecciona el producto
-        
-        LOGGING:
-        - Información sobre el producto seleccionado y precio establecido
-        """
+        """Actualiza el precio unitario cuando se selecciona un producto"""
         if self.product_id:
-            # ESTABLECIMIENTO AUTOMÁTICO DE PRECIO
             self.precio_unitario = self.product_id.list_price
-            # MARCADO AUTOMÁTICO COMO INCLUIDO
+            # Automáticamente marcar como incluido (aunque no sea visible en la interfaz)
             self.incluir = True
-            _logger.info(f"Producto seleccionado: {self.product_id.name}, "
-                        f"Precio: {self.precio_unitario}, Auto-incluido: True")
+            _logger.info(f"Producto seleccionado: {self.product_id.name}, Precio: {self.precio_unitario}, Auto-incluido: True")
         else:
-            # RESETEO DE VALORES
             self.precio_unitario = 0.0
             self.incluir = False
 
 class CapituloWizard(models.TransientModel):
-    """
-    Wizard principal para la gestión de capítulos técnicos en presupuestos.
-    
-    Este wizard permite crear capítulos nuevos o utilizar capítulos existentes
-    como plantillas, configurando secciones técnicas y productos asociados
-    para su posterior inserción en presupuestos de venta.
-    
-    HERENCIA: models.TransientModel (datos temporales)
-    TABLA: capitulo_wizard (temporal)
-    
-    MODOS DE OPERACIÓN:
-    - 'existente': Utiliza un capítulo predefinido como base
-    - 'nuevo': Crea un capítulo completamente nuevo
-    
-    FLUJO DE TRABAJO:
-    1. Inicialización con pedido de venta
-    2. Selección de modo (existente/nuevo)
-    3. Configuración de secciones y productos
-    4. Validación de datos
-    5. Creación de líneas estructuradas en el presupuesto
-    
-    FUNCIONALIDADES PRINCIPALES:
-    - Gestión de secciones técnicas (alquiler, montaje, portes, etc.)
-    - Configuración de productos por sección
-    - Validación de integridad de datos
-    - Creación automática de estructura jerárquica
-    - Soporte para condiciones particulares
-    - Capacidad de añadir múltiples capítulos
-    
-    INTEGRACIÓN:
-    - models/sale_order.py: Destino de las líneas creadas
-    - models/capitulo.py: Fuente de capítulos existentes
-    - views/capitulo_wizard_view.xml: Interfaz de usuario
-    """
     _name = 'capitulo.wizard'
     _description = 'Añadir Capítulo'
 
-    # CONFIGURACIÓN DEL MODO DE OPERACIÓN
+    # Modo de operación
     modo_creacion = fields.Selection([
         ('existente', 'Usar Capítulo Existente'),
         ('nuevo', 'Crear Nuevo Capítulo')
-    ], 
-        string='Modo de Creación', 
-        default='existente', 
-        required=True,
-        help='Determina si se utiliza un capítulo existente o se crea uno nuevo'
-    )
+    ], string='Modo de Creación', default='existente', required=True)
     
-    # CAMPOS PARA CAPÍTULO EXISTENTE
-    capitulo_id = fields.Many2one(
-        'capitulo.contrato', 
-        string='Capítulo',
-        help='Capítulo existente a utilizar como plantilla'
-    )
+    # Campos para capítulo existente
+    capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo')
     
-    # CAMPOS PARA CREAR NUEVO CAPÍTULO
-    nuevo_capitulo_nombre = fields.Char(
-        string='Nombre del Capítulo',
-        help='Nombre del nuevo capítulo a crear'
-    )
+    # Campos para crear nuevo capítulo
+    nuevo_capitulo_nombre = fields.Char(string='Nombre del Capítulo')
+    nuevo_capitulo_descripcion = fields.Text(string='Descripción del Capítulo')
     
-    nuevo_capitulo_descripcion = fields.Text(
-        string='Descripción del Capítulo',
-        help='Descripción detallada del nuevo capítulo'
-    )
-    
-    # RELACIONES PRINCIPALES
-    order_id = fields.Many2one(
-        'sale.order', 
-        string='Pedido de Venta', 
-        required=True,
-        help='Presupuesto de venta donde se insertarán las líneas'
-    )
-    
-    seccion_ids = fields.One2many(
-        'capitulo.wizard.seccion', 
-        'wizard_id', 
-        string='Secciones',
-        help='Secciones técnicas configuradas en el wizard'
-    )
-    
-    # CONFIGURACIÓN ADICIONAL
-    condiciones_particulares = fields.Text(
-        string='Condiciones Particulares',
-        help='Condiciones específicas que se añadirán al presupuesto'
-    )
+    order_id = fields.Many2one('sale.order', string='Pedido de Venta', required=True)
+    seccion_ids = fields.One2many('capitulo.wizard.seccion', 'wizard_id', string='Secciones')
+    condiciones_particulares = fields.Text(string='Condiciones Particulares')
 
     @api.model
     def default_get(self, fields):
-        """
-        Establece valores por defecto al crear el wizard.
-        
-        COMPORTAMIENTO:
-        - Obtiene el pedido de venta desde el contexto
-        - Inicializa el wizard con valores apropiados
-        - Registra la inicialización para debugging
-        
-        PARÁMETROS:
-        - fields: Lista de campos a inicializar
-        
-        RETORNA:
-        - dict: Valores por defecto establecidos
-        
-        CONTEXTO ESPERADO:
-        - default_order_id: ID del pedido de venta
-        - active_id: ID activo (alternativo para order_id)
-        """
         res = super().default_get(fields)
-        
-        # OBTENCIÓN DEL PEDIDO DESDE EL CONTEXTO
+        # Obtener el pedido desde el contexto
         order_id = self.env.context.get('default_order_id') or self.env.context.get('active_id')
         if order_id and 'order_id' in fields:
             res['order_id'] = order_id
@@ -475,55 +138,28 @@ class CapituloWizard(models.TransientModel):
     
     @api.model
     def create(self, vals):
-        """
-        Sobrescribe create para inicializar secciones automáticamente.
-        
-        LÓGICA:
-        - Crea el wizard con los valores proporcionados
-        - Inicializa secciones predefinidas si es modo nuevo
-        - Registra la creación para debugging
-        
-        PARÁMETROS:
-        - vals: Valores para crear el wizard
-        
-        RETORNA:
-        - CapituloWizard: Instancia del wizard creado
-        
-        SECCIONES PREDEFINIDAS:
-        - Alquiler (secuencia 10)
-        - Montaje (secuencia 20)
-        - Portes (secuencia 30)
-        - Otros Conceptos (secuencia 40)
-        """
+        """Sobrescribir create para asegurar que las secciones se inicialicen correctamente"""
         _logger.info("=== Creando nuevo wizard ===")
         wizard = super().create(vals)
         
-        # INICIALIZACIÓN DE SECCIONES PARA MODO NUEVO
+        # Si no hay secciones y estamos en modo nuevo, crear secciones predefinidas
         if not wizard.seccion_ids and wizard.modo_creacion == 'nuevo':
             _logger.info("Creando secciones predefinidas para nuevo wizard")
             wizard._crear_secciones_predefinidas()
         
         return wizard
     
+
+    
+
+    
+
+    
+
+    
     def write(self, vals):
-        """
-        Sobrescribe write para manejar cambios en el wizard.
-        
-        COMPORTAMIENTO:
-        - Evita recursión infinita con bandera de contexto
-        - Permite actualizaciones controladas de campos
-        - Mantiene integridad de datos
-        
-        PARÁMETROS:
-        - vals: Valores a actualizar
-        
-        RETORNA:
-        - bool: Resultado de la operación write
-        
-        CONTEXTO ESPECIAL:
-        - skip_integrity_check: Evita validaciones recursivas
-        """
-        # PREVENCIÓN DE RECURSIÓN INFINITA
+        """Override write para manejar cambios"""
+        # Evitar recursión infinita con una bandera de contexto
         if self.env.context.get('skip_integrity_check'):
             return super().write(vals)
             
@@ -532,35 +168,16 @@ class CapituloWizard(models.TransientModel):
 
     @api.onchange('modo_creacion')
     def onchange_modo_creacion(self):
-        """
-        Maneja cambios en el modo de creación del wizard.
-        
-        COMPORTAMIENTO MODO 'existente':
-        - Limpia campos de nuevo capítulo
-        - Elimina secciones existentes
-        - Prepara para selección de capítulo
-        
-        COMPORTAMIENTO MODO 'nuevo':
-        - Limpia selección de capítulo existente
-        - Crea secciones predefinidas
-        - Prepara para configuración manual
-        
-        LOGGING:
-        - Registra cambios de modo para debugging
-        - Información sobre estado de secciones
-        """
+        """Limpiar campos cuando cambia el modo de creación"""
         _logger.info(f"=== onchange_modo_creacion: {self.modo_creacion} ===")
         
         if self.modo_creacion == 'existente':
-            # LIMPIEZA PARA MODO EXISTENTE
             self.nuevo_capitulo_nombre = False
             self.nuevo_capitulo_descripcion = False
-            # Limpiar secciones al cambiar a modo existente
+            # Limpiar secciones al cambiar a modo existente usando contexto para evitar recursión
             _logger.info("Limpiando secciones para modo existente")
             self.with_context(skip_integrity_check=True, from_onchange=True).write({'seccion_ids': [(5, 0, 0)]})
-            
         elif self.modo_creacion == 'nuevo':
-            # LIMPIEZA PARA MODO NUEVO
             self.capitulo_id = False
             # Crear secciones predefinidas para modo nuevo
             _logger.info(f"Modo nuevo - Secciones actuales: {len(self.seccion_ids)}")
@@ -568,65 +185,42 @@ class CapituloWizard(models.TransientModel):
     
     @api.onchange('capitulo_id')
     def onchange_capitulo_id(self):
-        """
-        Maneja cambios en la selección de capítulo existente.
-        
-        COMPORTAMIENTO:
-        - Solo activo en modo 'existente'
-        - Limpia secciones actuales
-        - Carga secciones del capítulo seleccionado
-        - Carga condiciones particulares
-        - Crea secciones predefinidas si el capítulo no tiene secciones
-        
-        LOGGING:
-        - Información sobre capítulo seleccionado
-        - Estado de carga de secciones
-        """
+        """Carga las secciones del capítulo seleccionado"""
         if self.modo_creacion != 'existente':
             return
             
-        # LIMPIEZA DE ESTADO ANTERIOR
+        # Limpiar secciones usando contexto para evitar recursión
         self.with_context(skip_integrity_check=True, from_onchange=True).write({'seccion_ids': [(5, 0, 0)]})
         self.condiciones_particulares = ''
         
         if not self.capitulo_id:
             return
             
-        # CARGA DE CONDICIONES LEGALES
+        # Cargar condiciones legales
         if self.capitulo_id.condiciones_legales:
             self.condiciones_particulares = self.capitulo_id.condiciones_legales
             
-        # CARGA DE SECCIONES DEL CAPÍTULO
+        # Cargar secciones del capítulo
         if self.capitulo_id.seccion_ids:
             self._cargar_secciones_existentes()
         else:
             # Si no hay secciones, crear secciones predefinidas
             self._crear_secciones_predefinidas()
     
+
+    
+
+    
+
+    
+
+    
+
+    
     def _crear_secciones_predefinidas(self):
-        """
-        Crea secciones técnicas predefinidas para el wizard.
-        
-        SECCIONES CREADAS:
-        - Alquiler (secuencia 10)
-        - Montaje (secuencia 20)
-        - Portes (secuencia 30)
-        - Otros Conceptos (secuencia 40)
-        
-        COMPORTAMIENTO:
-        - Limpia secciones existentes antes de crear nuevas
-        - Establece secciones como fijas en modo existente
-        - Registra el proceso para debugging
-        - Incluye recuperación de errores
-        
-        LOGGING:
-        - Información detallada del proceso de creación
-        - Verificación de secciones creadas
-        - Manejo de errores con recuperación automática
-        """
+        """Crea secciones predefinidas básicas"""
         _logger.info("=== Iniciando creación de secciones predefinidas ===")
         
-        # DEFINICIÓN DE SECCIONES ESTÁNDAR
         secciones_predefinidas = [
             {'name': 'Alquiler', 'sequence': 10},
             {'name': 'Montaje', 'sequence': 20},
@@ -634,15 +228,14 @@ class CapituloWizard(models.TransientModel):
             {'name': 'Otros Conceptos', 'sequence': 40},
         ]
         
-        # LIMPIEZA DE SECCIONES EXISTENTES
+        # Limpiar secciones existentes primero usando contexto para evitar recursión
         _logger.info("Limpiando secciones existentes...")
         self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
         
-        # DETERMINACIÓN DE COMPORTAMIENTO SEGÚN MODO
+        # Determinar si las secciones deben ser fijas según el modo
         es_fija = self.modo_creacion == 'existente'
         _logger.info(f"Modo creación: {self.modo_creacion}, es_fija: {es_fija}")
         
-        # PREPARACIÓN DE VALORES PARA CREACIÓN
         secciones_vals = []
         for seccion_data in secciones_predefinidas:
             vals = {
@@ -656,11 +249,11 @@ class CapituloWizard(models.TransientModel):
             secciones_vals.append((0, 0, vals))
             _logger.info(f"Preparando sección: {seccion_data['name']} con wizard_id={self.id}")
         
-        # CREACIÓN DE SECCIONES
+        # Crear secciones usando contexto para evitar recursión
         _logger.info(f"Creando {len(secciones_vals)} secciones...")
         self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
         
-        # VERIFICACIÓN DE CREACIÓN EXITOSA
+        # Verificar que se crearon correctamente
         try:
             # Forzar flush para asegurar que los datos se escriban
             self.env.flush_all()
@@ -676,25 +269,9 @@ class CapituloWizard(models.TransientModel):
             self._recrear_secciones_seguro()
     
     def _recrear_secciones_seguro(self):
-        """
-        Método de recuperación para recrear secciones en caso de error.
-        
-        PROPÓSITO:
-        - Proporciona un mecanismo de recuperación robusto
-        - Maneja errores en la creación de secciones
-        - Crea secciones una por una para mayor control
-        
-        COMPORTAMIENTO:
-        - Limpia completamente las secciones existentes
-        - Recrea secciones con manejo individual de errores
-        - Registra errores específicos para debugging
-        
-        LOGGING:
-        - Errores específicos por sección
-        - Estado final de la recuperación
-        """
+        """Método seguro para recrear secciones en caso de error"""
         try:
-            # DEFINICIÓN DE SECCIONES PARA RECUPERACIÓN
+            # Crear secciones una por una para mayor control
             secciones_predefinidas = [
                 {'name': 'Alquiler', 'sequence': 10},
                 {'name': 'Montaje', 'sequence': 20},
@@ -702,13 +279,13 @@ class CapituloWizard(models.TransientModel):
                 {'name': 'Otros Conceptos', 'sequence': 40},
             ]
             
-            # LIMPIEZA COMPLETA
+            # Limpiar completamente usando contexto para evitar recursión
             self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
             
-            # DETERMINACIÓN DE COMPORTAMIENTO
+            # Determinar si las secciones deben ser fijas según el modo
             es_fija = self.modo_creacion == 'existente'
             
-            # PREPARACIÓN CON MANEJO DE ERRORES INDIVIDUAL
+            # Crear todas las secciones de una vez
             secciones_vals = []
             for seccion_data in secciones_predefinidas:
                 try:
@@ -723,7 +300,7 @@ class CapituloWizard(models.TransientModel):
                 except Exception as e:
                     _logger.error(f"Error preparando sección '{seccion_data['name']}': {e}")
             
-            # CREACIÓN SEGURA
+            # Crear todas las secciones usando contexto para evitar recursión
             if secciones_vals:
                 self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
                     
@@ -731,32 +308,9 @@ class CapituloWizard(models.TransientModel):
             _logger.error(f"Error en recreación segura: {e}")
     
     def _cargar_secciones_existentes(self):
-        """
-        Carga secciones y productos desde un capítulo existente.
-        
-        COMPORTAMIENTO:
-        - Itera sobre las secciones del capítulo seleccionado
-        - Carga productos con sus configuraciones
-        - Establece todas las secciones como fijas
-        - Marca automáticamente como incluidas
-        
-        DATOS CARGADOS POR SECCIÓN:
-        - Nombre y secuencia
-        - Estado fijo (siempre True para existentes)
-        - Estado incluido (siempre True para existentes)
-        
-        DATOS CARGADOS POR PRODUCTO:
-        - Producto, descripción personalizada
-        - Cantidad y precio unitario
-        - Secuencia y estado opcional
-        - Estado incluido (siempre True para existentes)
-        
-        LOGGING:
-        - Información sobre secciones y productos cargados
-        """
+        """Carga las secciones existentes del capítulo"""
         secciones_vals = []
         for seccion in self.capitulo_id.seccion_ids:
-            # CARGA DE PRODUCTOS DE LA SECCIÓN
             lineas_vals = []
             for linea in seccion.product_line_ids:
                 lineas_vals.append((0, 0, {
@@ -769,7 +323,6 @@ class CapituloWizard(models.TransientModel):
                     'es_opcional': linea.es_opcional,
                 }))
             
-            # CONFIGURACIÓN DE LA SECCIÓN
             secciones_vals.append((0, 0, {
                 'name': seccion.name,
                 'sequence': seccion.sequence,
@@ -778,50 +331,21 @@ class CapituloWizard(models.TransientModel):
                 'line_ids': lineas_vals,
             }))
         
-        # CARGA DE SECCIONES CON CONTEXTO SEGURO
+        # Cargar secciones usando contexto para evitar recursión
         self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
     
     def _obtener_o_crear_capitulo(self):
-        """
-        Obtiene un capítulo existente o crea uno nuevo según el modo.
-        
-        MODO 'existente':
-        - Valida que se haya seleccionado un capítulo
-        - Retorna el capítulo seleccionado
-        
-        MODO 'nuevo':
-        - Valida que se haya especificado un nombre
-        - Crea un nuevo capítulo con secciones incluidas
-        - Establece condiciones particulares
-        - Marca como no plantilla
-        
-        PARÁMETROS:
-        - Ninguno (utiliza campos del wizard)
-        
-        RETORNA:
-        - capitulo.contrato: Capítulo existente o recién creado
-        
-        EXCEPCIONES:
-        - UserError: Si faltan datos requeridos
-        - UserError: Si el modo no es válido
-        
-        ESTRUCTURA CREADA (modo nuevo):
-        - Capítulo con nombre y descripción
-        - Secciones marcadas como incluir
-        - Productos con configuraciones completas
-        """
+        """Obtiene un capítulo existente o crea uno nuevo según el modo"""
         if self.modo_creacion == 'existente':
-            # VALIDACIÓN Y RETORNO DE CAPÍTULO EXISTENTE
             if not self.capitulo_id:
                 raise UserError("Debe seleccionar un capítulo existente")
             return self.capitulo_id
         
         elif self.modo_creacion == 'nuevo':
-            # VALIDACIÓN DE DATOS PARA NUEVO CAPÍTULO
             if not self.nuevo_capitulo_nombre:
                 raise UserError("Debe especificar un nombre para el nuevo capítulo")
             
-            # CONFIGURACIÓN BÁSICA DEL CAPÍTULO
+            # Crear nuevo capítulo
             capitulo_vals = {
                 'name': self.nuevo_capitulo_nombre,
                 'description': self.nuevo_capitulo_descripcion,
@@ -829,13 +353,12 @@ class CapituloWizard(models.TransientModel):
                 'es_plantilla': False,
             }
             
-            # CREACIÓN DE SECCIONES DEL CAPÍTULO
+            # Crear secciones del capítulo (solo las marcadas como incluir y que tienen productos)
             secciones_vals = []
             for seccion_wizard in self.seccion_ids.filtered(lambda s: s.incluir):
                 # Solo incluir secciones marcadas como incluir y que tienen productos
                 productos_con_producto = seccion_wizard.line_ids.filtered(lambda l: l.product_id)
                 if productos_con_producto:
-                    # CREACIÓN DE LÍNEAS DE PRODUCTO
                     lineas_vals = []
                     for linea_wizard in productos_con_producto:
                         lineas_vals.append((0, 0, {
@@ -847,7 +370,7 @@ class CapituloWizard(models.TransientModel):
                             'es_opcional': linea_wizard.es_opcional,
                         }))
                     
-                    # CREACIÓN DE SECCIÓN CON PRODUCTOS
+                    # Crear sección con productos
                     secciones_vals.append((0, 0, {
                         'name': seccion_wizard.name,
                         'sequence': seccion_wizard.sequence,
@@ -862,57 +385,13 @@ class CapituloWizard(models.TransientModel):
             raise UserError("Modo de creación no válido")
 
     def add_to_order(self):
-        """
-        Método principal para añadir el capítulo y sus productos al presupuesto.
-        
-        FUNCIONALIDAD PRINCIPAL:
-        - Valida los datos del wizard antes de proceder
-        - Crea o obtiene el capítulo según el modo de operación
-        - Genera estructura jerárquica en el presupuesto
-        - Añade encabezados de capítulo y sección
-        - Inserta líneas de producto con configuraciones
-        - Maneja condiciones particulares
-        
-        ESTRUCTURA CREADA EN EL PRESUPUESTO:
-        1. Encabezado principal del capítulo (📋 ═══ NOMBRE ═══)
-        2. Encabezados de sección (=== SECCIÓN ===)
-        3. Líneas de producto con cantidades y precios
-        4. Sección de condiciones particulares (si existen)
-        
-        COMPORTAMIENTO POR MODO:
-        - 'existente': Incluye todas las secciones con productos
-        - 'nuevo': Solo secciones marcadas como incluir
-        
-        VALIDACIONES:
-        - Existencia del pedido de venta
-        - Datos requeridos según el modo
-        - Presencia de productos para añadir
-        
-        SECUENCIACIÓN:
-        - Calcula secuencias automáticamente
-        - Mantiene orden jerárquico
-        - Incrementos de 10 para permitir inserciones
-        
-        LOGGING:
-        - Información detallada del proceso
-        - Estado de secciones y productos
-        - Debugging de relaciones
-        
-        RETORNA:
-        - dict: Acción para cerrar el wizard
-        
-        EXCEPCIONES:
-        - UserError: Si no hay pedido de venta
-        - UserError: Si no hay productos para añadir
-        - UserError: Si faltan datos de validación
-        """
+        """Añade las secciones y productos seleccionados al pedido de venta"""
         self.ensure_one()
         
-        # VALIDACIÓN INICIAL DEL PEDIDO
         if not self.order_id:
             raise UserError("No se encontró el pedido de venta")
         
-        # LOGGING DE DEBUGGING DETALLADO
+        # Debug: Verificar estado de las secciones antes de proceder
         _logger.info(f"=== DEBUG add_to_order ===")
         _logger.info(f"Wizard ID: {self.id}")
         _logger.info(f"Número de secciones: {len(self.seccion_ids)}")
@@ -925,23 +404,27 @@ class CapituloWizard(models.TransientModel):
             for line in seccion.line_ids:
                 producto_nombre = line.product_id.name if line.product_id else 'Sin producto'
                 _logger.info(f"    * ID: {line.id} | {producto_nombre}, Wizard ID: {line.wizard_id.id if line.wizard_id else 'NO ESTABLECIDO'}")
+        
 
-        # VALIDACIÓN DE DATOS DEL WIZARD
+        
+        # Validar datos del wizard antes de proceder
         self._validate_wizard_data()
         
-        # ANÁLISIS DE PRODUCTOS A AÑADIR SEGÚN MODO
+        # Verificar si hay productos para añadir
+        # En modo existente, incluir todas las secciones que tengan productos
+        # En modo nuevo, solo las secciones marcadas como incluir
         total_productos_a_añadir = 0
         secciones_con_productos = []
         
         if self.modo_creacion == 'existente':
-            # MODO EXISTENTE: Incluir todas las secciones con productos
+            # En modo existente, incluir todas las secciones que tengan productos
             for seccion in self.seccion_ids:
                 productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
                 if productos_con_producto:
                     total_productos_a_añadir += len(productos_con_producto)
                     secciones_con_productos.append(seccion)
         else:
-            # MODO NUEVO: Solo secciones marcadas como incluir
+            # En modo nuevo, solo secciones marcadas como incluir
             for seccion in self.seccion_ids.filtered(lambda s: s.incluir):
                 productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
                 if productos_con_producto:
@@ -949,9 +432,9 @@ class CapituloWizard(models.TransientModel):
                     secciones_con_productos.append(seccion)
         
         _logger.info(f"Secciones con productos: {len(secciones_con_productos)}")
+        
         _logger.info(f"Total de productos que se van a añadir: {total_productos_a_añadir}")
         
-        # VALIDACIÓN DE PRODUCTOS DISPONIBLES
         if total_productos_a_añadir == 0:
             if self.modo_creacion == 'existente':
                 raise UserError(
@@ -972,22 +455,21 @@ class CapituloWizard(models.TransientModel):
                     "4. Haga clic en 'Añadir al Presupuesto'"
                 )
 
-        # OBTENCIÓN O CREACIÓN DEL CAPÍTULO
+        # Crear o obtener el capítulo según el modo
         capitulo = self._obtener_o_crear_capitulo()
         
-        # PREPARACIÓN DE VARIABLES PARA CREACIÓN DE LÍNEAS
         order = self.order_id
         SaleOrderLine = self.env['sale.order.line']
         
-        # MARCADO DE SECCIONES COMO FIJAS DESPUÉS DE AÑADIR
+        # Marcar todas las secciones como fijas después de añadir al pedido
         for seccion in self.seccion_ids:
             seccion.es_fija = True
         
-        # CÁLCULO DE SECUENCIA INICIAL
+        # Obtener la siguiente secuencia disponible
         max_sequence = max(order.order_line.mapped('sequence')) if order.order_line else 0
         current_sequence = max_sequence + 10
         
-        # CREACIÓN DEL ENCABEZADO PRINCIPAL DEL CAPÍTULO
+        # Añadir título del capítulo como encabezado principal
         nombre_capitulo = capitulo.name if self.modo_creacion == 'existente' else self.nuevo_capitulo_nombre
         SaleOrderLine.with_context(from_capitulo_wizard=True).create({
             'order_id': order.id,
@@ -1000,9 +482,9 @@ class CapituloWizard(models.TransientModel):
         })
         current_sequence += 10
         
-        # CREACIÓN DE ESTRUCTURA POR SECCIONES
+        # Crear líneas de pedido organizadas por secciones (solo secciones que tienen productos)
         for seccion in secciones_con_productos:
-            # CREACIÓN DEL ENCABEZADO DE SECCIÓN
+            # Añadir línea de sección como separador (siempre, incluso si no tiene productos)
             section_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
                 'name': f"=== {seccion.name.upper()} ===",
@@ -1014,15 +496,14 @@ class CapituloWizard(models.TransientModel):
             })
             current_sequence += 10
             
-            # MARCADO VISUAL PARA SECCIONES FIJAS
+            # Si la sección es fija, marcar la línea como no editable
             if seccion.es_fija:
                 section_line.write({'name': f"🔒 === {seccion.name.upper()} === (SECCIÓN FIJA)"})
             
-            # PROCESAMIENTO DE PRODUCTOS DE LA SECCIÓN
+            # Añadir productos de la sección que tengan producto seleccionado (automáticamente incluidos)
             productos_incluidos = seccion.line_ids.filtered(lambda l: l.product_id)
             
             if productos_incluidos:
-                # CREACIÓN DE LÍNEAS DE PRODUCTO
                 for line in productos_incluidos:
                     descripcion = line.descripcion_personalizada or line.product_id.name
                     
@@ -1039,7 +520,7 @@ class CapituloWizard(models.TransientModel):
                     product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
                     current_sequence += 10
             else:
-                # LÍNEA INFORMATIVA PARA SECCIONES SIN PRODUCTOS
+                # Si no hay productos, añadir una línea informativa
                 SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                     'order_id': order.id,
                     'name': "(Sin productos añadidos en esta sección)",
@@ -1050,13 +531,13 @@ class CapituloWizard(models.TransientModel):
                 })
                 current_sequence += 10
 
-        # NOTA: Permitir capítulos duplicados sin añadir a capitulo_ids
+        # Nota: No añadimos el capítulo a capitulo_ids para permitir capítulos duplicados
         # La información del capítulo se mantiene en las líneas del pedido
         # order.write({'capitulo_ids': [(4, capitulo.id)]})
 
-        # PROCESAMIENTO DE CONDICIONES PARTICULARES
+        # Añadir condiciones particulares si existen
         if self.condiciones_particulares:
-            # CREACIÓN DE SECCIÓN DE CONDICIONES PARTICULARES
+            # Añadir sección de condiciones particulares
             condiciones_section = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
                 'name': "=== CONDICIONES PARTICULARES ===",
@@ -1070,46 +551,27 @@ class CapituloWizard(models.TransientModel):
             current_sequence += 10
 
         return {'type': 'ir.actions.act_window_close'}
+    
 
+    
+
+    
+
+    
     def _validate_wizard_data(self):
-        """
-        Valida la integridad de los datos del wizard antes de proceder.
-        
-        VALIDACIONES REALIZADAS:
-        - Selección de capítulo en modo 'existente'
-        - Nombre especificado en modo 'nuevo'
-        - Nombres válidos en todas las secciones
-        - Presencia de productos en modo 'nuevo'
-        
-        COMPORTAMIENTO POR MODO:
-        - 'existente': Permite continuar sin productos (pueden estar predefinidos)
-        - 'nuevo': Requiere al menos un producto en alguna sección
-        
-        LOGGING:
-        - Información de validación detallada
-        - Conteo de secciones con productos
-        - Estado general del wizard
-        
-        EXCEPCIONES:
-        - UserError: Si falta selección de capítulo existente
-        - UserError: Si falta nombre para nuevo capítulo
-        - UserError: Si hay secciones sin nombre válido
-        - UserError: Si no hay productos en modo nuevo
-        """
-        # VALIDACIÓN DE SELECCIÓN EN MODO EXISTENTE
+        """Valida que los datos del wizard sean correctos antes de proceder"""
         if self.modo_creacion == 'existente' and not self.capitulo_id:
             raise UserError("Debe seleccionar un capítulo existente.")
         
-        # VALIDACIÓN DE NOMBRE EN MODO NUEVO
         if self.modo_creacion == 'nuevo' and not self.nuevo_capitulo_nombre:
             raise UserError("Debe especificar un nombre para el nuevo capítulo.")
         
-        # VALIDACIÓN DE NOMBRES DE SECCIONES
+        # Validar que las secciones tengan nombres válidos
         for seccion in self.seccion_ids:
             if not seccion.name or not seccion.name.strip():
                 raise UserError(f"La sección en la posición {seccion.sequence} no tiene un nombre válido.")
         
-        # ANÁLISIS DE SECCIONES CON PRODUCTOS PARA LOGGING
+        # Debug: Mostrar información de validación
         secciones_con_productos = []
         for seccion in self.seccion_ids:
             if seccion.line_ids.filtered(lambda l: l.product_id):
@@ -1117,45 +579,19 @@ class CapituloWizard(models.TransientModel):
         
         _logger.info(f"Validación: {len(secciones_con_productos)} secciones con productos de {len(self.seccion_ids)} total")
         
-        # VALIDACIÓN ESPECÍFICA PARA MODO NUEVO
         # En modo existente, permitir continuar aunque no haya productos añadidos aún
         # ya que el capítulo existente puede tener productos predefinidos
         if self.modo_creacion == 'nuevo' and not secciones_con_productos:
             raise UserError("Debe añadir al menos un producto en alguna sección para crear el presupuesto.")
     
     def add_seccion(self):
-        """
-        Añade una nueva sección personalizable al wizard.
-        
-        FUNCIONALIDAD:
-        - Calcula automáticamente la siguiente secuencia disponible
-        - Crea una sección editable (no fija)
-        - Permite personalización completa por el usuario
-        - Mantiene las secciones existentes intactas
-        
-        CONFIGURACIÓN DE LA NUEVA SECCIÓN:
-        - Nombre: 'Nueva Sección' (editable por el usuario)
-        - Secuencia: Siguiente disponible (incrementos de 10)
-        - Estado fijo: False (completamente editable)
-        - Estado incluir: False (usuario debe activar)
-        
-        COMPORTAMIENTO:
-        - No elimina secciones existentes
-        - Utiliza contexto seguro para evitar triggers
-        - Recarga el wizard para mostrar la nueva sección
-        
-        LOGGING:
-        - Información sobre la secuencia asignada
-        
-        RETORNA:
-        - dict: Acción para recargar el wizard con la nueva sección
-        """
+        """Añade una nueva sección al wizard"""
         self.ensure_one()
         
-        # CÁLCULO DE LA SIGUIENTE SECUENCIA DISPONIBLE
+        # Calcular la siguiente secuencia
         next_sequence = (max(self.seccion_ids.mapped('sequence')) + 10) if self.seccion_ids else 10
         
-        # CONFIGURACIÓN DE LA NUEVA SECCIÓN
+        # Crear nueva sección directamente usando write para evitar triggers automáticos
         nueva_seccion_vals = (0, 0, {
             'name': 'Nueva Sección',
             'sequence': next_sequence,
@@ -1163,14 +599,13 @@ class CapituloWizard(models.TransientModel):
             'incluir': False,
         })
         
-        # CREACIÓN DE LA SECCIÓN SIN AFECTAR LAS EXISTENTES
+        # Añadir la nueva sección sin limpiar las existentes
         self.with_context(skip_integrity_check=True).write({
             'seccion_ids': [nueva_seccion_vals]
         })
         
         _logger.info(f"Nueva sección añadida con secuencia {next_sequence}")
         
-        # RECARGA DEL WIZARD PARA MOSTRAR LA NUEVA SECCIÓN
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'capitulo.wizard',
@@ -1181,76 +616,34 @@ class CapituloWizard(models.TransientModel):
         }
     
     def add_another_chapter(self):
-        """
-        Añade el capítulo actual al presupuesto y abre un nuevo wizard.
-        
-        FLUJO DE TRABAJO:
-        1. Valida los datos del wizard actual
-        2. Ejecuta toda la lógica de add_to_order
-        3. Crea un nuevo wizard para añadir otro capítulo
-        4. Mantiene configuraciones útiles del wizard anterior
-        
-        FUNCIONALIDAD COMPLETA DE ADICIÓN:
-        - Análisis de productos según el modo
-        - Validación de productos disponibles
-        - Creación de estructura jerárquica completa
-        - Encabezados de capítulo y sección
-        - Líneas de producto con configuraciones
-        - Condiciones particulares
-        
-        CONFIGURACIÓN DEL NUEVO WIZARD:
-        - Mantiene el mismo pedido de venta
-        - Conserva el modo de creación
-        - En modo 'existente': Mantiene el capítulo seleccionado
-        - En modo 'nuevo': Mantiene nombre y descripción
-        
-        VENTAJAS:
-        - Permite añadir múltiples capítulos consecutivamente
-        - Facilita la duplicación de capítulos
-        - Mantiene contexto de trabajo
-        - Optimiza el flujo de creación de presupuestos
-        
-        VALIDACIONES:
-        - Todas las validaciones de add_to_order
-        - Datos requeridos según el modo
-        - Presencia de productos para añadir
-        
-        LOGGING:
-        - Información completa del proceso de adición
-        
-        RETORNA:
-        - dict: Acción para abrir nuevo wizard
-        
-        EXCEPCIONES:
-        - UserError: Si faltan datos de validación
-        - UserError: Si no hay productos para añadir
-        """
+        """Añade el capítulo actual y abre el wizard para añadir otro"""
         self.ensure_one()
         
-        # VALIDACIÓN INICIAL DE DATOS
+        # Validar datos antes de proceder
         self._validate_wizard_data()
         
-        # EJECUCIÓN COMPLETA DE LA LÓGICA DE ADICIÓN
-        # Análisis de productos a añadir según modo
+        # Ejecutar la lógica de add_to_order sin retornar su resultado
+        # Verificar si hay productos para añadir
+        # En modo existente, incluir todas las secciones que tengan productos
+        # En modo nuevo, solo las secciones marcadas como incluir
         total_productos_a_añadir = 0
         secciones_con_productos = []
         
         if self.modo_creacion == 'existente':
-            # MODO EXISTENTE: Incluir todas las secciones con productos
+            # En modo existente, incluir todas las secciones que tengan productos
             for seccion in self.seccion_ids:
                 productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
                 if productos_con_producto:
                     total_productos_a_añadir += len(productos_con_producto)
                     secciones_con_productos.append(seccion)
         else:
-            # MODO NUEVO: Solo secciones marcadas como incluir
+            # En modo nuevo, solo secciones marcadas como incluir
             for seccion in self.seccion_ids.filtered(lambda s: s.incluir):
                 productos_con_producto = seccion.line_ids.filtered(lambda l: l.product_id)
                 if productos_con_producto:
                     total_productos_a_añadir += len(productos_con_producto)
                     secciones_con_productos.append(seccion)
         
-        # VALIDACIÓN DE PRODUCTOS DISPONIBLES
         if total_productos_a_añadir == 0:
             if self.modo_creacion == 'existente':
                 raise UserError(
@@ -1271,22 +664,21 @@ class CapituloWizard(models.TransientModel):
                     "4. Haga clic en 'Añadir al Presupuesto'"
                 )
 
-        # OBTENCIÓN O CREACIÓN DEL CAPÍTULO
+        # Crear o obtener el capítulo según el modo
         capitulo = self._obtener_o_crear_capitulo()
         
-        # PREPARACIÓN PARA CREACIÓN DE LÍNEAS
         order = self.order_id
         SaleOrderLine = self.env['sale.order.line']
         
-        # MARCADO DE SECCIONES COMO FIJAS
+        # Marcar todas las secciones como fijas después de añadir al pedido
         for seccion in self.seccion_ids:
             seccion.es_fija = True
         
-        # CÁLCULO DE SECUENCIA INICIAL
+        # Obtener la siguiente secuencia disponible
         max_sequence = max(order.order_line.mapped('sequence')) if order.order_line else 0
         current_sequence = max_sequence + 10
         
-        # CREACIÓN DEL ENCABEZADO PRINCIPAL DEL CAPÍTULO
+        # Añadir título del capítulo como encabezado principal
         nombre_capitulo = capitulo.name if self.modo_creacion == 'existente' else self.nuevo_capitulo_nombre
         SaleOrderLine.with_context(from_capitulo_wizard=True).create({
             'order_id': order.id,
@@ -1299,9 +691,9 @@ class CapituloWizard(models.TransientModel):
         })
         current_sequence += 10
         
-        # CREACIÓN DE ESTRUCTURA POR SECCIONES
+        # Crear líneas de pedido organizadas por secciones (solo secciones que tienen productos)
         for seccion in secciones_con_productos:
-            # CREACIÓN DEL ENCABEZADO DE SECCIÓN
+            # Añadir línea de sección como separador
             section_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
                 'name': f"=== {seccion.name.upper()} ===",
@@ -1313,15 +705,14 @@ class CapituloWizard(models.TransientModel):
             })
             current_sequence += 10
             
-            # MARCADO VISUAL PARA SECCIONES FIJAS
+            # Si la sección es fija, marcar la línea como no editable
             if seccion.es_fija:
                 section_line.write({'name': f"🔒 === {seccion.name.upper()} === (SECCIÓN FIJA)"})
             
-            # PROCESAMIENTO DE PRODUCTOS DE LA SECCIÓN
+            # Añadir productos de la sección que tengan producto seleccionado
             productos_incluidos = seccion.line_ids.filtered(lambda l: l.product_id)
             
             if productos_incluidos:
-                # CREACIÓN DE LÍNEAS DE PRODUCTO
                 for line in productos_incluidos:
                     descripcion = line.descripcion_personalizada or line.product_id.name
                     
@@ -1338,13 +729,13 @@ class CapituloWizard(models.TransientModel):
                     product_line = SaleOrderLine.with_context(from_capitulo_wizard=True).create(vals)
                     current_sequence += 10
 
-        # NOTA: Permitir capítulos duplicados sin añadir a capitulo_ids
+        # Nota: No añadimos el capítulo a capitulo_ids para permitir capítulos duplicados
         # La información del capítulo se mantiene en las líneas del pedido
         # order.write({'capitulo_ids': [(4, capitulo.id)]})
 
-        # PROCESAMIENTO DE CONDICIONES PARTICULARES
+        # Añadir condiciones particulares si existen
         if self.condiciones_particulares:
-            # CREACIÓN DE SECCIÓN DE CONDICIONES PARTICULARES
+            # Añadir sección de condiciones particulares
             condiciones_section = SaleOrderLine.with_context(from_capitulo_wizard=True).create({
                 'order_id': order.id,
                 'name': "=== CONDICIONES PARTICULARES ===",
@@ -1357,25 +748,22 @@ class CapituloWizard(models.TransientModel):
             })
             current_sequence += 10
         
-        # CREACIÓN DEL NUEVO WIZARD PARA AÑADIR OTRO CAPÍTULO
-        # Mantener configuraciones útiles del wizard anterior
+        # Crear un nuevo wizard para añadir otro capítulo
+        # Mantener el capítulo seleccionado para facilitar la adición de duplicados
         new_wizard_vals = {
             'order_id': self.order_id.id,
             'modo_creacion': self.modo_creacion,
         }
         
-        # CONSERVACIÓN DE CONFIGURACIONES SEGÚN EL MODO
+        # Si estamos en modo existente, mantener el capítulo seleccionado
         if self.modo_creacion == 'existente' and self.capitulo_id:
-            # Mantener el capítulo seleccionado para facilitar duplicados
             new_wizard_vals['capitulo_id'] = self.capitulo_id.id
         elif self.modo_creacion == 'nuevo':
-            # Mantener nombre y descripción para facilitar variaciones
             new_wizard_vals['nuevo_capitulo_nombre'] = self.nuevo_capitulo_nombre
             new_wizard_vals['nuevo_capitulo_descripcion'] = self.nuevo_capitulo_descripcion
         
         new_wizard = self.create(new_wizard_vals)
         
-        # RETORNO DEL NUEVO WIZARD
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'capitulo.wizard',
