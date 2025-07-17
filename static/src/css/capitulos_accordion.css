@@ -1,6 +1,92 @@
-/* Estilos mínimos para complementar las clases nativas de Odoo/Bootstrap */
+/**
+ * ==========================================
+ * ESTILOS PARA WIDGET DE CAPÍTULOS TÉCNICOS
+ * ==========================================
+ * 
+ * @file capitulos_accordion.css
+ * @description Estilos CSS para el widget de acordeón de capítulos técnicos
+ * @author Sergio Vadillo
+ * @version 18.0.1.1.0
+ * @since 2024
+ * 
+ * @overview
+ * Este archivo contiene todos los estilos necesarios para el widget
+ * CapitulosAccordionWidget, incluyendo:
+ * 
+ * - Estilos del contenedor principal y acordeón
+ * - Animaciones de colapso y expansión
+ * - Estilos de tablas y formularios inline
+ * - Estados de hover, focus y edición
+ * - Responsive design para dispositivos móviles
+ * - Iconografía y elementos visuales
+ * - Estados de carga y feedback visual
+ * 
+ * @dependencies
+ * - Bootstrap 5.x (para clases base)
+ * - Font Awesome (para iconos)
+ * - Odoo Web Assets (para integración)
+ */
 
+/* ==========================================
+   CONTENEDOR PRINCIPAL DEL WIDGET
+   ========================================== */
+
+/**
+ * Contenedor principal del widget de capítulos.
+ * Establece el contexto base para todos los elementos internos.
+ */
 /* Contenedor principal del widget */
+
+/* ==========================================
+   ESTRUCTURA DEL ACORDEÓN
+   ========================================== */
+
+/**
+ * Acordeón principal que contiene todos los capítulos.
+ * Utiliza las clases nativas de Bootstrap para funcionalidad base.
+ */
+.accordion {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+/**
+ * Elementos individuales del acordeón (capítulos).
+ * Cada elemento representa un capítulo técnico.
+ */
+.accordion-item {
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.accordion-item:last-child {
+    border-bottom: none;
+}
+
+/**
+ * Cuerpo del acordeón que contiene el contenido de cada capítulo.
+ * Incluye las secciones y productos del capítulo.
+ */
+.accordion-body {
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+/**
+ * Área colapsable del acordeón con transiciones suaves.
+ */
+.accordion-collapse {
+    transition: height 0.35s ease;
+}
+
+/* ==========================================
+   ENCABEZADOS Y TÍTULOS
+   ========================================== */
+
+/**
+ * Encabezado principal del widget con información general.
+ */
 .o_field_widget {
     width: 100%;
     max-width: 100%;
@@ -61,6 +147,38 @@
     font-size: 1.1rem;
     font-weight: 600;
     padding: 1rem 1.25rem;
+}
+
+/* ==========================================
+   BOTONES DEL ACORDEÓN
+   ========================================== */
+
+/**
+ * Botones de encabezado del acordeón para expandir/colapsar capítulos.
+ * Incluye estados de hover, focus y collapsed.
+ */
+
+/* ==========================================
+   ICONOGRAFÍA Y ELEMENTOS VISUALES
+   ========================================== */
+
+/**
+ * Iconos utilizados en el widget (Font Awesome).
+ * Incluye iconos de estado, acciones y navegación.
+ */
+.accordion-button::after {
+    content: '';
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-left: auto;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23212529'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-size: 1.25rem;
+    transition: transform 0.2s ease-in-out;
+}
+
+.accordion-button:not(.collapsed)::after {
+    transform: rotate(-180deg);
 }
 
 .o_field_widget .accordion-button {
@@ -146,10 +264,27 @@
 }
 
 /* Contenedor de tabla responsive */
+/* ==========================================
+   TABLAS Y LISTAS DE PRODUCTOS
+   ========================================== */
+
+/**
+ * Estilos para las tablas que muestran los productos de cada sección.
+ * Incluye encabezados, celdas y estados de edición.
+ */
 .o_field_widget .table-responsive {
     width: 100%;
     overflow-x: auto;
 }
+
+/* ==========================================
+   FORMULARIOS INLINE Y EDICIÓN
+   ========================================== */
+
+/**
+ * Estilos para los campos de entrada en modo de edición inline.
+ * Incluye inputs, selects y áreas de texto.
+ */
 
 /* Estilos para los inputs en modo edición */
 .o_field_widget .form-control:focus {
@@ -211,6 +346,14 @@
 }
 
 /* Responsive adjustments */
+/* ==========================================
+   RESPONSIVE DESIGN
+   ========================================== */
+
+/**
+ * Estilos responsive para dispositivos móviles y tablets.
+ * Ajusta el layout para pantallas pequeñas.
+ */
 @media (max-width: 768px) {
     .o_field_widget .table-responsive {
         font-size: 0.8rem;
@@ -225,6 +368,15 @@
         font-size: 0.8rem;
     }
 }
+
+/* ==========================================
+   ANIMACIONES Y TRANSICIONES
+   ========================================== */
+
+/**
+ * Animaciones para estados de carga y transiciones suaves.
+ * Incluye spinners, fade-in/out y transformaciones.
+ */
 
 /* Loading state */
 .o_field_widget .loading {
