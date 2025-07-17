@@ -183,6 +183,7 @@ export class CapitulosAccordionWidget extends Component {
         return new Promise((resolve) => {
             this.dialog.add(ProductSelectorDialog, {
                 title: _t("Seleccionar Producto"),
+                orm: this.orm,
                 onConfirm: (productId) => {
                     resolve(productId);
                 },
@@ -265,6 +266,37 @@ export class CapitulosAccordionWidget extends Component {
             console.error('Error al guardar:', error);
             this.notification.add(
                 _t('Error al guardar los cambios'),
+                { type: 'danger' }
+            );
+        }
+    }
+
+    updateEditValue(field, value) {
+        this.state.editValues = {
+            ...this.state.editValues,
+            [field]: value
+        };
+    }
+
+    async updateCondicionesParticulares(chapterName, sectionName, value) {
+        try {
+            const sectionKey = `${chapterName}::${sectionName}`;
+            
+            // Actualizar el estado local inmediatamente para respuesta rápida
+            this.state.condicionesParticulares[sectionKey] = value;
+            
+            // Llamar al método del servidor para guardar
+            const orderId = this.props.record.resId;
+            await this.orm.call(
+                'sale.order',
+                'update_condiciones_particulares',
+                [orderId, chapterName, sectionName, value]
+            );
+            
+        } catch (error) {
+            console.error('Error al actualizar condiciones particulares:', error);
+            this.notification.add(
+                _t('Error al guardar las condiciones particulares'),
                 { type: 'danger' }
             );
         }
@@ -490,35 +522,90 @@ export class CapitulosAccordionWidget extends Component {
 class ProductSelectorDialog extends Component {
     static props = {
         title: { type: String },
+        orm: { type: Object },
         onConfirm: { type: Function },
         onCancel: { type: Function },
         close: { type: Function }
     };
     
     setup() {
-        this.orm = useService("orm");
+        this.orm = this.props.orm;
         this.notification = useService("notification");
         this.state = useState({
             searchTerm: "",
             products: [],
+            categories: [],
+            selectedCategory: null,
             selectedProduct: null,
-            loading: false
+            loading: false,
+            loadingCategories: false
         });
+        
+        // Cargar categorías al inicializar
+        this.loadCategories();
+    }
+
+    async loadCategories() {
+        this.state.loadingCategories = true;
+        try {
+            const categories = await this.orm.searchRead(
+                'product.category',
+                [],
+                ['id', 'name', 'parent_id'],
+                { order: 'name' }
+            );
+            this.state.categories = categories;
+        } catch (error) {
+            console.error('Error al cargar categorías:', error);
+            this.notification.add(
+                _t('Error al cargar categorías'),
+                { type: 'danger' }
+            );
+        } finally {
+            this.state.loadingCategories = false;
+        }
+    }
+
+    async onCategoryChange(event) {
+        const categoryId = parseInt(event.target.value);
+        this.state.selectedCategory = categoryId || null;
+        this.state.selectedProduct = null;
+        this.state.products = [];
+        this.state.searchTerm = "";
+        
+        // Si se selecciona una categoría, cargar productos automáticamente
+        if (categoryId) {
+            await this.searchProducts();
+        }
     }
 
     async searchProducts() {
-        if (!this.state.searchTerm.trim()) {
-            this.state.products = [];
+        if (!this.state.selectedCategory) {
+            this.notification.add(
+                _t('Por favor seleccione primero una categoría'),
+                { type: 'warning' }
+            );
             return;
         }
 
         this.state.loading = true;
         try {
+            // Construir dominio de búsqueda
+            let domain = [
+                ['sale_ok', '=', true],
+                ['categ_id', 'child_of', this.state.selectedCategory]
+            ];
+            
+            // Añadir filtro de búsqueda por texto si existe
+            if (this.state.searchTerm.trim()) {
+                domain.push(['name', 'ilike', this.state.searchTerm.trim()]);
+            }
+
             const products = await this.orm.searchRead(
                 'product.product',
-                [['name', 'ilike', this.state.searchTerm], ['sale_ok', '=', true]],
+                domain,
                 ['id', 'name', 'list_price', 'default_code'],
-                { limit: 20 }
+                { limit: 50, order: 'name' }
             );
             this.state.products = products;
         } catch (error) {
@@ -534,7 +621,10 @@ class ProductSelectorDialog extends Component {
 
     onSearchInput(event) {
         this.state.searchTerm = event.target.value;
-        this.searchProducts();
+        // Solo buscar si hay una categoría seleccionada
+        if (this.state.selectedCategory) {
+            this.searchProducts();
+        }
     }
 
     selectProduct(product) {

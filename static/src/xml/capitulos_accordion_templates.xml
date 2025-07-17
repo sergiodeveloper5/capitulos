@@ -208,8 +208,33 @@
         <t t-name="capitulos.ProductSelectorDialog" owl="1">
             <Dialog size="'lg'" title="props.title">
                 <div class="product-selector-dialog">
+                    <!-- Selector de categoría -->
                     <div class="mb-3">
-                        <label for="product-search-input" class="form-label">Buscar producto:</label>
+                        <label for="category-select" class="form-label">
+                            <i class="fa fa-folder me-1"></i>Categoría de productos:
+                        </label>
+                        <select 
+                            id="category-select"
+                            name="category-select"
+                            class="form-select" 
+                            t-on-change="onCategoryChange">
+                            <option value="">-- Seleccione una categoría --</option>
+                            <option t-foreach="state.categories" t-as="category" t-key="category.id" 
+                                    t-att-value="category.id" 
+                                    t-esc="category.name"
+                                    t-att-selected="state.selectedCategory === category.id">
+                            </option>
+                        </select>
+                        <div t-if="state.loadingCategories" class="small text-muted mt-1">
+                            <i class="fa fa-spinner fa-spin"></i> Cargando categorías...
+                        </div>
+                    </div>
+                    
+                    <!-- Buscador de productos -->
+                    <div class="mb-3">
+                        <label for="product-search-input" class="form-label">
+                            <i class="fa fa-search me-1"></i>Buscar producto:
+                        </label>
                         <input 
                             type="text" 
                             id="product-search-input"
@@ -218,36 +243,51 @@
                             placeholder="Escriba el nombre del producto..."
                             t-model="state.searchTerm"
                             t-on-input="onSearchInput"
+                            t-att-disabled="!state.selectedCategory"
                         />
+                        <div t-if="!state.selectedCategory" class="small text-muted mt-1">
+                            Primero seleccione una categoría para buscar productos
+                        </div>
                     </div>
                     
+                    <!-- Lista de productos -->
                     <div class="product-list" style="max-height: 400px; overflow-y: auto;">
                         <div t-if="state.loading" class="text-center p-3">
                             <i class="fa fa-spinner fa-spin"></i> Buscando productos...
                         </div>
                         
-                        <div t-if="!state.loading and state.products.length === 0 and state.searchTerm" class="text-center p-3 text-muted">
-                            No se encontraron productos
+                        <div t-if="!state.loading and !state.selectedCategory" class="text-center p-3 text-muted">
+                            <i class="fa fa-info-circle me-2"></i>
+                            Seleccione una categoría para ver los productos disponibles
                         </div>
                         
-                        <div t-if="!state.loading and !state.searchTerm" class="text-center p-3 text-muted">
-                            Escriba para buscar productos
+                        <div t-if="!state.loading and state.selectedCategory and state.products.length === 0" class="text-center p-3 text-muted">
+                            <i class="fa fa-exclamation-circle me-2"></i>
+                            No se encontraron productos en esta categoría
                         </div>
                         
                         <div t-foreach="state.products" t-as="product" t-key="product.id" 
-                             class="product-item p-2 border-bottom" 
-                             t-att-class="{'bg-primary text-white': state.selectedProduct and state.selectedProduct.id === product.id}"
+                             class="product-item p-3 border-bottom" 
+                             t-att-class="{'bg-primary text-white': state.selectedProduct and state.selectedProduct.id === product.id, 'border-primary': state.selectedProduct and state.selectedProduct.id === product.id}"
                              t-on-click="() => this.selectProduct(product)"
-                             style="cursor: pointer;">
+                             style="cursor: pointer; transition: all 0.2s;">
                             <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong t-esc="product.name"></strong>
-                                    <div t-if="product.default_code" class="small text-muted">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fa fa-cube me-2"></i>
+                                        <strong t-esc="product.name"></strong>
+                                    </div>
+                                    <div t-if="product.default_code" class="small" 
+                                         t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-white-50' : 'text-muted'">
+                                        <i class="fa fa-barcode me-1"></i>
                                         Código: <span t-esc="product.default_code"></span>
                                     </div>
                                 </div>
                                 <div class="text-end">
-                                    <span class="badge bg-secondary" t-esc="product.list_price"></span>
+                                    <span class="badge" 
+                                          t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'bg-light text-dark' : 'bg-secondary'">
+                                        $<span t-esc="product.list_price.toFixed(2)"></span>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -255,9 +295,13 @@
                 </div>
                 
                 <t t-set-slot="footer">
-                    <button type="button" class="btn btn-secondary" t-on-click="onCancel">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" t-on-click="onCancel">
+                        <i class="fa fa-times me-1"></i>Cancelar
+                    </button>
                     <button type="button" class="btn btn-primary" t-on-click="onConfirm" 
-                            t-att-disabled="!state.selectedProduct">Confirmar</button>
+                            t-att-disabled="!state.selectedProduct">
+                        <i class="fa fa-check me-1"></i>Confirmar
+                    </button>
                 </t>
             </Dialog>
          </t>

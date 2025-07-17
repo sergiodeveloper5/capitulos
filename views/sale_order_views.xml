@@ -1,207 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    ARCHIVO: sale_order_views.xml
-    PROPÓSITO: Extensión de vistas de pedidos de venta para integración con capítulos técnicos
-    
-    FUNCIONALIDAD PRINCIPAL:
-    - Hereda y modifica la vista estándar de pedidos de venta de Odoo
-    - Añade funcionalidad de gestión de capítulos técnicos
-    - Implementa visualización dual: acordeón para capítulos estructurados y vista tradicional
-    - Integra botón de acceso al wizard de gestión de capítulos
-    
-    MODIFICACIONES REALIZADAS:
-    1. Botón "Gestionar Capítulos" en la barra de herramientas
-    2. Reemplazo del campo order_line con contenedor dual
-    3. Widget acordeón para visualización estructurada de capítulos
-    4. Vista tradicional mejorada con decoraciones para encabezados
-    5. Campos adicionales para control de estado y visualización
-    
-    CARACTERÍSTICAS DE UX:
-    - Visualización condicional según el tipo de contenido
-    - Decoraciones visuales para distinguir tipos de líneas
-    - Iconografía consistente (📋) para identificación de capítulos
-    - Integración transparente con el flujo estándar de Odoo
-    
-    INTEGRACIÓN:
-    - Hereda de: sale.view_order_form (vista estándar de Odoo)
-    - Interactúa con: capitulo.wizard, sale.order.line, capitulo.tecnico
-    - Widgets personalizados: capitulos_accordion, section_and_note_one2many
-    
-    SEGURIDAD:
-    - Restricción por grupos: sales_team.group_sale_salesman
-    - Visibilidad condicional según estado del pedido
-    - Campos readonly para preservar integridad de encabezados
--->
 <odoo>
-    <!-- 
-        HERENCIA DE VISTA DE PEDIDO DE VENTAS
-        ====================================
-        
-        PROPÓSITO:
-        - Extiende la funcionalidad estándar de pedidos de venta
-        - Integra la gestión de capítulos técnicos sin romper el flujo existente
-        - Proporciona una experiencia de usuario mejorada para presupuestos complejos
-        
-        ESTRATEGIA DE HERENCIA:
-        - Utiliza XPath para modificaciones precisas y no invasivas
-        - Mantiene compatibilidad con otras extensiones
-        - Preserva la funcionalidad estándar de Odoo
-        
-        MODIFICACIONES:
-        1. Añade botón de gestión de capítulos en toolbar
-        2. Reemplaza completamente el campo order_line con contenedor inteligente
-        3. Añade campos de control y estado después del order_line original
-        
-        COMPATIBILIDAD:
-        - Compatible con módulos estándar de ventas
-        - No interfiere con workflows existentes
-        - Mantiene API estándar de sale.order
-    -->
+    <!-- Heredar vista de pedido de ventas -->
     <record id="view_order_form_inherit_capitulo" model="ir.ui.view">
         <field name="name">sale.order.form.inherit.capitulo</field>
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <!-- 
-                MODIFICACIÓN 1: BOTÓN DE GESTIÓN DE CAPÍTULOS
-                ============================================
-                
-                UBICACIÓN: Después del botón "Enviar por Email"
-                PROPÓSITO: Acceso directo al wizard de gestión de capítulos
-                
-                CARACTERÍSTICAS:
-                - Posicionamiento estratégico en la barra de herramientas
-                - Texto descriptivo y claro: "Gestionar Capítulos"
-                - Estilo secundario para no competir con acciones principales
-                - Restricción de seguridad: solo vendedores
-                - Visibilidad condicional: solo en estados draft/sent
-                
-                COMPORTAMIENTO:
-                - Abre el wizard capitulo.wizard en ventana modal
-                - Mantiene contexto del pedido actual
-                - Permite añadir múltiples capítulos consecutivamente
-                
-                SEGURIDAD:
-                - groups="sales_team.group_sale_salesman": Solo vendedores
-                - invisible="state not in ['draft', 'sent']": Solo en estados editables
-            -->
             <xpath expr="//button[@name='action_quotation_send']" position="after">
-                <button name="action_add_capitulo" 
-                        string="Gestionar Capítulos" 
-                        type="object" 
-                        class="btn-secondary" 
-                        groups="sales_team.group_sale_salesman" 
-                        invisible="state not in ['draft', 'sent']"/>
+                <button name="action_add_capitulo" string="Gestionar Capítulos" type="object" class="btn-secondary" groups="sales_team.group_sale_salesman" invisible="state not in ['draft', 'sent']"/>
             </xpath>
-            
-            <!-- 
-                MODIFICACIÓN 2: REEMPLAZO DEL CAMPO ORDER_LINE
-                ==============================================
-                
-                ESTRATEGIA: Reemplazo completo con contenedor inteligente
-                PROPÓSITO: Visualización dual según el tipo de contenido
-                
-                CONTENEDOR PRINCIPAL:
-                - Clase CSS: "capitulos-container" para estilos específicos
-                - Dos modos de visualización mutuamente excluyentes
-                
-                MODO 1: ACORDEÓN DE CAPÍTULOS (tiene_multiples_capitulos = True)
-                - Para presupuestos con estructura de capítulos
-                - Widget especializado: capitulos_accordion
-                - Visualización jerárquica y colapsable
-                
-                MODO 2: VISTA TRADICIONAL (tiene_multiples_capitulos = False)
-                - Para presupuestos simples o sin estructura
-                - Widget estándar mejorado: section_and_note_one2many
-                - Decoraciones para distinguir tipos de líneas
-            -->
             <xpath expr="//field[@name='order_line']" position="replace">
                 <div class="capitulos-container">
-                    <!-- 
-                        MODO ACORDEÓN: CAPÍTULOS ESTRUCTURADOS
-                        =====================================
-                        
-                        CONDICIÓN: invisible="not tiene_multiples_capitulos"
-                        ACTIVACIÓN: Cuando el pedido tiene capítulos técnicos organizados
-                        
-                        CARACTERÍSTICAS:
-                        - Título prominente con icono 📋 y color corporativo
-                        - Widget personalizado: capitulos_accordion
-                        - Visualización jerárquica: Capítulo > Sección > Productos
-                        - Funcionalidad de colapso/expansión por capítulo
-                        - Resumen de totales por capítulo y sección
-                        
-                        WIDGET capitulos_accordion:
-                        - Renderiza estructura jerárquica de capítulos
-                        - Permite navegación intuitiva por secciones
-                        - Muestra totales y subtotales
-                        - Mantiene estado de expansión/colapso
-                        - Integra acciones de edición contextual
-                    -->
+                    <!-- Mostrar capítulos en acordeón cuando hay capítulos estructurados -->
                     <div invisible="not tiene_multiples_capitulos">
                         <h4 style="margin-bottom: 15px; color: #007bff;">📋 Capítulos del Presupuesto</h4>
                         <field name="capitulos_agrupados" widget="capitulos_accordion" nolabel="1"/>
                     </div>
                     
-                    <!-- 
-                        MODO TRADICIONAL: VISTA LINEAL MEJORADA
-                        ======================================
-                        
-                        CONDICIÓN: invisible="tiene_multiples_capitulos"
-                        ACTIVACIÓN: Cuando el pedido no tiene estructura de capítulos
-                        
-                        CARACTERÍSTICAS:
-                        - Widget estándar: section_and_note_one2many
-                        - Decoraciones visuales para tipos de líneas
-                        - Edición inline (editable="bottom")
-                        - Handle para reordenamiento manual
-                        - Campos readonly condicionales para encabezados
-                        
-                        DECORACIONES:
-                        - decoration-info="es_encabezado_capitulo": Azul para capítulos
-                        - decoration-warning="es_encabezado_seccion": Amarillo para secciones
-                        
-                        CAMPOS READONLY CONDICIONALES:
-                        - Los encabezados no son editables directamente
-                        - Preserva la integridad de la estructura
-                        - Evita modificaciones accidentales
-                        
-                        CAMPOS OCULTOS:
-                        - es_encabezado_capitulo: Control de tipo de línea
-                        - es_encabezado_seccion: Control de tipo de línea
-                    -->
+                    <!-- Vista tradicional cuando no hay capítulos estructurados -->
                     <div invisible="tiene_multiples_capitulos">
                         <field name="order_line" widget="section_and_note_one2many">
-                            <list decoration-info="es_encabezado_capitulo" 
-                                  decoration-warning="es_encabezado_seccion" 
-                                  editable="bottom">
-                                <!-- Handle para reordenamiento manual -->
+                            <list decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" editable="bottom">
                                 <field name="sequence" widget="handle"/>
-                                
-                                <!-- Producto: readonly para encabezados -->
-                                <field name="product_id" 
-                                       readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
-                                
-                                <!-- Descripción: readonly para encabezados -->
-                                <field name="name" 
-                                       readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
-                                
-                                <!-- Cantidad: readonly para encabezados -->
-                                <field name="product_uom_qty" 
-                                       readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
-                                
-                                <!-- Unidad de medida: readonly para encabezados -->
-                                <field name="product_uom" 
-                                       readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
-                                
-                                <!-- Precio unitario: readonly para encabezados -->
-                                <field name="price_unit" 
-                                       readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
-                                
-                                <!-- Subtotal: siempre calculado -->
+                                <field name="product_id" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="name" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="product_uom_qty" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="product_uom" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="price_unit" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
                                 <field name="price_subtotal"/>
-                                
-                                <!-- Campos de control ocultos -->
                                 <field name="es_encabezado_capitulo" invisible="1"/>
                                 <field name="es_encabezado_seccion" invisible="1"/>
                             </list>
@@ -209,56 +35,11 @@
                     </div>
                 </div>
             </xpath>
-            
-            <!-- 
-                MODIFICACIÓN 3: CAMPOS ADICIONALES DE CONTROL
-                =============================================
-                
-                UBICACIÓN: Después del campo order_line original
-                PROPÓSITO: Añadir campos de estado y control para la funcionalidad de capítulos
-                
-                CAMPOS AÑADIDOS:
-                1. capitulo_ids: Relación Many2many con capítulos técnicos
-                2. tiene_multiples_capitulos: Campo computed para control de visualización
-                
-                CARACTERÍSTICAS:
-                - Visibilidad condicional según contenido
-                - Widget many2many_tags para visualización compacta
-                - Campo de control oculto para lógica de interfaz
-            -->
             <xpath expr="//field[@name='order_line']" position="after">
-                <!-- 
-                    CAMPO: capitulo_ids
-                    ==================
-                    
-                    TIPO: Many2many hacia capitulo.tecnico
-                    PROPÓSITO: Mostrar relación con capítulos técnicos asociados
-                    
-                    CARACTERÍSTICAS:
-                    - Widget: many2many_tags (visualización compacta como etiquetas)
-                    - Visibilidad: invisible="not capitulo_ids" (solo si hay capítulos)
-                    - Funcionalidad: Permite ver y gestionar capítulos asociados
-                    - UX: Proporciona acceso rápido a capítulos relacionados
-                -->
-                <field name="capitulo_ids" 
-                       invisible="not capitulo_ids" 
-                       widget="many2many_tags"/>
-                
-                <!-- 
-                    CAMPO: tiene_multiples_capitulos
-                    ===============================
-                    
-                    TIPO: Boolean computed
-                    PROPÓSITO: Control de visualización entre modos acordeón/tradicional
-                    
-                    CARACTERÍSTICAS:
-                    - Siempre invisible: invisible="1"
-                    - Campo computed: Calculado automáticamente por el modelo
-                    - Lógica: Determina si mostrar acordeón o vista tradicional
-                    - Uso: Condición para visibilidad de contenedores principales
-                -->
+                <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
                 <field name="tiene_multiples_capitulos" invisible="1"/>
             </xpath>
         </field>
     </record>
+
 </odoo>
