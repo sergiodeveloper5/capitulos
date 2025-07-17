@@ -8,6 +8,7 @@
     'website': 'https://github.com/sergiodeveloper5/capitulos.git',
     'depends': [
         'base',
+        'web',
         'sale_management',
         'product',
         'uom',
