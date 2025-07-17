@@ -39,7 +39,6 @@
                                     <list>
                                         <field name="sequence" widget="handle"/>
                                         <field name="name"/>
-                                        <field name="product_category_id"/>
                                         <field name="es_fija"/>
                                         <field name="descripcion"/>
                                     </list>
@@ -48,16 +47,11 @@
                                             <group>
                                                 <field name="name"/>
                                                 <field name="sequence"/>
-                                                <field name="product_category_id"/>
                                                 <field name="es_fija"/>
                                                 <field name="descripcion"/>
                                             </group>
                                             <notebook>
-                                                <page string="Productos Disponibles">
-                                                    <field name="product_ids" widget="many2many_tags" 
-                                                           options="{'no_create': True, 'no_edit': True}"/>
-                                                </page>
-                                                <page string="Líneas de Producto">
+                                                <page string="Productos">
                                                     <field name="product_line_ids">
                                                         <list editable="bottom">
                                                             <field name="sequence" widget="handle"/>
