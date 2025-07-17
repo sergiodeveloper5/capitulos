@@ -73,9 +73,31 @@ class SaleOrder(models.Model):
                 elif line.es_encabezado_seccion and current_capitulo_key:
                     # Nueva sección dentro del capítulo actual
                     current_seccion_name = line.name
+                    
+                    # Buscar la categoría de productos de esta sección
+                    category_id = None
+                    category_name = None
+                    
+                    # Buscar en los capítulos aplicados la sección correspondiente
+                    for capitulo in order.capitulo_ids:
+                        for seccion in capitulo.seccion_ids:
+                            # Comparar nombres de sección (normalizado)
+                            seccion_base_name = self._get_base_name(seccion.name)
+                            line_base_name = self._get_base_name(current_seccion_name)
+                            
+                            if seccion_base_name.upper() == line_base_name.upper():
+                                if seccion.product_category_id:
+                                    category_id = seccion.product_category_id.id
+                                    category_name = seccion.product_category_id.name
+                                break
+                        if category_id:
+                            break
+                    
                     capitulos_dict[current_capitulo_key]['sections'][current_seccion_name] = {
                         'lines': [],
-                        'condiciones_particulares': line.condiciones_particulares or ''
+                        'condiciones_particulares': line.condiciones_particulares or '',
+                        'category_id': category_id,
+                        'category_name': category_name
                     }
                     
                 elif current_capitulo_key and current_seccion_name:

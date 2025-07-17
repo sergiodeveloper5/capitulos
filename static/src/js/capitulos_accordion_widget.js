@@ -85,18 +85,26 @@ export class CapitulosAccordionWidget extends Component {
                 orderId: this.props.record.resId
             });
             
+            // Obtener la categoría de la sección
+            const data = this.parsedData;
+            let categoryId = null;
+            
+            if (data && data[chapterName] && data[chapterName].sections && data[chapterName].sections[sectionName]) {
+                categoryId = data[chapterName].sections[sectionName].category_id;
+                console.log('DEBUG: Categoría de la sección:', categoryId);
+            }
+            
             // Debug: Mostrar todos los capítulos y secciones disponibles
             console.log('DEBUG: Capítulos disponibles en parsedData:');
-            const data = this.parsedData;
             for (const [capName, capData] of Object.entries(data || {})) {
                 console.log(`DEBUG: - Capítulo: '${capName}'`);
                 for (const [secName, secData] of Object.entries(capData.sections || {})) {
-                    console.log(`DEBUG:   - Sección: '${secName}'`);
+                    console.log(`DEBUG:   - Sección: '${secName}' (categoría: ${secData.category_id || 'ninguna'})`);
                 }
             }
             
-            // Abrir el diálogo de selección de productos
-            const productId = await this.openProductSelector();
+            // Abrir el diálogo de selección de productos con filtro de categoría
+            const productId = await this.openProductSelector(categoryId);
             
             if (!productId) {
                 console.log('DEBUG: No se seleccionó producto, cancelando');
@@ -179,12 +187,32 @@ export class CapitulosAccordionWidget extends Component {
         }
     }
 
-    async openProductSelector() {
+    async openProductSelector(categoryId = null) {
+        let categoryName = null;
+        
+        // Si hay categoryId, obtener el nombre de la categoría
+        if (categoryId) {
+            try {
+                const categoryResult = await this.orm.call(
+                    'product.category',
+                    'read',
+                    [categoryId, ['name']]
+                );
+                if (categoryResult && categoryResult.length > 0) {
+                    categoryName = categoryResult[0].name;
+                }
+            } catch (error) {
+                console.error('Error al obtener nombre de categoría:', error);
+            }
+        }
+        
         return new Promise((resolve) => {
             this.dialog.add(ProductSelectorDialog, {
                 title: _t("Seleccionar Producto"),
-                onConfirm: (productId) => {
-                    resolve(productId);
+                categoryId: categoryId,
+                categoryName: categoryName,
+                onConfirm: (product) => {
+                    resolve(product.id);
                 },
                 onCancel: () => {
                     resolve(null);
@@ -488,13 +516,17 @@ export class CapitulosAccordionWidget extends Component {
 
 // Diálogo para seleccionar productos
 class ProductSelectorDialog extends Component {
+    static template = "capitulos.ProductSelectorDialog";
+    static components = { Dialog };
     static props = {
-        title: { type: String },
-        onConfirm: { type: Function },
-        onCancel: { type: Function },
-        close: { type: Function }
+        title: { type: String, optional: true },
+        categoryName: { type: String, optional: true },
+        categoryId: { type: Number, optional: true },
+        onConfirm: Function,
+        onCancel: Function,
+        close: Function,
     };
-    
+
     setup() {
         this.orm = useService("orm");
         this.notification = useService("notification");
@@ -502,39 +534,60 @@ class ProductSelectorDialog extends Component {
             searchTerm: "",
             products: [],
             selectedProduct: null,
-            loading: false
+            loading: false,
         });
+        
+        this.searchTimeout = null;
     }
 
-    async searchProducts() {
-        if (!this.state.searchTerm.trim()) {
+    async onSearchInput(ev) {
+        const searchTerm = ev.target.value;
+        this.state.searchTerm = searchTerm;
+        
+        // Limpiar timeout anterior
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+        }
+        
+        // Buscar después de 300ms de inactividad
+        this.searchTimeout = setTimeout(() => {
+            this.searchProducts(searchTerm);
+        }, 300);
+    }
+
+    async searchProducts(searchTerm) {
+        if (!searchTerm || searchTerm.length < 2) {
             this.state.products = [];
             return;
         }
 
         this.state.loading = true;
+        
         try {
-            const products = await this.orm.searchRead(
-                'product.product',
-                [['name', 'ilike', this.state.searchTerm], ['sale_ok', '=', true]],
-                ['id', 'name', 'list_price', 'default_code'],
-                { limit: 20 }
-            );
-            this.state.products = products;
+            const domain = [
+                ['name', 'ilike', searchTerm],
+                ['sale_ok', '=', true]
+            ];
+            
+            // Si hay una categoría específica, filtrar por ella
+            if (this.props.categoryId) {
+                domain.push(['categ_id', '=', this.props.categoryId]);
+            }
+            
+            const result = await this.env.services.rpc("/web/dataset/search_read", {
+                model: "product.product",
+                domain: domain,
+                fields: ["id", "name", "default_code", "list_price", "uom_id", "categ_id"],
+                limit: 20,
+            });
+            
+            this.state.products = result.records || [];
         } catch (error) {
-            console.error('Error al buscar productos:', error);
-            this.notification.add(
-                _t('Error al buscar productos'),
-                { type: 'danger' }
-            );
+            console.error("Error searching products:", error);
+            this.state.products = [];
         } finally {
             this.state.loading = false;
         }
-    }
-
-    onSearchInput(event) {
-        this.state.searchTerm = event.target.value;
-        this.searchProducts();
     }
 
     selectProduct(product) {
@@ -543,24 +596,14 @@ class ProductSelectorDialog extends Component {
 
     onConfirm() {
         if (this.state.selectedProduct) {
-            this.props.onConfirm(this.state.selectedProduct.id);
-            this.props.close();
-        } else {
-            this.notification.add(
-                _t('Por favor seleccione un producto'),
-                { type: 'warning' }
-            );
+            this.props.onConfirm(this.state.selectedProduct);
         }
     }
 
     onCancel() {
         this.props.onCancel();
-        this.props.close();
     }
 }
-
-ProductSelectorDialog.template = "capitulos.ProductSelectorDialog";
-ProductSelectorDialog.components = { Dialog };
 
 // Diálogo de confirmación para eliminar productos
 class DeleteConfirmDialog extends Component {

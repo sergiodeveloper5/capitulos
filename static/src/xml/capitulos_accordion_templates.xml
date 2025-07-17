@@ -208,6 +208,15 @@
         <t t-name="capitulos.ProductSelectorDialog" owl="1">
             <Dialog size="'lg'" title="props.title">
                 <div class="product-selector-dialog">
+                    <!-- Información sobre el filtro de categoría -->
+                    <div t-if="props.categoryName" class="alert alert-info mb-3">
+                        <i class="fa fa-info-circle me-2"></i>
+                        <strong>Filtrado por categoría:</strong> <span t-esc="props.categoryName"/>
+                        <div class="small mt-1">
+                            Los productos mostrados pertenecen a esta categoría específica.
+                        </div>
+                    </div>
+                    
                     <div class="mb-3">
                         <label for="product-search-input" class="form-label">Buscar producto:</label>
                         <input 
@@ -227,27 +236,56 @@
                         </div>
                         
                         <div t-if="!state.loading and state.products.length === 0 and state.searchTerm" class="text-center p-3 text-muted">
-                            No se encontraron productos
+                            <i class="fa fa-search me-2"></i>
+                            No se encontraron productos que coincidan con "<strong t-esc="state.searchTerm"/>"
+                            <div t-if="props.categoryName" class="small mt-2">
+                                en la categoría "<span t-esc="props.categoryName"/>"
+                            </div>
                         </div>
                         
                         <div t-if="!state.loading and !state.searchTerm" class="text-center p-3 text-muted">
+                            <i class="fa fa-keyboard-o me-2"></i>
                             Escriba para buscar productos
+                            <div t-if="props.categoryName" class="small mt-2">
+                                en la categoría "<span t-esc="props.categoryName"/>"
+                            </div>
                         </div>
                         
                         <div t-foreach="state.products" t-as="product" t-key="product.id" 
-                             class="product-item p-2 border-bottom" 
-                             t-att-class="{'bg-primary text-white': state.selectedProduct and state.selectedProduct.id === product.id}"
+                             class="product-item p-3 border-bottom" 
+                             t-att-class="{'bg-primary text-white': state.selectedProduct and state.selectedProduct.id === product.id, 'border-primary': state.selectedProduct and state.selectedProduct.id === product.id}"
                              t-on-click="() => this.selectProduct(product)"
-                             style="cursor: pointer;">
+                             style="cursor: pointer; transition: all 0.2s;">
                             <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong t-esc="product.name"></strong>
-                                    <div t-if="product.default_code" class="small text-muted">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <strong t-esc="product.name" class="me-2"></strong>
+                                        <span t-if="state.selectedProduct and state.selectedProduct.id === product.id" 
+                                              class="badge bg-light text-primary">
+                                            <i class="fa fa-check"></i> Seleccionado
+                                        </span>
+                                    </div>
+                                    <div t-if="product.default_code" class="small" 
+                                         t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
+                                        <i class="fa fa-barcode me-1"></i>
                                         Código: <span t-esc="product.default_code"></span>
+                                    </div>
+                                    <div t-if="product.categ_id" class="small" 
+                                         t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
+                                        <i class="fa fa-folder me-1"></i>
+                                        Categoría: <span t-esc="product.categ_id[1]"></span>
                                     </div>
                                 </div>
                                 <div class="text-end">
-                                    <span class="badge bg-secondary" t-esc="product.list_price"></span>
+                                    <div class="fw-bold mb-1">
+                                        <span t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-success'">
+                                            $<span t-esc="(product.list_price || 0).toFixed(2)"></span>
+                                        </span>
+                                    </div>
+                                    <div t-if="product.uom_id" class="small" 
+                                         t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
+                                        <span t-esc="product.uom_id[1]"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -255,9 +293,13 @@
                 </div>
                 
                 <t t-set-slot="footer">
-                    <button type="button" class="btn btn-secondary" t-on-click="onCancel">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" t-on-click="onCancel">
+                        <i class="fa fa-times me-1"></i> Cancelar
+                    </button>
                     <button type="button" class="btn btn-primary" t-on-click="onConfirm" 
-                            t-att-disabled="!state.selectedProduct">Confirmar</button>
+                            t-att-disabled="!state.selectedProduct">
+                        <i class="fa fa-check me-1"></i> Confirmar
+                    </button>
                 </t>
             </Dialog>
          </t>
