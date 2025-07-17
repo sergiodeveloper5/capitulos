@@ -18,6 +18,7 @@ Se ha implementado una nueva funcionalidad que permite filtrar productos por cat
   - Limpia los productos previamente seleccionados
   - Actualiza el dominio para mostrar solo productos de la categoría seleccionada
   - Incluye subcategorías usando el operador `child_of`
+  - Afecta tanto a `product_ids` como a `line_ids.product_id`
 
 ### 3. Integración en la Vista
 - **Ubicación**: Formulario embebido de sección en el wizard
@@ -48,18 +49,24 @@ def _onchange_product_category_id(self):
     """Filtra productos cuando cambia la categoría seleccionada."""
     if self.product_category_id:
         self.product_ids = [(5, 0, 0)]  # Limpiar productos seleccionados
+        
+        domain_filter = [
+            ('sale_ok', '=', True), 
+            ('categ_id', 'child_of', self.product_category_id.id)
+        ]
+        
         return {
             'domain': {
-                'product_ids': [
-                    ('sale_ok', '=', True), 
-                    ('categ_id', 'child_of', self.product_category_id.id)
-                ]
+                'product_ids': domain_filter,
+                'line_ids.product_id': domain_filter
             }
         }
     else:
+        domain_filter = [('sale_ok', '=', True)]
         return {
             'domain': {
-                'product_ids': [('sale_ok', '=', True)]
+                'product_ids': domain_filter,
+                'line_ids.product_id': domain_filter
             }
         }
 ```
@@ -70,11 +77,21 @@ def _onchange_product_category_id(self):
 <field name="product_category_id" string="Categoría de Productos" 
        help="Selecciona una categoría para filtrar los productos disponibles"/>
 
-<!-- Campo de producto con dominio dinámico -->
-<field name="product_id" string="Producto" required="1" 
-       domain="[('sale_ok', '=', True), '|', ('categ_id', 'child_of', parent.product_category_id), ('categ_id', '=', False)]"
-       context="{'default_sale_ok': True}"/>
+<!-- Campo de producto (sin dominio estático para evitar conflictos) -->
+<field name="product_id" string="Producto" required="1"/>
 ```
+
+## Correcciones Realizadas
+
+### Problema Inicial
+- **Error**: SyntaxError en XML debido a dominio complejo en la vista
+- **Causa**: Sintaxis incorrecta del dominio en el campo `product_id`
+
+### Solución Implementada
+1. **Eliminación del dominio estático**: Se removió el dominio complejo del XML
+2. **Filtrado dinámico**: El filtrado se maneja completamente a través del método `onchange`
+3. **Método unificado**: Se combinaron múltiples métodos `onchange` en uno solo
+4. **Dominio simplificado**: Se usa un dominio más simple y compatible
 
 ## Beneficios
 
@@ -83,6 +100,7 @@ def _onchange_product_category_id(self):
 3. **Menos Errores**: Evita seleccionar productos incorrectos al limitar las opciones
 4. **Experiencia de Usuario**: Interfaz más intuitiva y fácil de usar
 5. **Escalabilidad**: Funciona bien con grandes catálogos de productos
+6. **Estabilidad**: Código más robusto sin errores de sintaxis
 
 ## Compatibilidad
 
@@ -96,3 +114,12 @@ def _onchange_product_category_id(self):
 - Los productos sin categoría también se muestran para mantener flexibilidad
 - El campo es opcional, permitiendo usar secciones sin filtrado si se desea
 - Se incluye logging para debugging y seguimiento de cambios
+- El filtrado se aplica tanto a `product_ids` como a `line_ids.product_id` para consistencia
+
+## Estado Actual
+
+✅ **IMPLEMENTADO Y CORREGIDO**
+- Campo de categoría añadido al modelo
+- Método onchange implementado y corregido
+- Vista actualizada sin errores de sintaxis
+- Documentación actualizada

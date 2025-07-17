@@ -280,10 +280,8 @@
                                                     <list editable="bottom">
                                                         <!-- Handle para reordenamiento -->
                                                         <field name="sequence" widget="handle"/>
-                                                        <!-- Selección de producto (requerido) con filtrado por categoría -->
-                                                        <field name="product_id" string="Producto" required="1" 
-                                                               domain="[('sale_ok', '=', True), '|', ('categ_id', 'child_of', parent.product_category_id), ('categ_id', '=', False)]"
-                                                               context="{'default_sale_ok': True}"/>
+                                                        <!-- Selección de producto (requerido) -->
+                                                        <field name="product_id" string="Producto" required="1"/>
                                                         <!-- Descripción personalizable -->
                                                         <field name="descripcion_personalizada" string="Descripción"/>
                                                         <!-- Cantidad con suma automática -->
