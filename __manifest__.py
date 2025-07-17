@@ -29,6 +29,7 @@ VERSIÓN: 18.0.1.0.0 (Compatible con Odoo 18.0)
 LICENCIA: LGPL-3
 """
 
+# CONFIGURACIÓN DEL MÓDULO
 {
     # INFORMACIÓN BÁSICA DEL MÓDULO
     'name': 'Gestión de Capítulos Contratados',
