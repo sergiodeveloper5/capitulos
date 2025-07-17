@@ -55,8 +55,7 @@ export class CapitulosAccordionWidget extends Component {
         }));
     }
 
-    toggleChapter(event) {
-        const chapterName = event.target.closest('button').dataset.chapter;
+    toggleChapter(chapterName) {
         this.state.collapsedChapters = {
             ...this.state.collapsedChapters,
             [chapterName]: !this.state.collapsedChapters[chapterName]
@@ -78,11 +77,7 @@ export class CapitulosAccordionWidget extends Component {
         return (value || 0).toFixed(2);
     }
 
-    async addProductToSection(event) {
-        const button = event.target.closest('button');
-        const chapterName = button.dataset.chapter;
-        const sectionName = button.dataset.section;
-        
+    async addProductToSection(chapterName, sectionName) {
         try {
             console.log('DEBUG: addProductToSection llamado con:', {
                 chapterName: chapterName,
@@ -199,9 +194,7 @@ export class CapitulosAccordionWidget extends Component {
     }
 
     // Métodos para edición inline
-    startEditLine(event) {
-        const button = event.target.closest('button');
-        const lineId = button.dataset.lineId;
+    startEditLine(lineId) {
         const line = this.findLineById(lineId);
         if (!line) {
             this.notification.add('Línea no encontrada', { type: 'danger' });
@@ -277,10 +270,7 @@ export class CapitulosAccordionWidget extends Component {
         }
     }
 
-    async deleteLine(event) {
-        const button = event.target.closest('button');
-        const lineId = button.dataset.lineId;
-        
+    async deleteLine(lineId) {
         try {
             console.log('DEBUG: deleteLine llamado con lineId:', lineId);
             
@@ -365,9 +355,7 @@ export class CapitulosAccordionWidget extends Component {
         return null;
     }
 
-    updateEditValue(event) {
-        const field = event.target.dataset.field;
-        const value = event.target.value;
+    updateEditValue(field, value) {
         this.state.editValues = {
             ...this.state.editValues,
             [field]: value
@@ -375,22 +363,19 @@ export class CapitulosAccordionWidget extends Component {
     }
 
     // Métodos para manejar las condiciones particulares
-    updateCondicionesParticulares(event) {
-        const chapterName = event.target.dataset.chapter;
-        const sectionName = event.target.dataset.section;
-        const value = event.target.value;
+    updateCondicionesParticulares(chapterName, sectionName, value) {
+        // Crear clave única para esta sección específica
+        const sectionKey = `${chapterName}::${sectionName}`;
         
-        const sectionKey = `${chapterName}|${sectionName}`;
-        this.state.condicionesParticulares = {
-            ...this.state.condicionesParticulares,
-            [sectionKey]: value
-        };
+        // Guardar el valor en el estado local para esta sección específica
+        this.state.condicionesParticulares[sectionKey] = value;
         
-        // Debounce para guardar automáticamente
-        clearTimeout(this._saveTimeout);
-        this._saveTimeout = setTimeout(() => {
-            this.saveCondicionesParticulares(chapterName, sectionName, value);
-        }, 1000);
+        // Log para depuración
+        console.log(`Condiciones particulares actualizadas para ${sectionKey}:`, value);
+        console.log('Estado completo de condiciones:', this.state.condicionesParticulares);
+        
+        // Guardar automáticamente en el servidor
+        this.saveCondicionesParticulares(chapterName, sectionName, value);
     }
 
     async saveCondicionesParticulares(chapterName, sectionName, value) {
@@ -552,10 +537,7 @@ class ProductSelectorDialog extends Component {
         this.searchProducts();
     }
 
-    selectProduct(event) {
-        const productElement = event.target.closest('.product-item');
-        const productId = parseInt(productElement.dataset.productId);
-        const product = this.state.products.find(p => p.id === productId);
+    selectProduct(product) {
         this.state.selectedProduct = product;
     }
 

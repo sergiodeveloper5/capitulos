@@ -204,35 +204,28 @@ class CapituloWizardSeccion(models.TransientModel):
         - Limpia los productos previamente seleccionados
         - Actualiza el dominio para mostrar solo productos de la categoría
         - Incluye subcategorías usando 'child_of'
-        - Afecta tanto a product_ids como a line_ids.product_id
         
         RETORNA:
-        - Diccionario con el nuevo dominio para los campos de productos
+        - Diccionario con el nuevo dominio para el campo product_ids
         """
         if self.product_category_id:
             # Limpiar productos seleccionados cuando cambie la categoría
             self.product_ids = [(5, 0, 0)]
             _logger.info(f"Categoría seleccionada: {self.product_category_id.name}, "
                         f"Filtrando productos de esta categoría")
-            
-            domain_filter = [
-                ('sale_ok', '=', True), 
-                ('categ_id', 'child_of', self.product_category_id.id)
-            ]
-            
             return {
                 'domain': {
-                    'product_ids': domain_filter,
-                    'line_ids.product_id': domain_filter
+                    'product_ids': [
+                        ('sale_ok', '=', True), 
+                        ('categ_id', 'child_of', self.product_category_id.id)
+                    ]
                 }
             }
         else:
             # Si no hay categoría, mostrar todos los productos vendibles
-            domain_filter = [('sale_ok', '=', True)]
             return {
                 'domain': {
-                    'product_ids': domain_filter,
-                    'line_ids.product_id': domain_filter
+                    'product_ids': [('sale_ok', '=', True)]
                 }
             }
 

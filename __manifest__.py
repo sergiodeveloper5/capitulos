@@ -1,4 +1,34 @@
 # -*- coding: utf-8 -*-
+"""
+ARCHIVO DE MANIFIESTO DEL MÓDULO CAPÍTULOS CONTRATADOS
+=====================================================
+
+Este archivo define la configuración principal del módulo de Odoo para la gestión
+de capítulos técnicos en presupuestos de venta.
+
+FUNCIONALIDAD PRINCIPAL:
+- Gestión de capítulos técnicos como servicios agrupados
+- Widget JavaScript interactivo con acordeón para visualización
+- Wizard para creación y configuración de capítulos
+- Integración completa con el módulo de ventas de Odoo
+
+ARQUITECTURA:
+- Backend: Python (modelos ORM, lógica de negocio)
+- Frontend: JavaScript OWL (widget interactivo)
+- Vistas: XML QWeb (templates y formularios)
+- Estilos: CSS (diseño responsive y moderno)
+
+DEPENDENCIAS:
+- base: Funcionalidades básicas de Odoo
+- sale_management: Gestión de ventas y presupuestos
+- product: Gestión de productos
+- uom: Unidades de medida
+
+AUTOR: Sergio Vadillo
+VERSIÓN: 18.0.1.0.0 (Compatible con Odoo 18.0)
+LICENCIA: LGPL-3
+"""
+
 {
     # INFORMACIÓN BÁSICA DEL MÓDULO
     'name': 'Gestión de Capítulos Contratados',

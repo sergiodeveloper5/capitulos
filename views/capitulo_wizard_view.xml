@@ -77,7 +77,7 @@
                         - 'nuevo': Crear un capítulo desde cero
                     -->
                     <group>
-                        <field name="modo_creacion" widget="radio" options="&quot;{'horizontal': true}&quot;"/>
+                        <field name="modo_creacion" widget="radio" options="{'horizontal': true}"/>
                     </group>
                     
                     <!-- 
@@ -92,7 +92,7 @@
                         - Validación requerida condicional
                     -->
                     <group invisible="modo_creacion != 'existente'">
-                        <field name="capitulo_id" options="&quot;{'no_create': True, 'no_edit': True}&quot;" 
+                        <field name="capitulo_id" options="{'no_create': True, 'no_edit': True}" 
                                placeholder="Seleccione un capítulo existente..." 
                                help="Seleccione un capítulo ya creado para aplicar al presupuesto"
                                required="modo_creacion == 'existente'"/>
@@ -280,8 +280,10 @@
                                                     <list editable="bottom">
                                                         <!-- Handle para reordenamiento -->
                                                         <field name="sequence" widget="handle"/>
-                                                        <!-- Selección de producto (requerido) -->
-                                                        <field name="product_id" string="Producto" required="1"/>
+                                                        <!-- Selección de producto (requerido) con filtrado por categoría -->
+                                                        <field name="product_id" string="Producto" required="1" 
+                                                               domain="[('sale_ok', '=', True), '|', ('categ_id', 'child_of', parent.product_category_id), ('categ_id', '=', False)]"
+                                                               context="{'default_sale_ok': True}"/>
                                                         <!-- Descripción personalizable -->
                                                         <field name="descripcion_personalizada" string="Descripción"/>
                                                         <!-- Cantidad con suma automática -->

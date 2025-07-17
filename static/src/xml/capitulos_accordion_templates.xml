@@ -23,8 +23,7 @@
                             <button class="accordion-button" 
                                     t-att-class="isChapterCollapsed(chapter.name) ? 'collapsed' : ''"
                                     type="button" 
-                                    t-on-click="toggleChapter"
-                                    t-att-data-chapter="chapter.name">
+                                    t-on-click="() => this.toggleChapter(chapter.name)">
                                 <i class="fa fa-folder me-2 text-warning"/> 
                                 <span t-esc="chapter.name"/>
                                 <span class="badge bg-secondary ms-auto me-2">
@@ -57,9 +56,7 @@
                                                          class="form-control" 
                                                          rows="4" 
                                                          placeholder="Escriba aquí las condiciones particulares de esta sección..."
-                                                         t-on-input="updateCondicionesParticulares"
-                                                         t-att-data-chapter="chapter.name"
-                                                         t-att-data-section="section.name"
+                                                         t-on-input="(ev) => this.updateCondicionesParticulares(chapter.name, section.name, ev.target.value)"
                                                          t-att-value="this.getCondicionesParticulares(chapter.name, section.name)"></textarea>
                                             </div>
                                         </t>
@@ -73,9 +70,7 @@
                                                     <strong t-esc="section.name"/>
                                                 </div>
                                                 <button class="btn btn-sm btn-outline-success" 
-                                                        t-on-click="addProductToSection"
-                                                        t-att-data-chapter="chapter.name"
-                                                        t-att-data-section="section.name"
+                                                        t-on-click="() => this.addProductToSection(chapter.name, section.name)"
                                                         title="Añadir producto a esta sección">
                                                     <i class="fa fa-plus me-1"/> Añadir Producto
                                                 </button>
@@ -104,8 +99,7 @@
                                                                                t-att-name="'product-name-' + line.id"
                                                                                class="form-control form-control-sm" 
                                                                                t-att-value="state.editValues.name || ''"
-                                                                               t-on-input="updateEditValue"
-                                                                               data-field="name"/>
+                                                                               t-on-input="(ev) => this.updateEditValue('name', ev.target.value)"/>
                                                                     </t>
                                                                     <t t-else="">
                                                                         <span t-esc="line.product_id?.[1] || line.name || ''"/>
@@ -121,8 +115,7 @@
                                                                    t-att-name="'quantity-' + line.id"
                                                                    class="form-control" 
                                                                    t-att-value="state.editValues.product_uom_qty || 0"
-                                                                   t-on-input="updateEditValue"
-                                                                   data-field="product_uom_qty"
+                                                                   t-on-input="(ev) => this.updateEditValue('product_uom_qty', ev.target.value)"
                                                                    step="0.01" 
                                                                    min="0"
                                                                    placeholder="Cantidad"/>
@@ -149,8 +142,7 @@
                                                                    t-att-name="'price-' + line.id"
                                                                    class="form-control text-end" 
                                                                    t-att-value="state.editValues.price_unit || 0"
-                                                                   t-on-input="updateEditValue"
-                                                                   data-field="price_unit"
+                                                                   t-on-input="(ev) => this.updateEditValue('price_unit', ev.target.value)"
                                                                    step="0.01" 
                                                                    min="0"
                                                                    placeholder="0.00"/>
@@ -169,12 +161,12 @@
                                                     <t t-if="state.editingLine === line.id">
                                                         <div class="btn-group" role="group">
                                                             <button class="btn btn-success btn-sm" 
-                                                                    t-on-click="saveEdit"
+                                                                    t-on-click="() => this.saveEdit()"
                                                                     title="Guardar cambios">
                                                                 <i class="fa fa-check"/>
                                                             </button>
                                                             <button class="btn btn-secondary btn-sm" 
-                                                                    t-on-click="cancelEdit"
+                                                                    t-on-click="() => this.cancelEdit()"
                                                                     title="Cancelar">
                                                                 <i class="fa fa-times"/>
                                                             </button>
@@ -183,14 +175,12 @@
                                                     <t t-else="">
                                                         <div class="btn-group" role="group">
                                                             <button class="btn btn-outline-primary btn-sm" 
-                                                                    t-on-click="startEditLine"
-                                                                    t-att-data-line-id="line.id"
+                                                                    t-on-click="() => this.startEditLine(line.id)"
                                                                     title="Editar línea">
                                                                 <i class="fa fa-edit"/>
                                                             </button>
                                                             <button class="btn btn-outline-danger btn-sm" 
-                                                                    t-on-click="deleteLine"
-                                                                    t-att-data-line-id="line.id"
+                                                                    t-on-click="() => this.deleteLine(line.id)"
                                                                     title="Eliminar línea">
                                                                 <i class="fa fa-trash"/>
                                                             </button>
@@ -246,9 +236,8 @@
                         
                         <div t-foreach="state.products" t-as="product" t-key="product.id" 
                              class="product-item p-2 border-bottom" 
-                             t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'bg-primary text-white' : ''"
-                             t-on-click="selectProduct"
-                             t-att-data-product-id="product.id"
+                             t-att-class="{'bg-primary text-white': state.selectedProduct and state.selectedProduct.id === product.id}"
+                             t-on-click="() => this.selectProduct(product)"
                              style="cursor: pointer;">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
