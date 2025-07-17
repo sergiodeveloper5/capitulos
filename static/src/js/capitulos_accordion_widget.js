@@ -668,11 +668,13 @@ class ProductSelectorDialog extends Component {
     onConfirm() {
         if (this.state.selectedProduct) {
             this.props.onConfirm(this.state.selectedProduct);
+            this.props.close();
         }
     }
 
     onCancel() {
         this.props.onCancel();
+        this.props.close();
     }
 }
 
