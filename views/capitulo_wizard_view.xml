@@ -77,7 +77,7 @@
                         - 'nuevo': Crear un capítulo desde cero
                     -->
                     <group>
-                        <field name="modo_creacion" widget="radio" options="{'horizontal': true}"/>
+                        <field name="modo_creacion" widget="radio" options="&quot;{'horizontal': true}&quot;"/>
                     </group>
                     
                     <!-- 
@@ -92,7 +92,7 @@
                         - Validación requerida condicional
                     -->
                     <group invisible="modo_creacion != 'existente'">
-                        <field name="capitulo_id" options="{'no_create': True, 'no_edit': True}" 
+                        <field name="capitulo_id" options="&quot;{'no_create': True, 'no_edit': True}&quot;" 
                                placeholder="Seleccione un capítulo existente..." 
                                help="Seleccione un capítulo ya creado para aplicar al presupuesto"
                                required="modo_creacion == 'existente'"/>
