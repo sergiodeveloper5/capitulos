@@ -246,7 +246,7 @@
                         
                         <div t-foreach="state.products" t-as="product" t-key="product.id" 
                              class="product-item p-2 border-bottom" 
-                             t-att-class="{'bg-primary text-white': state.selectedProduct and state.selectedProduct.id === product.id}"
+                             t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'bg-primary text-white' : ''"
                              t-on-click="selectProduct"
                              t-att-data-product-id="product.id"
                              style="cursor: pointer;">
