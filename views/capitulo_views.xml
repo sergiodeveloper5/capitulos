@@ -39,6 +39,7 @@
                                     <list>
                                         <field name="sequence" widget="handle"/>
                                         <field name="name"/>
+                                        <field name="category_id"/>
                                         <field name="es_fija"/>
                                         <field name="descripcion"/>
                                     </list>
@@ -47,6 +48,7 @@
                                             <group>
                                                 <field name="name"/>
                                                 <field name="sequence"/>
+                                                <field name="category_id"/>
                                                 <field name="es_fija"/>
                                                 <field name="descripcion"/>
                                             </group>

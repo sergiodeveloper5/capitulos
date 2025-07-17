@@ -75,7 +75,8 @@ class SaleOrder(models.Model):
                     current_seccion_name = line.name
                     capitulos_dict[current_capitulo_key]['sections'][current_seccion_name] = {
                         'lines': [],
-                        'condiciones_particulares': line.condiciones_particulares or ''
+                        'condiciones_particulares': line.condiciones_particulares or '',
+                        'category_id': line.category_id.id if line.category_id else None
                     }
                     
                 elif current_capitulo_key and current_seccion_name:
@@ -146,12 +147,12 @@ class SaleOrder(models.Model):
         return {'type': 'ir.actions.client', 'tag': 'reload'}
     
     @api.model
-    def add_product_to_section(self, order_id, capitulo_name, seccion_name, product_id, quantity=1.0):
+    def add_product_to_section(self, order_id, capitulo_name, seccion_name, product_id, quantity=1.0, category_id=None):
         """Añade un producto a una sección específica de un capítulo"""
         import logging
         _logger = logging.getLogger(__name__)
         
-        _logger.info(f"DEBUG ADD_PRODUCT: Iniciando adición de producto {product_id} a capítulo '{capitulo_name}', sección '{seccion_name}'")
+        _logger.info(f"DEBUG ADD_PRODUCT: Iniciando adición de producto {product_id} a capítulo '{capitulo_name}', sección '{seccion_name}' con categoría {category_id}")
         
         order = self.browse(order_id)
         order.ensure_one()
@@ -364,6 +365,46 @@ class SaleOrder(models.Model):
         except Exception as e:
             _logger.error(f"DEBUG SAVE_CONDICIONES: ❌ Error al guardar: {str(e)}")
             raise UserError(f"Error al guardar las condiciones particulares: {str(e)}")
+    
+    @api.model
+    def update_section_category(self, order_id, capitulo_name, seccion_name, category_id):
+        """Actualiza la categoría de una sección específica"""
+        import logging
+        _logger = logging.getLogger(__name__)
+        
+        _logger.info(f"DEBUG UPDATE_CATEGORY: Actualizando categoría para capítulo '{capitulo_name}', sección '{seccion_name}' a categoría {category_id}")
+        
+        order = self.browse(order_id)
+        order.ensure_one()
+        
+        # Buscar la línea de la sección específica
+        seccion_line = None
+        for line in order.order_line.sorted('sequence'):
+            if line.es_encabezado_seccion:
+                line_base_name = self._get_base_name(line.name)
+                seccion_base_name = self._get_base_name(seccion_name)
+                
+                if line_base_name.upper() == seccion_base_name.upper():
+                    seccion_line = line
+                    break
+        
+        if not seccion_line:
+            _logger.error(f"DEBUG UPDATE_CATEGORY: ❌ No se encontró la sección '{seccion_name}'")
+            raise UserError(f"No se encontró la sección: {seccion_name}")
+        
+        try:
+            # Guardar la categoría en la línea de sección
+            seccion_line.with_context(from_capitulo_wizard=True).category_id = category_id
+            _logger.info(f"DEBUG UPDATE_CATEGORY: ✅ Categoría guardada en línea {seccion_line.id}")
+            
+            return {
+                'success': True,
+                'message': f'Categoría actualizada para {seccion_name}'
+            }
+            
+        except Exception as e:
+            _logger.error(f"DEBUG UPDATE_CATEGORY: ❌ Error al guardar: {str(e)}")
+            raise UserError(f"Error al actualizar la categoría: {str(e)}")
 
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
@@ -383,6 +424,12 @@ class SaleOrderLine(models.Model):
     condiciones_particulares = fields.Text(
         string='Condiciones Particulares',
         help="Texto libre para condiciones particulares de esta sección"
+    )
+    
+    category_id = fields.Many2one(
+        'product.category',
+        string='Categoría de Sección',
+        help="Categoría de productos para esta sección"
     )
     
     def unlink(self):

@@ -22,12 +22,16 @@ export class CapitulosAccordionWidget extends Component {
             showProductDialog: false,
             currentSection: null,
             currentChapter: null,
-            condicionesParticulares: {} // Objeto para almacenar condiciones por sección
+            condicionesParticulares: {}, // Objeto para almacenar condiciones por sección
+            categories: [] // Lista de categorías de productos
         });
         
         this.orm = useService("orm");
         this.notification = useService("notification");
         this.dialog = useService("dialog");
+        
+        // Cargar categorías al inicializar
+        this.loadCategories();
     }
 
     get value() {
@@ -55,6 +59,20 @@ export class CapitulosAccordionWidget extends Component {
         }));
     }
 
+    async loadCategories() {
+        try {
+            const categories = await this.orm.searchRead(
+                'product.category',
+                [],
+                ['id', 'name'],
+                { order: 'name asc' }
+            );
+            this.state.categories = categories;
+        } catch (error) {
+            console.error('Error al cargar categorías:', error);
+        }
+    }
+
     toggleChapter(chapterName) {
         this.state.collapsedChapters = {
             ...this.state.collapsedChapters,
@@ -69,8 +87,44 @@ export class CapitulosAccordionWidget extends Component {
     getSections(chapter) {
         return Object.keys(chapter.sections || {}).map((sectionName) => ({
             name: sectionName,
-            lines: chapter.sections[sectionName].lines || []
+            lines: chapter.sections[sectionName].lines || [],
+            category_id: chapter.sections[sectionName].category_id || null
         }));
+    }
+
+    async onCategoryChange(chapterName, sectionName, categoryId) {
+        try {
+            const orderId = this.props.record.resId;
+            
+            // Llamar al método del servidor para actualizar la categoría de la sección
+            const result = await this.orm.call(
+                'sale.order',
+                'update_section_category',
+                [orderId, chapterName, sectionName, categoryId ? parseInt(categoryId) : false]
+            );
+            
+            if (result && result.success) {
+                this.notification.add(
+                    result.message || _t('Categoría actualizada correctamente'),
+                    { type: 'success' }
+                );
+                
+                // Recargar datos
+                await this.props.record.load();
+                this.render();
+            } else {
+                this.notification.add(
+                    result?.error || _t('Error al actualizar la categoría'),
+                    { type: 'danger' }
+                );
+            }
+        } catch (error) {
+            console.error('Error al cambiar categoría:', error);
+            this.notification.add(
+                _t('Error al actualizar la categoría: ') + (error.message || error),
+                { type: 'danger' }
+            );
+        }
     }
 
     formatCurrency(value) {
@@ -85,9 +139,15 @@ export class CapitulosAccordionWidget extends Component {
                 orderId: this.props.record.resId
             });
             
+            // Obtener la categoría de la sección
+            const data = this.parsedData;
+            let sectionCategoryId = null;
+            if (data && data[chapterName] && data[chapterName].sections && data[chapterName].sections[sectionName]) {
+                sectionCategoryId = data[chapterName].sections[sectionName].category_id;
+            }
+            
             // Debug: Mostrar todos los capítulos y secciones disponibles
             console.log('DEBUG: Capítulos disponibles en parsedData:');
-            const data = this.parsedData;
             for (const [capName, capData] of Object.entries(data || {})) {
                 console.log(`DEBUG: - Capítulo: '${capName}'`);
                 for (const [secName, secData] of Object.entries(capData.sections || {})) {
@@ -95,8 +155,8 @@ export class CapitulosAccordionWidget extends Component {
                 }
             }
             
-            // Abrir el diálogo de selección de productos
-            const productId = await this.openProductSelector();
+            // Abrir el diálogo de selección de productos con la categoría preseleccionada
+            const productId = await this.openProductSelector(sectionCategoryId);
             
             if (!productId) {
                 console.log('DEBUG: No se seleccionó producto, cancelando');
@@ -179,10 +239,12 @@ export class CapitulosAccordionWidget extends Component {
         }
     }
 
-    async openProductSelector() {
+    async openProductSelector(preselectedCategoryId = null) {
         return new Promise((resolve) => {
             this.dialog.add(ProductSelectorDialog, {
                 title: _t("Seleccionar Producto"),
+                categories: this.state.categories,
+                preselectedCategoryId: preselectedCategoryId,
                 onConfirm: (productId) => {
                     resolve(productId);
                 },
@@ -490,6 +552,8 @@ export class CapitulosAccordionWidget extends Component {
 class ProductSelectorDialog extends Component {
     static props = {
         title: { type: String },
+        categories: { type: Array, optional: true },
+        preselectedCategoryId: { type: [Number, Boolean], optional: true },
         onConfirm: { type: Function },
         onCancel: { type: Function },
         close: { type: Function }
@@ -502,23 +566,37 @@ class ProductSelectorDialog extends Component {
             searchTerm: "",
             products: [],
             selectedProduct: null,
-            loading: false
+            loading: false,
+            categories: this.props.categories || [],
+            selectedCategoryId: this.props.preselectedCategoryId || ""
         });
+        
+        // Si hay una categoría preseleccionada, cargar productos de esa categoría
+        if (this.props.preselectedCategoryId) {
+            this.searchProducts();
+        }
     }
 
     async searchProducts() {
-        if (!this.state.searchTerm.trim()) {
-            this.state.products = [];
-            return;
-        }
-
         this.state.loading = true;
         try {
+            let domain = [['sale_ok', '=', true]];
+            
+            // Filtrar por categoría si está seleccionada
+            if (this.state.selectedCategoryId) {
+                domain.push(['categ_id', '=', parseInt(this.state.selectedCategoryId)]);
+            }
+            
+            // Filtrar por término de búsqueda si existe
+            if (this.state.searchTerm.trim()) {
+                domain.push(['name', 'ilike', this.state.searchTerm]);
+            }
+            
             const products = await this.orm.searchRead(
                 'product.product',
-                [['name', 'ilike', this.state.searchTerm], ['sale_ok', '=', true]],
-                ['id', 'name', 'list_price', 'default_code'],
-                { limit: 20 }
+                domain,
+                ['id', 'name', 'list_price', 'default_code', 'categ_id'],
+                { limit: 50, order: 'name asc' }
             );
             this.state.products = products;
         } catch (error) {
@@ -534,6 +612,11 @@ class ProductSelectorDialog extends Component {
 
     onSearchInput(event) {
         this.state.searchTerm = event.target.value;
+        this.searchProducts();
+    }
+
+    onCategoryFilterChange(event) {
+        this.state.selectedCategoryId = event.target.value;
         this.searchProducts();
     }
 
