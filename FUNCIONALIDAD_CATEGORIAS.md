@@ -1,4 +1,4 @@
-# Funcionalidad de Filtrado por Categorías de Productos
+# Funcionalidad de Selección de Productos en Dos Pasos
 
 ## ✅ Implementado
 
@@ -7,15 +7,15 @@
 2. **`product_category_id`** en `capitulo.wizard.seccion` - Para filtrar productos en el wizard
 
 ### Funcionalidad:
-- **Al crear capítulos**: Selecciona una categoría de productos en cada sección y solo aparecerán productos de esa categoría
-- **Al modificar capítulos**: En el wizard, selecciona una categoría y solo aparecerán productos de esa categoría
-- **Filtrado dinámico**: Usa `child_of` para incluir subcategorías automáticamente
-- **Sin categoría**: Si no se selecciona categoría, aparecen todos los productos vendibles
+- **Selección en dos pasos**: Primero se selecciona la categoría, luego el producto
+- **Navegación guiada**: Proceso claro y estructurado para el usuario
+- **Búsqueda contextual**: Búsqueda separada para categorías y productos
+- **Flexibilidad**: Posibilidad de cambiar de categoría sin cerrar el modal
 
 ### Ubicaciones del Filtrado:
 1. **Formulario de Capítulos** → Secciones → Campo "Categoría de Productos"
 2. **Wizard de Capítulos** → Secciones → Campo "Categoría de Productos"
-3. **Modal "Seleccionar Producto"** → Filtrado automático por categoría de la sección
+3. **Modal "Seleccionar Producto"** → Selección en dos pasos: categoría y producto
 
 ## Cómo Funciona
 

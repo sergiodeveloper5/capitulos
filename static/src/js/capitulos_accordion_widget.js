@@ -188,35 +188,16 @@ export class CapitulosAccordionWidget extends Component {
     }
 
     async openProductSelector(categoryId = null) {
-        let categoryName = null;
-        
-        // Si hay categoryId, obtener el nombre de la categoría
-        if (categoryId) {
-            try {
-                const categoryResult = await this.orm.call(
-                    'product.category',
-                    'read',
-                    [categoryId, ['name']]
-                );
-                if (categoryResult && categoryResult.length > 0) {
-                    categoryName = categoryResult[0].name;
-                }
-            } catch (error) {
-                console.error('Error al obtener nombre de categoría:', error);
-            }
-        }
-        
         return new Promise((resolve) => {
             this.dialog.add(ProductSelectorDialog, {
                 title: _t("Seleccionar Producto"),
-                categoryId: categoryId,
-                categoryName: categoryName,
                 onConfirm: (product) => {
                     resolve(product.id);
                 },
                 onCancel: () => {
                     resolve(null);
-                }
+                },
+                close: () => {}
             });
         });
     }
@@ -520,8 +501,6 @@ class ProductSelectorDialog extends Component {
     static components = { Dialog };
     static props = {
         title: { type: String, optional: true },
-        categoryName: { type: String, optional: true },
-        categoryId: { type: Number, optional: true },
         onConfirm: Function,
         onCancel: Function,
         close: Function,
@@ -531,67 +510,159 @@ class ProductSelectorDialog extends Component {
         this.orm = useService("orm");
         this.notification = useService("notification");
         this.state = useState({
-            searchTerm: "",
+            step: "category", // 'category' o 'product'
+            
+            // Para categorías
+            categorySearchTerm: "",
+            categories: [],
+            selectedCategory: null,
+            loadingCategories: false,
+            
+            // Para productos
+            productSearchTerm: "",
             products: [],
             selectedProduct: null,
-            loading: false,
+            loadingProducts: false,
         });
         
-        this.searchTimeout = null;
+        // Cargar categorías al inicializar
+        this.loadCategories();
     }
 
-    async onSearchInput(ev) {
-        const searchTerm = ev.target.value;
-        this.state.searchTerm = searchTerm;
-        
-        // Limpiar timeout anterior
-        if (this.searchTimeout) {
-            clearTimeout(this.searchTimeout);
+    async loadCategories() {
+        this.state.loadingCategories = true;
+        try {
+            const categories = await this.orm.call(
+                'product.category',
+                'search_read',
+                [[], ['name', 'parent_id', 'product_count']],
+                { limit: 100 }
+            );
+            this.state.categories = categories;
+        } catch (error) {
+            console.error('Error al cargar categorías:', error);
+            this.notification.add('Error al cargar las categorías', { type: 'danger' });
+        } finally {
+            this.state.loadingCategories = false;
         }
-        
-        // Buscar después de 300ms de inactividad
-        this.searchTimeout = setTimeout(() => {
-            this.searchProducts(searchTerm);
-        }, 300);
     }
 
-    async searchProducts(searchTerm) {
-        if (!searchTerm || searchTerm.length < 2) {
-            this.state.products = [];
+    async onCategorySearchInput(event) {
+        const searchTerm = event.target.value;
+        this.state.categorySearchTerm = searchTerm;
+        
+        if (searchTerm.length >= 2) {
+            await this.searchCategories(searchTerm);
+        } else if (searchTerm.length === 0) {
+            await this.loadCategories();
+        }
+    }
+
+    async searchCategories(searchTerm) {
+        this.state.loadingCategories = true;
+        try {
+            const domain = [['name', 'ilike', searchTerm]];
+            const categories = await this.orm.call(
+                'product.category',
+                'search_read',
+                [domain, ['name', 'parent_id', 'product_count']],
+                { limit: 50 }
+            );
+            this.state.categories = categories;
+        } catch (error) {
+            console.error('Error al buscar categorías:', error);
+            this.notification.add('Error al buscar categorías', { type: 'danger' });
+        } finally {
+            this.state.loadingCategories = false;
+        }
+    }
+
+    selectCategory(category) {
+        this.state.selectedCategory = category;
+    }
+
+    async proceedToProducts() {
+        if (!this.state.selectedCategory) {
+            this.notification.add('Debe seleccionar una categoría', { type: 'warning' });
             return;
         }
-
-        this.state.loading = true;
         
+        this.state.step = "product";
+        this.state.productSearchTerm = "";
+        this.state.products = [];
+        this.state.selectedProduct = null;
+        
+        // Cargar productos de la categoría seleccionada
+        await this.loadProductsByCategory();
+    }
+
+    async loadProductsByCategory() {
+        this.state.loadingProducts = true;
         try {
             const domain = [
+                ['categ_id', '=', this.state.selectedCategory.id],
+                ['sale_ok', '=', true]
+            ];
+            
+            const products = await this.orm.call(
+                'product.product',
+                'search_read',
+                [domain, ['name', 'default_code', 'categ_id', 'list_price', 'uom_id']],
+                { limit: 100 }
+            );
+            this.state.products = products;
+        } catch (error) {
+            console.error('Error al cargar productos:', error);
+            this.notification.add('Error al cargar los productos', { type: 'danger' });
+        } finally {
+            this.state.loadingProducts = false;
+        }
+    }
+
+    async onProductSearchInput(event) {
+        const searchTerm = event.target.value;
+        this.state.productSearchTerm = searchTerm;
+        
+        if (searchTerm.length >= 2) {
+            await this.searchProductsInCategory(searchTerm);
+        } else if (searchTerm.length === 0) {
+            await this.loadProductsByCategory();
+        }
+    }
+
+    async searchProductsInCategory(searchTerm) {
+        this.state.loadingProducts = true;
+        try {
+            const domain = [
+                ['categ_id', '=', this.state.selectedCategory.id],
                 ['name', 'ilike', searchTerm],
                 ['sale_ok', '=', true]
             ];
             
-            // Si hay una categoría específica, filtrar por ella
-            if (this.props.categoryId) {
-                domain.push(['categ_id', '=', this.props.categoryId]);
-            }
-            
-            const result = await this.env.services.rpc("/web/dataset/search_read", {
-                model: "product.product",
-                domain: domain,
-                fields: ["id", "name", "default_code", "list_price", "uom_id", "categ_id"],
-                limit: 20,
-            });
-            
-            this.state.products = result.records || [];
+            const products = await this.orm.call(
+                'product.product',
+                'search_read',
+                [domain, ['name', 'default_code', 'categ_id', 'list_price', 'uom_id']],
+                { limit: 50 }
+            );
+            this.state.products = products;
         } catch (error) {
-            console.error("Error searching products:", error);
-            this.state.products = [];
+            console.error('Error al buscar productos:', error);
+            this.notification.add('Error al buscar productos', { type: 'danger' });
         } finally {
-            this.state.loading = false;
+            this.state.loadingProducts = false;
         }
     }
 
     selectProduct(product) {
         this.state.selectedProduct = product;
+    }
+
+    goBackToCategories() {
+        this.state.step = "category";
+        this.state.productSearchTerm = "";
+        this.state.products = [];
+        this.state.selectedProduct = null;
     }
 
     onConfirm() {

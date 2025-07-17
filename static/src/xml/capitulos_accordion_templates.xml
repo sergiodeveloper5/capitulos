@@ -208,83 +208,148 @@
         <t t-name="capitulos.ProductSelectorDialog" owl="1">
             <Dialog size="'lg'" title="props.title">
                 <div class="product-selector-dialog">
-                    <!-- Información sobre el filtro de categoría -->
-                    <div t-if="props.categoryName" class="alert alert-info mb-3">
-                        <i class="fa fa-info-circle me-2"></i>
-                        <strong>Filtrado por categoría:</strong> <span t-esc="props.categoryName"/>
-                        <div class="small mt-1">
-                            Los productos mostrados pertenecen a esta categoría específica.
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="product-search-input" class="form-label">Buscar producto:</label>
-                        <input 
-                            type="text" 
-                            id="product-search-input"
-                            name="product-search-input"
-                            class="form-control" 
-                            placeholder="Escriba el nombre del producto..."
-                            t-model="state.searchTerm"
-                            t-on-input="onSearchInput"
-                        />
-                    </div>
-                    
-                    <div class="product-list" style="max-height: 400px; overflow-y: auto;">
-                        <div t-if="state.loading" class="text-center p-3">
-                            <i class="fa fa-spinner fa-spin"></i> Buscando productos...
+                    <!-- Paso 1: Selección de Categoría -->
+                    <div t-if="state.step === 'category'" class="category-selection">
+                        <div class="alert alert-info mb-3">
+                            <i class="fa fa-info-circle me-2"></i>
+                            <strong>Paso 1:</strong> Seleccione una categoría de productos
                         </div>
                         
-                        <div t-if="!state.loading and state.products.length === 0 and state.searchTerm" class="text-center p-3 text-muted">
-                            <i class="fa fa-search me-2"></i>
-                            No se encontraron productos que coincidan con "<strong t-esc="state.searchTerm"/>"
-                            <div t-if="props.categoryName" class="small mt-2">
-                                en la categoría "<span t-esc="props.categoryName"/>"
+                        <div class="mb-3">
+                            <label for="category-search-input" class="form-label">Buscar categoría:</label>
+                            <input 
+                                type="text" 
+                                id="category-search-input"
+                                name="category-search-input"
+                                class="form-control" 
+                                placeholder="Escriba el nombre de la categoría..."
+                                t-model="state.categorySearchTerm"
+                                t-on-input="onCategorySearchInput"
+                            />
+                        </div>
+                        
+                        <div class="category-list" style="max-height: 400px; overflow-y: auto;">
+                            <div t-if="state.loadingCategories" class="text-center p-3">
+                                <i class="fa fa-spinner fa-spin"></i> Cargando categorías...
                             </div>
-                        </div>
-                        
-                        <div t-if="!state.loading and !state.searchTerm" class="text-center p-3 text-muted">
-                            <i class="fa fa-keyboard-o me-2"></i>
-                            Escriba para buscar productos
-                            <div t-if="props.categoryName" class="small mt-2">
-                                en la categoría "<span t-esc="props.categoryName"/>"
+                            
+                            <div t-if="!state.loadingCategories and state.categories.length === 0 and state.categorySearchTerm" class="text-center p-3 text-muted">
+                                <i class="fa fa-search me-2"></i>
+                                No se encontraron categorías que coincidan con "<strong t-esc="state.categorySearchTerm"/>"
                             </div>
-                        </div>
-                        
-                        <div t-foreach="state.products" t-as="product" t-key="product.id" 
-                             class="product-item p-3 border-bottom" 
-                             t-att-class="{'bg-primary text-white': state.selectedProduct and state.selectedProduct.id === product.id, 'border-primary': state.selectedProduct and state.selectedProduct.id === product.id}"
-                             t-on-click="() => this.selectProduct(product)"
-                             style="cursor: pointer; transition: all 0.2s;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="flex-grow-1">
-                                    <div class="d-flex align-items-center mb-1">
-                                        <strong t-esc="product.name" class="me-2"></strong>
-                                        <span t-if="state.selectedProduct and state.selectedProduct.id === product.id" 
-                                              class="badge bg-light text-primary">
-                                            <i class="fa fa-check"></i> Seleccionado
+                            
+                            <div t-if="!state.loadingCategories and !state.categorySearchTerm" class="text-center p-3 text-muted">
+                                <i class="fa fa-keyboard-o me-2"></i>
+                                Escriba para buscar categorías o seleccione una de la lista
+                            </div>
+                            
+                            <div t-foreach="state.categories" t-as="category" t-key="category.id" 
+                                 class="category-item p-3 border-bottom" 
+                                 t-att-class="{'bg-primary text-white': state.selectedCategory and state.selectedCategory.id === category.id, 'border-primary': state.selectedCategory and state.selectedCategory.id === category.id}"
+                                 t-on-click="() => this.selectCategory(category)"
+                                 style="cursor: pointer; transition: all 0.2s;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-1">
+                                            <i class="fa fa-folder me-2"></i>
+                                            <strong t-esc="category.name" class="me-2"></strong>
+                                            <span t-if="state.selectedCategory and state.selectedCategory.id === category.id" 
+                                                  class="badge bg-light text-primary">
+                                                <i class="fa fa-check"></i> Seleccionada
+                                            </span>
+                                        </div>
+                                        <div t-if="category.parent_id" class="small" 
+                                             t-att-class="state.selectedCategory and state.selectedCategory.id === category.id ? 'text-light' : 'text-muted'">
+                                            <i class="fa fa-level-up me-1"></i>
+                                            Categoría padre: <span t-esc="category.parent_id[1]"></span>
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <span t-if="category.product_count" class="badge bg-secondary">
+                                            <span t-esc="category.product_count"></span> productos
                                         </span>
-                                    </div>
-                                    <div t-if="product.default_code" class="small" 
-                                         t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
-                                        <i class="fa fa-barcode me-1"></i>
-                                        Código: <span t-esc="product.default_code"></span>
-                                    </div>
-                                    <div t-if="product.categ_id" class="small" 
-                                         t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
-                                        <i class="fa fa-folder me-1"></i>
-                                        Categoría: <span t-esc="product.categ_id[1]"></span>
                                     </div>
                                 </div>
-                                <div class="text-end">
-                                    <div class="fw-bold mb-1">
-                                        <span t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-success'">
-                                            $<span t-esc="(product.list_price || 0).toFixed(2)"></span>
-                                        </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Paso 2: Selección de Producto -->
+                    <div t-if="state.step === 'product'" class="product-selection">
+                        <div class="alert alert-success mb-3">
+                            <i class="fa fa-check-circle me-2"></i>
+                            <strong>Paso 2:</strong> Seleccione un producto de la categoría 
+                            "<span t-esc="state.selectedCategory.name"/>"
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" 
+                                    t-on-click="goBackToCategories">
+                                <i class="fa fa-arrow-left me-1"></i> Cambiar categoría
+                            </button>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="product-search-input" class="form-label">Buscar producto:</label>
+                            <input 
+                                type="text" 
+                                id="product-search-input"
+                                name="product-search-input"
+                                class="form-control" 
+                                placeholder="Escriba el nombre del producto..."
+                                t-model="state.productSearchTerm"
+                                t-on-input="onProductSearchInput"
+                            />
+                        </div>
+                        
+                        <div class="product-list" style="max-height: 400px; overflow-y: auto;">
+                            <div t-if="state.loadingProducts" class="text-center p-3">
+                                <i class="fa fa-spinner fa-spin"></i> Cargando productos...
+                            </div>
+                            
+                            <div t-if="!state.loadingProducts and state.products.length === 0 and state.productSearchTerm" class="text-center p-3 text-muted">
+                                <i class="fa fa-search me-2"></i>
+                                No se encontraron productos que coincidan con "<strong t-esc="state.productSearchTerm"/>"
+                                en la categoría "<span t-esc="state.selectedCategory.name"/>"
+                            </div>
+                            
+                            <div t-if="!state.loadingProducts and !state.productSearchTerm" class="text-center p-3 text-muted">
+                                <i class="fa fa-keyboard-o me-2"></i>
+                                Escriba para buscar productos en la categoría "<span t-esc="state.selectedCategory.name"/>"
+                            </div>
+                            
+                            <div t-foreach="state.products" t-as="product" t-key="product.id" 
+                                 class="product-item p-3 border-bottom" 
+                                 t-att-class="{'bg-primary text-white': state.selectedProduct and state.selectedProduct.id === product.id, 'border-primary': state.selectedProduct and state.selectedProduct.id === product.id}"
+                                 t-on-click="() => this.selectProduct(product)"
+                                 style="cursor: pointer; transition: all 0.2s;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-1">
+                                            <strong t-esc="product.name" class="me-2"></strong>
+                                            <span t-if="state.selectedProduct and state.selectedProduct.id === product.id" 
+                                                  class="badge bg-light text-primary">
+                                                <i class="fa fa-check"></i> Seleccionado
+                                            </span>
+                                        </div>
+                                        <div t-if="product.default_code" class="small" 
+                                             t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
+                                            <i class="fa fa-barcode me-1"></i>
+                                            Código: <span t-esc="product.default_code"></span>
+                                        </div>
+                                        <div t-if="product.categ_id" class="small" 
+                                             t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
+                                            <i class="fa fa-folder me-1"></i>
+                                            Categoría: <span t-esc="product.categ_id[1]"></span>
+                                        </div>
                                     </div>
-                                    <div t-if="product.uom_id" class="small" 
-                                         t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
-                                        <span t-esc="product.uom_id[1]"></span>
+                                    <div class="text-end">
+                                        <div class="fw-bold mb-1">
+                                            <span t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-success'">
+                                                $<span t-esc="(product.list_price || 0).toFixed(2)"></span>
+                                            </span>
+                                        </div>
+                                        <div t-if="product.uom_id" class="small" 
+                                             t-att-class="state.selectedProduct and state.selectedProduct.id === product.id ? 'text-light' : 'text-muted'">
+                                            <span t-esc="product.uom_id[1]"></span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -296,7 +361,13 @@
                     <button type="button" class="btn btn-secondary" t-on-click="onCancel">
                         <i class="fa fa-times me-1"></i> Cancelar
                     </button>
-                    <button type="button" class="btn btn-primary" t-on-click="onConfirm" 
+                    <button t-if="state.step === 'category'" type="button" class="btn btn-primary" 
+                            t-on-click="proceedToProducts" 
+                            t-att-disabled="!state.selectedCategory">
+                        <i class="fa fa-arrow-right me-1"></i> Continuar
+                    </button>
+                    <button t-if="state.step === 'product'" type="button" class="btn btn-primary" 
+                            t-on-click="onConfirm" 
                             t-att-disabled="!state.selectedProduct">
                         <i class="fa fa-check me-1"></i> Confirmar
                     </button>
