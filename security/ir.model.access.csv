@@ -5,3 +5,4 @@ access_capitulo_seccion_line_user,capitulo.seccion.line,model_capitulo_seccion_l
 access_wizard_user,capitulo.wizard,model_capitulo_wizard,base.group_user,1,1,1,1
 access_wizard_seccion_user,capitulo.wizard.seccion,model_capitulo_wizard_seccion,base.group_user,1,1,1,1
 access_wizard_line_user,capitulo.wizard.line,model_capitulo_wizard_line,base.group_user,1,1,1,1
+access_product_category_user,product.category,product.model_product_category,base.group_user,1,0,0,0

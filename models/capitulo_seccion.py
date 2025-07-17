@@ -11,6 +11,13 @@ class CapituloSeccion(models.Model):
     product_line_ids = fields.One2many('capitulo.seccion.line', 'seccion_id', string='Líneas de Producto')
     descripcion = fields.Text(string='Descripción')
     es_fija = fields.Boolean(string='Sección Fija', default=False, help="Si está marcado, esta sección no se puede modificar en el presupuesto")
+    
+    # Campo para filtrar productos por categoría
+    product_category_id = fields.Many2one(
+        'product.category', 
+        string='Categoría de Productos',
+        help='Selecciona una categoría para filtrar los productos disponibles'
+    )
 
 class CapituloSeccionLine(models.Model):
     _name = 'capitulo.seccion.line'

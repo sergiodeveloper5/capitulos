@@ -16,6 +16,13 @@ class CapituloWizardSeccion(models.TransientModel):
     incluir = fields.Boolean(string='Incluir en Presupuesto', default=False)
     line_ids = fields.One2many('capitulo.wizard.line', 'seccion_id', string='Productos')
     
+    # Campo para filtrar productos por categoría
+    product_category_id = fields.Many2one(
+        'product.category', 
+        string='Categoría de Productos',
+        help='Selecciona una categoría para filtrar los productos disponibles'
+    )
+    
     @api.model
     def create(self, vals):
         """Asegurar que siempre se cree con un nombre válido"""
@@ -328,6 +335,7 @@ class CapituloWizard(models.TransientModel):
                 'sequence': seccion.sequence,
                 'es_fija': True,  # Todas las secciones de capítulos existentes son fijas
                 'incluir': True,  # En modo existente, incluir automáticamente todas las secciones
+                'product_category_id': seccion.product_category_id.id if seccion.product_category_id else False,
                 'line_ids': lineas_vals,
             }))
         
@@ -375,6 +383,7 @@ class CapituloWizard(models.TransientModel):
                         'name': seccion_wizard.name,
                         'sequence': seccion_wizard.sequence,
                         'es_fija': seccion_wizard.es_fija,
+                        'product_category_id': seccion_wizard.product_category_id.id if seccion_wizard.product_category_id else False,
                         'product_line_ids': lineas_vals,
                     }))
             

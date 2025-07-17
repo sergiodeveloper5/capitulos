@@ -1,6 +1,6 @@
 {
     'name': 'Gestión de Capítulos Contratados',
-    'version': '18.0.1.0.0',
+    'version': '18.0.1.1.0',
     'category': 'Sales',
     'summary': 'Gestión de capítulos técnicos y contratación de servicios agrupados',
     'description': "Gestión de capítulos técnicos como servicios completos con productos configurables para presupuestos de venta.",

@@ -74,6 +74,7 @@
                                             </group>
                                             <group>
                                                 <field name="es_fija" readonly="1"/>
+                                                <field name="product_category_id"/>
                                             </group>
                                         </group>
                                         
@@ -82,7 +83,7 @@
                                                 <field name="line_ids">
                                                     <list editable="bottom">
                                                         <field name="sequence" widget="handle"/>
-                                                        <field name="product_id" string="Producto" required="1"/>
+                                                        <field name="product_id" string="Producto" required="1" domain="[('sale_ok', '=', True)] if not parent.product_category_id else [('sale_ok', '=', True), ('categ_id', 'child_of', parent.product_category_id)]"/>
                                                         <field name="descripcion_personalizada" string="Descripción"/>
                                                         <field name="cantidad" string="Cantidad" sum="Total"/>
                                                         <field name="precio_unitario" string="Precio Unitario"/>
