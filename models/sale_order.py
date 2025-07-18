@@ -1,158 +1,43 @@
-# -*- coding: utf-8 -*-
-"""
-Extensión del Modelo Sale Order para Capítulos Técnicos
-=======================================================
-
-Este módulo extiende el modelo sale.order de Odoo para integrar la funcionalidad
-de capítulos técnicos. Permite aplicar capítulos estructurados a pedidos de venta,
-organizando los productos en una jerarquía de capítulos y secciones.
-
-Funcionalidades principales:
-- Aplicación de capítulos técnicos a pedidos de venta
-- Agrupación automática de líneas por capítulos y secciones
-- Widget acordeón para navegación visual en la interfaz
-- Gestión de productos por categorías dentro de secciones
-- Cálculo automático de totales por capítulo
-
-Autor: Sergio
-Fecha: 2024
-Versión: 1.0
-"""
-
 from odoo import models, fields, api
 from odoo.exceptions import UserError
 
-
 class SaleOrder(models.Model):
-    """
-    Extensión del modelo sale.order para integrar capítulos técnicos.
-    
-    Esta extensión añade la capacidad de aplicar capítulos estructurados a los pedidos
-    de venta, organizando los productos en una jerarquía clara y proporcionando
-    herramientas de navegación visual para mejorar la experiencia del usuario.
-    
-    Características añadidas:
-    - Relación Many2many con capítulos técnicos
-    - Campo computado para agrupación de líneas en formato JSON
-    - Métodos para gestión de capítulos y secciones
-    - Integración con widget acordeón para la interfaz
-    - Soporte para categorías de productos por sección
-    """
     _inherit = 'sale.order'
 
-    # ========================================
-    # CAMPOS DE RELACIÓN CON CAPÍTULOS
-    # ========================================
-    
     capitulo_ids = fields.Many2many(
         'capitulo.contrato', 
         string='Capítulos Aplicados',
-        help="Capítulos técnicos aplicados a este pedido de venta. "
-             "Cada capítulo define una estructura de secciones y productos"
+        help="Capítulos técnicos aplicados a este pedido de venta"
     )
-    
-    # ========================================
-    # CAMPOS COMPUTADOS PARA LA INTERFAZ
-    # ========================================
     
     capitulos_agrupados = fields.Text(
         string='Capítulos Agrupados',
         compute='_compute_capitulos_agrupados',
-        help="Datos en formato JSON con las líneas agrupadas por capítulo y sección "
-             "para el widget acordeón. Se recalcula automáticamente cuando cambian las líneas"
+        help="JSON con las líneas agrupadas por capítulo para el widget acordeón"
     )
     
     tiene_multiples_capitulos = fields.Boolean(
         string='Mostrar Acordeón de Capítulos',
         compute='_compute_tiene_multiples_capitulos',
-        help="Indica si el pedido tiene uno o más capítulos aplicados para mostrar "
-             "el widget acordeón en la interfaz"
+        help="Indica si el pedido tiene capítulos para mostrar en acordeón"
     )
 
-    # ========================================
-    # MÉTODOS AUXILIARES
-    # ========================================
-
     def _get_base_name(self, decorated_name):
-        """
-        Extrae el nombre base de un capítulo o sección eliminando decoraciones.
-        
-        Este método normaliza los nombres de capítulos y secciones eliminando
-        sufijos decorativos, contadores y caracteres especiales para permitir
-        comparaciones consistentes entre nombres.
-        
-        Args:
-            decorated_name (str): Nombre decorado que puede contener sufijos como
-                                "(SECCIÓN FIJA)", contadores "(2)", o caracteres especiales
-        
-        Returns:
-            str: Nombre base limpio sin decoraciones
-            
-        Ejemplos:
-            "Materiales Eléctricos (SECCIÓN FIJA)" -> "Materiales Eléctricos"
-            "Capítulo Principal (2)" -> "Capítulo Principal"
-            "═══ Sección Especial ═══" -> "Sección Especial"
-        """
+        """Extrae el nombre base de un capítulo o sección decorado."""
         import re
         name = str(decorated_name)
-        
-        # 1. Eliminar sufijos como (SECCIÓN FIJA) o contadores numéricos
+        # 1. Eliminar sufijos como (SECCIÓN FIJA) o contadores
         name = re.sub(r'\s*\((SECCIÓN FIJA|\d+)\)$', '', name).strip()
-        
         # 2. Eliminar caracteres decorativos de los extremos
         decorative_chars = ' \t\n\r=═🔒📋'
         name = name.strip(decorative_chars)
-        
         return name
-    
-    # ========================================
-    # MÉTODOS COMPUTADOS
-    # ========================================
     
     @api.depends('order_line', 'order_line.es_encabezado_capitulo', 'order_line.es_encabezado_seccion', 
                  'order_line.name', 'order_line.product_id', 'order_line.product_uom_qty', 
                  'order_line.product_uom', 'order_line.price_unit', 'order_line.price_subtotal', 'order_line.sequence')
     def _compute_capitulos_agrupados(self):
-        """
-        Agrupa las líneas del pedido por capítulos y secciones para el widget acordeón.
-        
-        Este método es el núcleo del sistema de capítulos. Procesa todas las líneas del pedido
-        y las organiza en una estructura jerárquica de capítulos > secciones > productos,
-        generando un JSON que alimenta el widget acordeón en la interfaz.
-        
-        Proceso de agrupación:
-        1. Recorre las líneas ordenadas por secuencia
-        2. Identifica encabezados de capítulos y crea nuevas agrupaciones
-        3. Identifica encabezados de secciones dentro de cada capítulo
-        4. Agrupa productos bajo la sección correspondiente
-        5. Calcula totales por capítulo
-        6. Busca categorías de productos para filtrado automático
-        
-        Decorador @api.depends:
-        - Se recalcula cuando cambian las líneas del pedido
-        - Monitorea cambios en campos específicos de las líneas
-        - Asegura sincronización automática con la interfaz
-        
-        Estructura del JSON generado:
-        {
-            "Nombre Capítulo": {
-                "sections": {
-                    "Nombre Sección": {
-                        "lines": [lista de productos],
-                        "condiciones_particulares": "texto",
-                        "category_id": id_categoria,
-                        "category_name": "nombre_categoria"
-                    }
-                },
-                "total": importe_total_capitulo
-            }
-        }
-        
-        Manejo de duplicados:
-        - Permite múltiples capítulos con el mismo nombre
-        - Añade contadores automáticos: "Capítulo (2)", "Capítulo (3)"
-        - Mantiene unicidad en las claves del JSON
-        """
+        """Agrupa las líneas del pedido por capítulos para mostrar en acordeón"""
         import json
         import logging
         _logger = logging.getLogger(__name__)
@@ -160,47 +45,43 @@ class SaleOrder(models.Model):
         for order in self:
             _logger.info(f"DEBUG COMPUTE: Procesando pedido {order.id} con {len(order.order_line)} líneas")
             
-            # Inicializar estructuras de datos
-            capitulos_dict = {}  # Diccionario principal de capítulos
-            current_capitulo_key = None  # Capítulo actualmente procesándose
-            current_seccion_name = None  # Sección actualmente procesándose
-            capitulo_counter = {}  # Contador para capítulos duplicados
+            capitulos_dict = {}
+            current_capitulo_key = None
+            current_seccion_name = None
+            capitulo_counter = {}
             
-            # Procesar cada línea en orden de secuencia
             for line in order.order_line.sorted('sequence'):
                 if line.es_encabezado_capitulo:
-                    # ===== PROCESAMIENTO DE ENCABEZADO DE CAPÍTULO =====
-                    # Crear clave única para permitir capítulos duplicados
+                    # Nuevo capítulo - crear clave única para permitir duplicados
                     base_name = line.name
                     if base_name not in capitulo_counter:
                         capitulo_counter[base_name] = 0
                     capitulo_counter[base_name] += 1
                     
-                    # Generar clave única: nombre base + contador si hay duplicados
+                    # Crear clave única: nombre + contador si hay duplicados
                     if capitulo_counter[base_name] == 1:
                         current_capitulo_key = base_name
                     else:
                         current_capitulo_key = f"{base_name} ({capitulo_counter[base_name]})"
                     
-                    # Inicializar estructura del capítulo
                     capitulos_dict[current_capitulo_key] = {
-                        'sections': {},  # Diccionario de secciones
-                        'total': 0.0     # Total acumulado del capítulo
+                        'sections': {},
+                        'total': 0.0
                     }
-                    current_seccion_name = None  # Reset sección actual
+                    current_seccion_name = None
                     
                 elif line.es_encabezado_seccion and current_capitulo_key:
-                    # ===== PROCESAMIENTO DE ENCABEZADO DE SECCIÓN =====
+                    # Nueva sección dentro del capítulo actual
                     current_seccion_name = line.name
                     
-                    # Buscar configuración de categoría para esta sección
+                    # Buscar la categoría de productos de esta sección
                     category_id = None
                     category_name = None
                     
                     # Buscar en los capítulos aplicados la sección correspondiente
                     for capitulo in order.capitulo_ids:
                         for seccion in capitulo.seccion_ids:
-                            # Comparar nombres normalizados (sin decoraciones)
+                            # Comparar nombres de sección (normalizado)
                             seccion_base_name = self._get_base_name(seccion.name)
                             line_base_name = self._get_base_name(current_seccion_name)
                             
@@ -212,39 +93,31 @@ class SaleOrder(models.Model):
                         if category_id:
                             break
                     
-                    # Inicializar estructura de la sección
                     capitulos_dict[current_capitulo_key]['sections'][current_seccion_name] = {
-                        'lines': [],  # Lista de productos en la sección
+                        'lines': [],
                         'condiciones_particulares': line.condiciones_particulares or '',
-                        'category_id': category_id,      # Para filtrado automático
-                        'category_name': category_name   # Para mostrar en interfaz
+                        'category_id': category_id,
+                        'category_name': category_name
                     }
                     
                 elif current_capitulo_key and current_seccion_name:
-                    # ===== PROCESAMIENTO DE LÍNEA DE PRODUCTO =====
-                    # Crear estructura de datos para el producto
+                    # Producto dentro de la sección actual
                     line_data = {
-                        'id': line.id,  # ID para edición directa
+                        'id': line.id,  # Añadir ID para edición
                         'sequence': line.sequence,
                         'product_name': line.product_id.name if line.product_id else '',
-                        'name': line.name,  # Nombre mostrado en la línea
+                        'name': line.name,
                         'product_uom_qty': line.product_uom_qty,
                         'product_uom': line.product_uom.name if line.product_uom else '',
                         'price_unit': line.price_unit,
                         'price_subtotal': line.price_subtotal
                     }
-                    
-                    # Añadir producto a la sección actual
                     capitulos_dict[current_capitulo_key]['sections'][current_seccion_name]['lines'].append(line_data)
-                    
-                    # Acumular total del capítulo
                     capitulos_dict[current_capitulo_key]['total'] += line.price_subtotal
             
-            # Generar JSON final
             result_json = json.dumps(capitulos_dict) if capitulos_dict else '{}'
             order.capitulos_agrupados = result_json
             
-            # Logging detallado para debugging
             _logger.info(f"DEBUG COMPUTE: Pedido {order.id} - Resultado final:")
             _logger.info(f"DEBUG COMPUTE: - Capítulos encontrados: {len(capitulos_dict)}")
             _logger.info(f"DEBUG COMPUTE: - JSON generado: {len(result_json)} caracteres")
@@ -259,48 +132,13 @@ class SaleOrder(models.Model):
     
     @api.depends('order_line', 'order_line.es_encabezado_capitulo')
     def _compute_tiene_multiples_capitulos(self):
-        """
-        Determina si el pedido tiene capítulos para mostrar el widget acordeón.
-        
-        Este método calcula si el pedido contiene uno o más capítulos aplicados,
-        lo que determina si se debe mostrar el widget acordeón en la interfaz.
-        
-        Lógica:
-        - Cuenta las líneas marcadas como encabezado de capítulo
-        - Si hay 1 o más capítulos: muestra el acordeón
-        - Si no hay capítulos: oculta el acordeón
-        
-        El campo se recalcula automáticamente cuando:
-        - Se añaden o eliminan líneas del pedido
-        - Cambia el estado es_encabezado_capitulo de alguna línea
-        """
+        """Calcula si el pedido tiene capítulos para mostrar el acordeón"""
         for order in self:
-            # Contar líneas que son encabezados de capítulo
             capitulos_count = len(order.order_line.filtered('es_encabezado_capitulo'))
-            
-            # Mostrar acordeón si hay al menos 1 capítulo
             order.tiene_multiples_capitulos = capitulos_count >= 1
     
-    # ========================================
-    # MÉTODOS DE ACCIÓN (INTERFAZ)
-    # ========================================
-    
     def action_add_capitulo(self):
-        """
-        Abre el wizard para gestionar capítulos del presupuesto.
-        
-        Este método se ejecuta cuando el usuario hace clic en el botón "Gestionar Capítulos"
-        en la vista del pedido de venta. Abre una ventana modal con el wizard que permite
-        seleccionar y aplicar capítulos al pedido.
-        
-        Returns:
-            dict: Acción de ventana para abrir el wizard en modo modal
-            
-        Contexto pasado al wizard:
-        - default_order_id: ID del pedido actual
-        - active_id: ID del registro activo
-        - active_model: Modelo del registro activo
-        """
+        """Acción para abrir el wizard de capítulos"""
         self.ensure_one()
         
         return {
@@ -308,7 +146,7 @@ class SaleOrder(models.Model):
             'name': 'Gestionar Capítulos del Presupuesto',
             'res_model': 'capitulo.wizard',
             'view_mode': 'form',
-            'target': 'new',  # Ventana modal
+            'target': 'new',
             'context': {
                 'default_order_id': self.id,
                 'active_id': self.id,
@@ -317,28 +155,12 @@ class SaleOrder(models.Model):
         }
     
     def toggle_capitulo_collapse(self, capitulo_index):
-        """
-        Alterna el estado colapsado/expandido de un capítulo en el acordeón.
-        
-        Este método maneja la interacción del usuario con el widget acordeón,
-        permitiendo expandir o colapsar capítulos individuales para mejorar
-        la navegación en presupuestos con múltiples capítulos.
-        
-        Args:
-            capitulo_index (int): Índice del capítulo en la lista (base 0)
-            
-        Returns:
-            dict: Acción para recargar la vista y reflejar el cambio
-            
-        Nota: Este método modifica el JSON de capitulos_agrupados para
-        persistir el estado de expansión entre recargas de página.
-        """
+        """Alterna el estado colapsado/expandido de un capítulo"""
         import json
         
         self.ensure_one()
         capitulos = json.loads(self.capitulos_agrupados or '[]')
         
-        # Validar índice y alternar estado
         if 0 <= capitulo_index < len(capitulos):
             capitulos[capitulo_index]['collapsed'] = not capitulos[capitulo_index].get('collapsed', True)
             self.capitulos_agrupados = json.dumps(capitulos)

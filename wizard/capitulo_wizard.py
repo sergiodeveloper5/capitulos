@@ -1,114 +1,26 @@
-# -*- coding: utf-8 -*-
-"""
-Wizard para Gestión de Capítulos Técnicos
-==========================================
-
-Este módulo contiene los wizards (modelos transitorios) para la gestión de capítulos
-técnicos en pedidos de venta. Proporciona una interfaz intuitiva para aplicar
-capítulos existentes o crear nuevos capítulos con sus secciones y productos.
-
-Modelos incluidos:
-- CapituloWizard: Wizard principal para gestión de capítulos
-- CapituloWizardSeccion: Modelo transitorio para secciones del wizard
-- CapituloWizardLine: Modelo transitorio para líneas de productos
-
-Funcionalidades principales:
-- Aplicación de capítulos existentes a pedidos
-- Creación de nuevos capítulos desde el wizard
-- Configuración de secciones con filtrado por categorías
-- Gestión de productos con cantidades y precios personalizables
-- Validaciones y controles de integridad
-
-Autor: Sergio
-Fecha: 2024
-Versión: 1.0
-"""
-
 from odoo import models, fields, api
 from odoo.exceptions import UserError
 import logging
 
 _logger = logging.getLogger(__name__)
 
-
 class CapituloWizardSeccion(models.TransientModel):
-    """
-    Modelo transitorio para las secciones dentro del wizard de capítulos.
-    
-    Este modelo representa una sección temporal durante la configuración de un capítulo
-    en el wizard. Permite al usuario configurar secciones con sus productos antes de
-    aplicar el capítulo al pedido de venta.
-    
-    Características:
-    - Modelo transitorio (se elimina automáticamente después del uso)
-    - Configuración de categorías para filtrado automático de productos
-    - Gestión de secuencias para ordenamiento
-    - Validaciones de integridad de datos
-    - Soporte para secciones fijas y opcionales
-    """
     _name = 'capitulo.wizard.seccion'
     _description = 'Sección del Wizard de Capítulo'
-    _order = 'sequence, name'  # Ordenar por secuencia y luego por nombre
+    _order = 'sequence, name'
 
-    # ========================================
-    # CAMPOS DE RELACIÓN Y JERARQUÍA
-    # ========================================
+    wizard_id = fields.Many2one('capitulo.wizard', ondelete='cascade')
+    name = fields.Char(string='Nombre de la Sección', required=True, default='Nueva Sección')
+    sequence = fields.Integer(string='Secuencia', default=10)
+    es_fija = fields.Boolean(string='Sección Fija', default=False)
+    incluir = fields.Boolean(string='Incluir en Presupuesto', default=False)
+    line_ids = fields.One2many('capitulo.wizard.line', 'seccion_id', string='Productos')
     
-    wizard_id = fields.Many2one(
-        'capitulo.wizard', 
-        ondelete='cascade',
-        help='Wizard padre al que pertenece esta sección'
-    )
-    
-    # ========================================
-    # CAMPOS BÁSICOS DE CONFIGURACIÓN
-    # ========================================
-    
-    name = fields.Char(
-        string='Nombre de la Sección', 
-        required=True, 
-        default='Nueva Sección',
-        help='Nombre descriptivo de la sección'
-    )
-    
-    sequence = fields.Integer(
-        string='Secuencia', 
-        default=10,
-        help='Orden de aparición de la sección (menor número = mayor prioridad)'
-    )
-    
-    es_fija = fields.Boolean(
-        string='Sección Fija', 
-        default=False,
-        help='Si está marcado, esta sección no se puede modificar en el presupuesto'
-    )
-    
-    incluir = fields.Boolean(
-        string='Incluir en Presupuesto', 
-        default=False,
-        help='Determina si esta sección se incluirá en el presupuesto final'
-    )
-    
-    # ========================================
-    # CAMPOS DE FILTRADO Y CATEGORIZACIÓN
-    # ========================================
-    
+    # Campo para filtrar productos por categoría
     product_category_id = fields.Many2one(
         'product.category', 
         string='Categoría de Productos',
-        help='Selecciona una categoría para filtrar automáticamente los productos disponibles. '
-             'Solo se mostrarán productos de esta categoría al añadir productos'
-    )
-    
-    # ========================================
-    # CAMPOS DE RELACIÓN CON PRODUCTOS
-    # ========================================
-    
-    line_ids = fields.One2many(
-        'capitulo.wizard.line', 
-        'seccion_id', 
-        string='Productos',
-        help='Lista de productos configurados en esta sección'
+        help='Selecciona una categoría para filtrar los productos disponibles'
     )
     
     @api.model
@@ -160,114 +72,22 @@ class CapituloWizardSeccion(models.TransientModel):
         return self.unlink()
 
 class CapituloWizardLine(models.TransientModel):
-    """
-    Modelo transitorio para las líneas de productos dentro del wizard de capítulos.
-    
-    Este modelo representa una línea de producto temporal durante la configuración de un
-    capítulo en el wizard. Cada línea contiene información sobre un producto específico,
-    su cantidad, precio y configuraciones adicionales.
-    
-    Características:
-    - Modelo transitorio (se elimina automáticamente después del uso)
-    - Gestión de productos con cantidades y precios personalizables
-    - Soporte para descripciones personalizadas
-    - Control de inclusión opcional en el presupuesto
-    - Validaciones automáticas de precios y cantidades
-    - Secuenciación para ordenamiento personalizado
-    """
     _name = 'capitulo.wizard.line'
     _description = 'Línea de Configurador de capítulo'
 
-    # ========================================
-    # CAMPOS DE RELACIÓN Y JERARQUÍA
-    # ========================================
-    
-    wizard_id = fields.Many2one(
-        'capitulo.wizard', 
-        ondelete='cascade',
-        help='Wizard padre al que pertenece esta línea'
-    )
-    
-    seccion_id = fields.Many2one(
-        'capitulo.wizard.seccion', 
-        string='Sección', 
-        ondelete='cascade',
-        help='Sección a la que pertenece esta línea de producto'
-    )
-    
-    # ========================================
-    # CAMPOS DE PRODUCTO Y CONFIGURACIÓN
-    # ========================================
-    
-    product_id = fields.Many2one(
-        'product.product', 
-        string='Producto',
-        help='Producto seleccionado para esta línea'
-    )
-    
-    descripcion_personalizada = fields.Char(
-        string='Descripción Personalizada',
-        help='Descripción personalizada que sobrescribe la descripción del producto'
-    )
-    
-    # ========================================
-    # CAMPOS DE CANTIDAD Y PRECIO
-    # ========================================
-    
-    cantidad = fields.Float(
-        string='Cantidad', 
-        default=1, 
-        required=True,
-        help='Cantidad del producto a incluir'
-    )
-    
-    precio_unitario = fields.Float(
-        string='Precio', 
-        default=0.0,
-        help='Precio unitario del producto (se actualiza automáticamente al seleccionar producto)'
-    )
-    
-    # ========================================
-    # CAMPOS DE CONTROL Y CONFIGURACIÓN
-    # ========================================
-    
-    incluir = fields.Boolean(
-        string='Incluir', 
-        default=False,
-        help='Determina si esta línea se incluirá en el presupuesto final'
-    )
-    
-    es_opcional = fields.Boolean(
-        string='Opcional', 
-        default=False,
-        help='Marca esta línea como opcional en el presupuesto'
-    )
-    
-    sequence = fields.Integer(
-        string='Secuencia', 
-        default=10,
-        help='Orden de aparición de la línea (menor número = mayor prioridad)'
-    )
-    # ========================================
-    # MÉTODOS DE CICLO DE VIDA
-    # ========================================
+    wizard_id = fields.Many2one('capitulo.wizard', ondelete='cascade')
+    seccion_id = fields.Many2one('capitulo.wizard.seccion', string='Sección', ondelete='cascade')
+    product_id = fields.Many2one('product.product', string='Producto')
+    descripcion_personalizada = fields.Char(string='Descripción Personalizada')
+    cantidad = fields.Float(string='Cantidad', default=1, required=True)
+    precio_unitario = fields.Float(string='Precio', default=0.0)
+    incluir = fields.Boolean(string='Incluir', default=False)
+    es_opcional = fields.Boolean(string='Opcional', default=False)
+    sequence = fields.Integer(string='Secuencia', default=10)
     
     @api.model
     def create(self, vals):
-        """
-        Sobrescribe el método create para asegurar relaciones correctas.
-        
-        Funcionalidades:
-        - Establece automáticamente wizard_id desde la sección padre si no se proporciona
-        - Registra la creación de líneas para debugging
-        - Valida que las relaciones sean consistentes
-        
-        Args:
-            vals (dict): Valores para crear el registro
-            
-        Returns:
-            CapituloWizardLine: Registro creado
-        """
+        """Asegurar que siempre se establezca la relación wizard_id correctamente"""
         # Si no se proporciona wizard_id pero sí seccion_id, obtenerlo de la sección
         if not vals.get('wizard_id') and vals.get('seccion_id'):
             seccion = self.env['capitulo.wizard.seccion'].browse(vals['seccion_id'])
@@ -279,23 +99,9 @@ class CapituloWizardLine(models.TransientModel):
         _logger.info(f"Línea de producto creada: ID={line.id}, Producto={line.product_id.name if line.product_id else 'Sin producto'}, Sección={line.seccion_id.name if line.seccion_id else 'Sin sección'}")
         return line
     
-    # ========================================
-    # MÉTODOS DE EVENTOS (ONCHANGE)
-    # ========================================
-    
     @api.onchange('product_id')
     def _onchange_product_id(self):
-        """
-        Actualiza automáticamente los campos relacionados cuando se selecciona un producto.
-        
-        Funcionalidades:
-        - Establece el precio unitario desde el precio de lista del producto
-        - Marca automáticamente la línea como incluida
-        - Resetea valores cuando se deselecciona el producto
-        - Registra los cambios para debugging
-        
-        Triggered by: Cambio en el campo product_id
-        """
+        """Actualiza el precio unitario cuando se selecciona un producto"""
         if self.product_id:
             self.precio_unitario = self.product_id.list_price
             # Automáticamente marcar como incluido (aunque no sea visible en la interfaz)
@@ -306,111 +112,28 @@ class CapituloWizardLine(models.TransientModel):
             self.incluir = False
 
 class CapituloWizard(models.TransientModel):
-    """
-    Wizard principal para la gestión de capítulos técnicos en pedidos de venta.
-    
-    Este wizard permite a los usuarios aplicar capítulos existentes o crear nuevos
-    capítulos con sus secciones y productos asociados. Proporciona una interfaz
-    intuitiva para configurar todos los aspectos de un capítulo antes de aplicarlo
-    al pedido de venta.
-    
-    Características principales:
-    - Dos modos de operación: usar capítulo existente o crear nuevo
-    - Gestión dinámica de secciones con productos
-    - Validaciones automáticas de integridad
-    - Soporte para plantillas y herencia
-    - Interfaz responsive con actualizaciones en tiempo real
-    - Logging detallado para debugging y auditoría
-    
-    Flujo de trabajo:
-    1. Selección del modo de creación (existente/nuevo)
-    2. Configuración de secciones y productos
-    3. Validación de datos
-    4. Aplicación al pedido de venta
-    """
     _name = 'capitulo.wizard'
     _description = 'Añadir Capítulo'
 
-    # ========================================
-    # CAMPOS DE CONFIGURACIÓN PRINCIPAL
-    # ========================================
-    
     # Modo de operación
     modo_creacion = fields.Selection([
         ('existente', 'Usar Capítulo Existente'),
         ('nuevo', 'Crear Nuevo Capítulo')
-    ], string='Modo de Creación', default='existente', required=True,
-       help='Determina si se usará un capítulo existente o se creará uno nuevo')
-    
-    # ========================================
-    # CAMPOS PARA CAPÍTULO EXISTENTE
-    # ========================================
+    ], string='Modo de Creación', default='existente', required=True)
     
     # Campos para capítulo existente
-    capitulo_id = fields.Many2one(
-        'capitulo.contrato', 
-        string='Capítulo',
-        help='Capítulo existente a aplicar al pedido'
-    )
-    
-    # ========================================
-    # CAMPOS PARA NUEVO CAPÍTULO
-    # ========================================
+    capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo')
     
     # Campos para crear nuevo capítulo
-    nuevo_capitulo_nombre = fields.Char(
-        string='Nombre del Capítulo',
-        help='Nombre para el nuevo capítulo a crear'
-    )
+    nuevo_capitulo_nombre = fields.Char(string='Nombre del Capítulo')
+    nuevo_capitulo_descripcion = fields.Text(string='Descripción del Capítulo')
     
-    nuevo_capitulo_descripcion = fields.Text(
-        string='Descripción del Capítulo',
-        help='Descripción detallada del nuevo capítulo'
-    )
-    
-    # ========================================
-    # CAMPOS DE RELACIÓN Y DATOS
-    # ========================================
-    
-    order_id = fields.Many2one(
-        'sale.order', 
-        string='Pedido de Venta', 
-        required=True,
-        help='Pedido de venta al que se aplicará el capítulo'
-    )
-    
-    seccion_ids = fields.One2many(
-        'capitulo.wizard.seccion', 
-        'wizard_id', 
-        string='Secciones',
-        help='Secciones configuradas en este wizard'
-    )
-    
-    condiciones_particulares = fields.Text(
-        string='Condiciones Particulares',
-        help='Condiciones específicas para este capítulo'
-    )
-
-    # ========================================
-    # MÉTODOS DE INICIALIZACIÓN Y CICLO DE VIDA
-    # ========================================
+    order_id = fields.Many2one('sale.order', string='Pedido de Venta', required=True)
+    seccion_ids = fields.One2many('capitulo.wizard.seccion', 'wizard_id', string='Secciones')
+    condiciones_particulares = fields.Text(string='Condiciones Particulares')
 
     @api.model
     def default_get(self, fields):
-        """
-        Establece valores por defecto al crear el wizard.
-        
-        Funcionalidades:
-        - Obtiene el pedido de venta desde el contexto
-        - Inicializa el wizard con valores apropiados
-        - Registra la inicialización para debugging
-        
-        Args:
-            fields (list): Lista de campos a inicializar
-            
-        Returns:
-            dict: Valores por defecto para los campos
-        """
         res = super().default_get(fields)
         # Obtener el pedido desde el contexto
         order_id = self.env.context.get('default_order_id') or self.env.context.get('active_id')
@@ -422,20 +145,7 @@ class CapituloWizard(models.TransientModel):
     
     @api.model
     def create(self, vals):
-        """
-        Sobrescribe el método create para inicialización personalizada.
-        
-        Funcionalidades:
-        - Crea secciones predefinidas para modo nuevo
-        - Valida la configuración inicial
-        - Registra la creación del wizard
-        
-        Args:
-            vals (dict): Valores para crear el wizard
-            
-        Returns:
-            CapituloWizard: Wizard creado
-        """
+        """Sobrescribir create para asegurar que las secciones se inicialicen correctamente"""
         _logger.info("=== Creando nuevo wizard ===")
         wizard = super().create(vals)
         
@@ -446,21 +156,16 @@ class CapituloWizard(models.TransientModel):
         
         return wizard
     
+
+    
+
+    
+
+    
+
+    
     def write(self, vals):
-        """
-        Sobrescribe el método write para manejar actualizaciones.
-        
-        Funcionalidades:
-        - Evita recursión infinita con banderas de contexto
-        - Mantiene la integridad de los datos
-        - Permite actualizaciones controladas
-        
-        Args:
-            vals (dict): Valores a actualizar
-            
-        Returns:
-            bool: True si la actualización fue exitosa
-        """
+        """Override write para manejar cambios"""
         # Evitar recursión infinita con una bandera de contexto
         if self.env.context.get('skip_integrity_check'):
             return super().write(vals)
@@ -468,23 +173,9 @@ class CapituloWizard(models.TransientModel):
         result = super().write(vals)
         return result
 
-    # ========================================
-    # MÉTODOS DE EVENTOS (ONCHANGE)
-    # ========================================
-
     @api.onchange('modo_creacion')
     def onchange_modo_creacion(self):
-        """
-        Maneja el cambio de modo de creación del wizard.
-        
-        Funcionalidades:
-        - Limpia campos específicos según el modo seleccionado
-        - Crea secciones predefinidas para modo nuevo
-        - Evita conflictos entre modos de operación
-        - Registra los cambios para debugging
-        
-        Triggered by: Cambio en el campo modo_creacion
-        """
+        """Limpiar campos cuando cambia el modo de creación"""
         _logger.info(f"=== onchange_modo_creacion: {self.modo_creacion} ===")
         
         if self.modo_creacion == 'existente':
@@ -501,17 +192,7 @@ class CapituloWizard(models.TransientModel):
     
     @api.onchange('capitulo_id')
     def onchange_capitulo_id(self):
-        """
-        Maneja la selección de un capítulo existente.
-        
-        Funcionalidades:
-        - Carga las secciones del capítulo seleccionado
-        - Establece las condiciones legales
-        - Crea secciones predefinidas si no existen
-        - Valida que el modo sea correcto
-        
-        Triggered by: Cambio en el campo capitulo_id
-        """
+        """Carga las secciones del capítulo seleccionado"""
         if self.modo_creacion != 'existente':
             return
             
