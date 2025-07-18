@@ -149,10 +149,8 @@ class CapituloWizard(models.TransientModel):
         _logger.info("=== Creando nuevo wizard ===")
         wizard = super().create(vals)
         
-        # Si no hay secciones y estamos en modo nuevo, crear secciones predefinidas
-        if not wizard.seccion_ids and wizard.modo_creacion == 'nuevo':
-            _logger.info("Creando secciones predefinidas para nuevo wizard")
-            wizard._crear_secciones_predefinidas()
+        # No crear secciones predefinidas - permitir al usuario añadir secciones manualmente
+        _logger.info("Wizard creado sin secciones predefinidas")
         
         return wizard
     
@@ -186,9 +184,9 @@ class CapituloWizard(models.TransientModel):
             self.with_context(skip_integrity_check=True, from_onchange=True).write({'seccion_ids': [(5, 0, 0)]})
         elif self.modo_creacion == 'nuevo':
             self.capitulo_id = False
-            # Crear secciones predefinidas para modo nuevo
-            _logger.info(f"Modo nuevo - Secciones actuales: {len(self.seccion_ids)}")
-            self._crear_secciones_predefinidas()
+            # Limpiar secciones para modo nuevo - permitir al usuario añadir secciones manualmente
+            _logger.info(f"Modo nuevo - Limpiando secciones existentes: {len(self.seccion_ids)}")
+            self.with_context(skip_integrity_check=True, from_onchange=True).write({'seccion_ids': [(5, 0, 0)]})
     
     @api.onchange('capitulo_id')
     def onchange_capitulo_id(self):
@@ -210,9 +208,7 @@ class CapituloWizard(models.TransientModel):
         # Cargar secciones del capítulo
         if self.capitulo_id.seccion_ids:
             self._cargar_secciones_existentes()
-        else:
-            # Si no hay secciones, crear secciones predefinidas
-            self._crear_secciones_predefinidas()
+        # Si no hay secciones, dejar el wizard vacío para que el usuario añada secciones manualmente
     
 
     
@@ -225,94 +221,23 @@ class CapituloWizard(models.TransientModel):
 
     
     def _crear_secciones_predefinidas(self):
-        """Crea secciones predefinidas básicas"""
-        _logger.info("=== Iniciando creación de secciones predefinidas ===")
+        """No crea secciones predefinidas - permite al usuario crear secciones manualmente"""
+        _logger.info("=== Modo nuevo: No creando secciones predefinidas ===")
         
-        secciones_predefinidas = [
-            {'name': 'Alquiler', 'sequence': 10},
-            {'name': 'Montaje', 'sequence': 20},
-            {'name': 'Portes', 'sequence': 30},
-            {'name': 'Otros Conceptos', 'sequence': 40},
-        ]
-        
-        # Limpiar secciones existentes primero usando contexto para evitar recursión
+        # Limpiar secciones existentes usando contexto para evitar recursión
         _logger.info("Limpiando secciones existentes...")
         self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
         
-        # Determinar si las secciones deben ser fijas según el modo
-        es_fija = self.modo_creacion == 'existente'
-        _logger.info(f"Modo creación: {self.modo_creacion}, es_fija: {es_fija}")
-        
-        secciones_vals = []
-        for seccion_data in secciones_predefinidas:
-            vals = {
-                'wizard_id': self.id,  # Asegurar la relación
-                'name': seccion_data['name'],
-                'sequence': seccion_data['sequence'],
-                'es_fija': es_fija,  # Fijas solo en modo existente
-                'incluir': False,  # Por defecto no incluir, el usuario debe seleccionar
-                'line_ids': [],
-            }
-            secciones_vals.append((0, 0, vals))
-            _logger.info(f"Preparando sección: {seccion_data['name']} con wizard_id={self.id}")
-        
-        # Crear secciones usando contexto para evitar recursión
-        _logger.info(f"Creando {len(secciones_vals)} secciones...")
-        self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
-        
-        # Verificar que se crearon correctamente
-        try:
-            # Forzar flush para asegurar que los datos se escriban
-            self.env.flush_all()
-            _logger.info(f"Secciones creadas exitosamente. Total: {len(self.seccion_ids)}")
-            
-            # Verificar nombres
-            for seccion in self.seccion_ids:
-                _logger.info(f"Sección creada: ID={seccion.id}, Nombre='{seccion.name}', Fija={seccion.es_fija}")
-                
-        except Exception as e:
-            _logger.error(f"Error al confirmar secciones: {e}")
-            # Intentar recrear si hay error
-            self._recrear_secciones_seguro()
+        _logger.info("Wizard configurado sin secciones predefinidas - el usuario puede añadir secciones manualmente")
     
     def _recrear_secciones_seguro(self):
-        """Método seguro para recrear secciones en caso de error"""
+        """Método seguro para limpiar secciones en caso de error"""
         try:
-            # Crear secciones una por una para mayor control
-            secciones_predefinidas = [
-                {'name': 'Alquiler', 'sequence': 10},
-                {'name': 'Montaje', 'sequence': 20},
-                {'name': 'Portes', 'sequence': 30},
-                {'name': 'Otros Conceptos', 'sequence': 40},
-            ]
-            
             # Limpiar completamente usando contexto para evitar recursión
             self.with_context(skip_integrity_check=True).write({'seccion_ids': [(5, 0, 0)]})
-            
-            # Determinar si las secciones deben ser fijas según el modo
-            es_fija = self.modo_creacion == 'existente'
-            
-            # Crear todas las secciones de una vez
-            secciones_vals = []
-            for seccion_data in secciones_predefinidas:
-                try:
-                    seccion_vals = (0, 0, {
-                        'name': seccion_data['name'],
-                        'sequence': seccion_data['sequence'],
-                        'es_fija': es_fija,
-                        'incluir': False,  # Por defecto no incluir, el usuario debe seleccionar
-                        'line_ids': [],
-                    })
-                    secciones_vals.append(seccion_vals)
-                except Exception as e:
-                    _logger.error(f"Error preparando sección '{seccion_data['name']}': {e}")
-            
-            # Crear todas las secciones usando contexto para evitar recursión
-            if secciones_vals:
-                self.with_context(skip_integrity_check=True).write({'seccion_ids': secciones_vals})
-                    
+            _logger.info("Secciones limpiadas correctamente")
         except Exception as e:
-            _logger.error(f"Error en recreación segura: {e}")
+            _logger.error(f"Error en limpieza de secciones: {e}")
     
     def _cargar_secciones_existentes(self):
         """Carga las secciones existentes del capítulo"""
