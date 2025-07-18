@@ -210,65 +210,102 @@
                 <div class="product-selector-dialog">
                     <!-- Paso 1: Selección de Categoría -->
                     <div t-if="state.step === 'category'" class="category-selection">
-                        <div class="alert alert-info mb-3">
+                        <div class="alert alert-primary mb-3">
                             <i class="fa fa-info-circle me-2"></i>
-                            <strong>Paso 1:</strong> Seleccione una categoría de productos
+                            <strong>Paso 1:</strong> Seleccione una categoría de productos para continuar
                         </div>
                         
-                        <div class="mb-3">
-                            <label for="category-search-input" class="form-label">Buscar categoría:</label>
-                            <input 
-                                type="text" 
-                                id="category-search-input"
-                                name="category-search-input"
-                                class="form-control" 
-                                placeholder="Escriba el nombre de la categoría..."
-                                t-model="state.categorySearchTerm"
-                                t-on-input="onCategorySearchInput"
-                            />
-                        </div>
-                        
-                        <div class="category-list" style="max-height: 400px; overflow-y: auto;">
-                            <div t-if="state.loadingCategories" class="text-center p-3">
-                                <i class="fa fa-spinner fa-spin"></i> Cargando categorías...
-                            </div>
-                            
-                            <div t-if="!state.loadingCategories and state.categories.length === 0 and state.categorySearchTerm" class="text-center p-3 text-muted">
-                                <i class="fa fa-search me-2"></i>
-                                No se encontraron categorías que coincidan con "<strong t-esc="state.categorySearchTerm"/>"
-                            </div>
-                            
-                            <div t-if="!state.loadingCategories and !state.categorySearchTerm" class="text-center p-3 text-muted">
-                                <i class="fa fa-keyboard-o me-2"></i>
-                                Escriba para buscar categorías o seleccione una de la lista
-                            </div>
-                            
-                            <div t-foreach="state.categories" t-as="category" t-key="category.id" 
-                                 class="category-item p-3 border-bottom" 
-                                 t-att-class="{'bg-primary text-white': state.selectedCategory and state.selectedCategory.id === category.id, 'border-primary': state.selectedCategory and state.selectedCategory.id === category.id}"
-                                 t-on-click="() => this.selectCategory(category)"
-                                 style="cursor: pointer; transition: all 0.2s;">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center mb-1">
-                                            <i class="fa fa-folder me-2"></i>
-                                            <strong t-esc="category.name" class="me-2"></strong>
-                                            <span t-if="state.selectedCategory and state.selectedCategory.id === category.id" 
-                                                  class="badge bg-light text-primary">
-                                                <i class="fa fa-check"></i> Seleccionada
-                                            </span>
-                                        </div>
-                                        <div t-if="category.parent_id" class="small" 
-                                             t-att-class="state.selectedCategory and state.selectedCategory.id === category.id ? 'text-light' : 'text-muted'">
-                                            <i class="fa fa-level-up me-1"></i>
-                                            Categoría padre: <span t-esc="category.parent_id[1]"></span>
-                                        </div>
-                                    </div>
-                                    <div class="text-end">
-                                        <span t-if="category.product_count" class="badge bg-secondary">
-                                            <span t-esc="category.product_count"></span> productos
+                        <div class="mb-4">
+                            <label for="category-selector" class="form-label">Categoría de Productos <span class="text-danger">*</span></label>
+                            <div class="position-relative">
+                                <div class="dropdown w-100">
+                                    <button 
+                                        type="button"
+                                        id="category-selector"
+                                        class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" 
+                                        t-att-class="{'is-invalid': state.categoryError, 'btn-outline-success': state.selectedCategory}"
+                                        t-on-click="toggleCategoryDropdown"
+                                        style="min-height: 38px;">
+                                        <span t-if="state.selectedCategory" t-esc="state.selectedCategory.name"></span>
+                                        <span t-else="" class="text-muted">Seleccione una categoría de productos</span>
+                                        <span class="ms-auto">
+                                            <i t-if="state.loadingCategories" class="fa fa-spinner fa-spin text-muted"></i>
+                                            <i t-else="" class="fa fa-chevron-down text-muted" t-att-class="{'fa-chevron-up': state.showCategoryDropdown}"></i>
                                         </span>
+                                    </button>
+                                    
+                                    <div t-if="state.showCategoryDropdown" 
+                                         class="dropdown-menu show w-100 shadow-lg border" 
+                                         style="max-height: 300px; overflow-y: auto; z-index: 1050;">
+                                        
+                                        <!-- Campo de búsqueda dentro del dropdown -->
+                                        <div class="p-2 border-bottom bg-light">
+                                            <input 
+                                                type="text" 
+                                                class="form-control form-control-sm" 
+                                                placeholder="Escriba para buscar..."
+                                                t-model="state.categorySearchTerm"
+                                                t-on-input="onCategorySearchInput"
+                                                t-on-click.stop=""
+                                                t-ref="categorySearchInput"
+                                            />
+                                        </div>
+                                        
+                                        <!-- Lista de categorías -->
+                                        <div t-if="state.loadingCategories" class="dropdown-item-text text-center py-3">
+                                            <i class="fa fa-spinner fa-spin me-2"></i>Cargando categorías...
+                                        </div>
+                                        
+                                        <div t-if="!state.loadingCategories and state.categories.length === 0 and state.categorySearchTerm" 
+                                             class="dropdown-item-text text-center py-3 text-muted">
+                                            <i class="fa fa-search me-2"></i>
+                                            No se encontraron categorías
+                                        </div>
+                                        
+                                        <div t-if="!state.loadingCategories and state.categories.length === 0 and !state.categorySearchTerm" 
+                                             class="dropdown-item-text text-center py-3 text-muted">
+                                            <i class="fa fa-exclamation-triangle me-2"></i>
+                                            No hay categorías disponibles
+                                        </div>
+                                        
+                                        <div t-foreach="state.categories" t-as="category" t-key="category.id">
+                                            <a href="#" 
+                                               class="dropdown-item d-flex justify-content-between align-items-center py-2"
+                                               t-att-class="{'active': state.selectedCategory and state.selectedCategory.id === category.id}"
+                                               t-on-click.prevent="() => this.selectCategoryFromDropdown(category)">
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="fa fa-folder me-2 text-primary"></i>
+                                                        <span t-esc="category.name"></span>
+                                                    </div>
+                                                    <div t-if="category.parent_id" class="small text-muted mt-1">
+                                                        <i class="fa fa-sitemap me-1"></i>
+                                                        <span t-esc="category.parent_id[1]"></span>
+                                                    </div>
+                                                </div>
+                                                <div t-if="state.selectedCategory and state.selectedCategory.id === category.id">
+                                                    <i class="fa fa-check text-success"></i>
+                                                </div>
+                                            </a>
+                                        </div>
                                     </div>
+                                </div>
+                                
+                                <div t-if="state.categoryError" class="invalid-feedback">
+                                    <span t-esc="state.categoryError"></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Información de la categoría seleccionada -->
+                            <div t-if="state.selectedCategory" class="mt-3 p-3 bg-light border rounded">
+                                <div class="d-flex align-items-center">
+                                    <i class="fa fa-check-circle text-success me-2"></i>
+                                    <strong>Categoría seleccionada:</strong>
+                                    <span class="ms-2" t-esc="state.selectedCategory.name"></span>
+                                </div>
+                                <div t-if="state.selectedCategory.parent_id" class="small text-muted mt-1">
+                                    <i class="fa fa-sitemap me-1"></i>
+                                    Categoría padre: <span t-esc="state.selectedCategory.parent_id[1]"></span>
                                 </div>
                             </div>
                         </div>
@@ -310,9 +347,14 @@
                                 en la categoría "<span t-esc="state.selectedCategory.name"/>"
                             </div>
                             
-                            <div t-if="!state.loadingProducts and !state.productSearchTerm" class="text-center p-3 text-muted">
+                            <div t-if="!state.loadingProducts and state.products.length === 0 and !state.productSearchTerm" class="text-center p-3 text-muted">
+                                <i class="fa fa-info-circle me-2"></i>
+                                No hay productos disponibles en la categoría "<span t-esc="state.selectedCategory.name"/>"
+                            </div>
+                            
+                            <div t-if="!state.loadingProducts and state.products.length > 0 and !state.productSearchTerm" class="text-center p-3 text-info">
                                 <i class="fa fa-keyboard-o me-2"></i>
-                                Escriba para buscar productos en la categoría "<span t-esc="state.selectedCategory.name"/>"
+                                <span t-esc="state.products.length"/> productos disponibles. Escriba para buscar o seleccione uno de la lista.
                             </div>
                             
                             <div t-foreach="state.products" t-as="product" t-key="product.id" 
@@ -364,12 +406,24 @@
                     <button t-if="state.step === 'category'" type="button" class="btn btn-primary" 
                             t-on-click="proceedToProducts" 
                             t-att-disabled="!state.selectedCategory">
-                        <i class="fa fa-arrow-right me-1"></i> Continuar
+                        <i class="fa fa-arrow-right me-1"></i> 
+                        <span t-if="state.selectedCategory">
+                            Ver productos de "<span t-esc="state.selectedCategory.name"/>"
+                        </span>
+                        <span t-else="">
+                            Seleccione una categoría
+                        </span>
                     </button>
                     <button t-if="state.step === 'product'" type="button" class="btn btn-primary" 
                             t-on-click="onConfirm" 
                             t-att-disabled="!state.selectedProduct">
-                        <i class="fa fa-check me-1"></i> Confirmar
+                        <i class="fa fa-check me-1"></i> 
+                        <span t-if="state.selectedProduct">
+                            Añadir "<span t-esc="state.selectedProduct.name"/>"
+                        </span>
+                        <span t-else="">
+                            Seleccione un producto
+                        </span>
                     </button>
                 </t>
             </Dialog>

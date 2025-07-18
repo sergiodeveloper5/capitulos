@@ -510,13 +510,15 @@ class ProductSelectorDialog extends Component {
         this.orm = useService("orm");
         this.notification = useService("notification");
         this.state = useState({
-            step: "category", // 'category' o 'product'
+            step: "category", // Siempre empezar por categoría
             
             // Para categorías
             categorySearchTerm: "",
             categories: [],
             selectedCategory: null,
             loadingCategories: false,
+            showCategoryDropdown: false,
+            categoryError: null,
             
             // Para productos
             productSearchTerm: "",
@@ -525,8 +527,32 @@ class ProductSelectorDialog extends Component {
             loadingProducts: false,
         });
         
-        // Cargar categorías al inicializar
+        // Siempre cargar categorías al inicio
         this.loadCategories();
+        
+        // Bind para manejar clicks fuera del dropdown
+        this.handleClickOutside = this.handleClickOutside.bind(this);
+    }
+
+    mounted() {
+        document.addEventListener('click', this.handleClickOutside);
+    }
+
+    willUnmount() {
+        document.removeEventListener('click', this.handleClickOutside);
+        if (this.categorySearchTimeout) {
+            clearTimeout(this.categorySearchTimeout);
+        }
+        if (this.productSearchTimeout) {
+            clearTimeout(this.productSearchTimeout);
+        }
+    }
+
+    handleClickOutside(event) {
+        const dropdown = event.target.closest('.dropdown');
+        if (!dropdown) {
+            this.state.showCategoryDropdown = false;
+        }
     }
 
     async loadCategories() {
@@ -547,15 +573,43 @@ class ProductSelectorDialog extends Component {
         }
     }
 
+    showCategoryDropdown() {
+        this.state.showCategoryDropdown = true;
+        this.state.categoryError = null;
+        // Focus en el campo de búsqueda después de un pequeño delay
+        setTimeout(() => {
+            const searchInput = this.el?.querySelector('[t-ref="categorySearchInput"]');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }, 100);
+    }
+
+    hideCategoryDropdown() {
+        this.state.showCategoryDropdown = false;
+    }
+
+    toggleCategoryDropdown() {
+        if (this.state.showCategoryDropdown) {
+            this.hideCategoryDropdown();
+        } else {
+            this.showCategoryDropdown();
+        }
+    }
+
     async onCategorySearchInput(event) {
         const searchTerm = event.target.value;
         this.state.categorySearchTerm = searchTerm;
         
-        if (searchTerm.length >= 2) {
-            await this.searchCategories(searchTerm);
-        } else if (searchTerm.length === 0) {
-            await this.loadCategories();
-        }
+        // Debounce la búsqueda
+        clearTimeout(this.categorySearchTimeout);
+        this.categorySearchTimeout = setTimeout(() => {
+            if (searchTerm.length >= 2) {
+                this.searchCategories(searchTerm);
+            } else if (searchTerm.length === 0) {
+                this.loadCategories();
+            }
+        }, 300);
     }
 
     async searchCategories(searchTerm) {
@@ -581,8 +635,16 @@ class ProductSelectorDialog extends Component {
         this.state.selectedCategory = category;
     }
 
+    selectCategoryFromDropdown(category) {
+        this.state.selectedCategory = category;
+        this.state.showCategoryDropdown = false;
+        this.state.categoryError = null;
+        this.state.categorySearchTerm = "";
+    }
+
     async proceedToProducts() {
         if (!this.state.selectedCategory) {
+            this.state.categoryError = 'Debe seleccionar una categoría';
             this.notification.add('Debe seleccionar una categoría', { type: 'warning' });
             return;
         }
@@ -596,13 +658,18 @@ class ProductSelectorDialog extends Component {
         await this.loadProductsByCategory();
     }
 
-    async loadProductsByCategory() {
+    async loadProductsByCategory(searchTerm = '') {
         this.state.loadingProducts = true;
         try {
             const domain = [
                 ['categ_id', '=', this.state.selectedCategory.id],
                 ['sale_ok', '=', true]
             ];
+            
+            // Si hay término de búsqueda, añadirlo al dominio
+            if (searchTerm.trim()) {
+                domain.push(['name', 'ilike', searchTerm.trim()]);
+            }
             
             const products = await this.orm.call(
                 'product.product',
@@ -611,6 +678,7 @@ class ProductSelectorDialog extends Component {
                 { limit: 100 }
             );
             this.state.products = products;
+            
         } catch (error) {
             console.error('Error al cargar productos:', error);
             this.notification.add('Error al cargar los productos', { type: 'danger' });
@@ -623,35 +691,21 @@ class ProductSelectorDialog extends Component {
         const searchTerm = event.target.value;
         this.state.productSearchTerm = searchTerm;
         
-        if (searchTerm.length >= 2) {
-            await this.searchProductsInCategory(searchTerm);
-        } else if (searchTerm.length === 0) {
-            await this.loadProductsByCategory();
-        }
+        // Debounce la búsqueda
+        clearTimeout(this.productSearchTimeout);
+        this.productSearchTimeout = setTimeout(() => {
+            if (searchTerm.trim()) {
+                this.loadProductsByCategory(searchTerm);
+            } else {
+                // Si no hay término de búsqueda, cargar todos los productos de la categoría
+                this.loadProductsByCategory();
+            }
+        }, 300);
     }
 
     async searchProductsInCategory(searchTerm) {
-        this.state.loadingProducts = true;
-        try {
-            const domain = [
-                ['categ_id', '=', this.state.selectedCategory.id],
-                ['name', 'ilike', searchTerm],
-                ['sale_ok', '=', true]
-            ];
-            
-            const products = await this.orm.call(
-                'product.product',
-                'search_read',
-                [domain, ['name', 'default_code', 'categ_id', 'list_price', 'uom_id']],
-                { limit: 50 }
-            );
-            this.state.products = products;
-        } catch (error) {
-            console.error('Error al buscar productos:', error);
-            this.notification.add('Error al buscar productos', { type: 'danger' });
-        } finally {
-            this.state.loadingProducts = false;
-        }
+        // Usar el método unificado loadProductsByCategory
+        await this.loadProductsByCategory(searchTerm);
     }
 
     selectProduct(product) {
