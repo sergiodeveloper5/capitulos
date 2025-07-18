@@ -311,7 +311,73 @@
                                 />
                             </div>
                             
- 
+                            <!-- Lista de productos -->
+                            <div class="product-list">
+                                <!-- Mensaje de carga -->
+                                <div t-if="state.loadingProducts" class="text-center py-4">
+                                    <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"></i>
+                                    <div class="text-muted">Buscando productos...</div>
+                                </div>
+                                
+                                <!-- Mensaje cuando no hay productos -->
+                                <div t-if="!state.loadingProducts and state.products.length === 0 and state.productSearchTerm" 
+                                     class="text-center py-4">
+                                    <i class="fa fa-search fa-2x text-muted mb-2"></i>
+                                    <div class="text-muted">
+                                        No se encontraron productos que coincidan con "<strong t-esc="state.productSearchTerm"/>"
+                                    </div>
+                                </div>
+                                
+                                <!-- Mensaje informativo inicial -->
+                                <div t-if="!state.loadingProducts and state.products.length === 0 and !state.productSearchTerm" 
+                                     class="text-center py-4">
+                                    <i class="fa fa-keyboard-o fa-2x text-muted mb-2"></i>
+                                    <div class="text-muted">Escriba en el campo de búsqueda para encontrar productos</div>
+                                </div>
+                                
+                                <!-- Lista de productos encontrados -->
+                                <div t-if="!state.loadingProducts and state.products.length > 0" class="products-grid">
+                                    <div class="row">
+                                        <div t-foreach="state.products" t-as="product" t-key="product.id" class="col-12 mb-2">
+                                            <div class="card product-card h-100" 
+                                                 t-att-class="{'border-primary': state.selectedProduct and state.selectedProduct.id === product.id}"
+                                                 t-on-click="() => this.selectProduct(product)"
+                                                 style="cursor: pointer; transition: all 0.2s;">
+                                                <div class="card-body p-3">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <div class="flex-grow-1">
+                                                            <h6 class="card-title mb-2 text-primary" t-esc="product.name"></h6>
+                                                            <div class="product-details">
+                                                                <div t-if="product.default_code" class="small text-muted mb-1">
+                                                                    <i class="fa fa-barcode me-1"></i>
+                                                                    <strong>Código:</strong> <span t-esc="product.default_code"/>
+                                                                </div>
+                                                                <div t-if="product.categ_id" class="small text-muted mb-1">
+                                                                    <i class="fa fa-folder me-1"></i>
+                                                                    <strong>Categoría:</strong> <span t-esc="product.categ_id[1]"/>
+                                                                </div>
+                                                                <div t-if="product.list_price" class="small text-success">
+                                                                    <i class="fa fa-tag me-1"></i>
+                                                                    <strong>Precio:</strong> <span t-esc="product.list_price"/> €
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="text-end">
+                                                            <div t-if="state.selectedProduct and state.selectedProduct.id === product.id" 
+                                                                 class="badge bg-success">
+                                                                <i class="fa fa-check me-1"></i>Seleccionado
+                                                            </div>
+                                                            <div t-else="" class="text-muted small">
+                                                                Clic para seleccionar
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
