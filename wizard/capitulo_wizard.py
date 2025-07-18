@@ -20,8 +20,57 @@ class CapituloWizardSeccion(models.TransientModel):
     product_category_id = fields.Many2one(
         'product.category', 
         string='Categoría de Productos',
-        help='Selecciona una categoría para filtrar los productos disponibles'
+        required=True,
+        help='Debe seleccionar una categoría para poder añadir productos a esta sección'
     )
+    
+    @api.onchange('product_category_id')
+    def _onchange_product_category_id(self):
+        """Limpiar productos cuando se cambie la categoría"""
+        if self.product_category_id:
+            # Si hay productos existentes de una categoría diferente, avisar al usuario
+            if self.line_ids:
+                productos_diferentes = self.line_ids.filtered(
+                    lambda l: l.product_id and l.product_id.categ_id.id not in self.product_category_id.child_ids.ids + [self.product_category_id.id]
+                )
+                if productos_diferentes:
+                    # Limpiar productos que no pertenecen a la nueva categoría
+                    self.line_ids = [(5, 0, 0)]  # Eliminar todas las líneas
+                    return {
+                        'warning': {
+                            'title': 'Categoría cambiada',
+                            'message': 'Se han eliminado los productos existentes porque no pertenecen a la nueva categoría seleccionada.'
+                        }
+                    }
+    
+    @api.constrains('line_ids', 'product_category_id')
+    def _check_category_before_products(self):
+        """Valida que se haya seleccionado una categoría antes de añadir productos"""
+        for record in self:
+            if record.line_ids and not record.product_category_id:
+                raise UserError(
+                    "Debe seleccionar una categoría de productos antes de añadir productos a la sección.\n\n"
+                    "Para añadir productos:\n"
+                    "1. Seleccione una categoría de productos\n"
+                    "2. Luego podrá añadir productos de esa categoría"
+                )
+    
+    @api.constrains('product_id', 'seccion_id')
+    def _check_product_category(self):
+        """Valida que el producto pertenezca a la categoría seleccionada en la sección"""
+        for record in self:
+            if record.product_id and record.seccion_id and record.seccion_id.product_category_id:
+                categoria_seccion = record.seccion_id.product_category_id
+                categoria_producto = record.product_id.categ_id
+                
+                # Verificar si el producto pertenece a la categoría o a una subcategoría
+                if categoria_producto.id not in categoria_seccion.child_ids.ids + [categoria_seccion.id]:
+                    raise UserError(
+                        f"El producto '{record.product_id.name}' no pertenece a la categoría '{categoria_seccion.name}' "
+                        f"seleccionada para esta sección.\n\n"
+                        f"Categoría del producto: {categoria_producto.name}\n"
+                        f"Categoría requerida: {categoria_seccion.name}"
+                    )
     
     @api.model
     def create(self, vals):
