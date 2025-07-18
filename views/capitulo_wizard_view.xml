@@ -71,7 +71,7 @@
                                             <group>
                                                 <field name="incluir" string="Incluir en Presupuesto" widget="boolean_toggle"/>
                                                 <field name="product_category_id" required="1" placeholder="Seleccione una categoría de productos..."
-                                                       domain="[('name', '!=', 'All'), ('name', 'not like', 'All /%'), ('name', 'not in', ['All', 'Deliveries', 'Sales', 'Purchase', 'Expenses', 'Saleable', 'Consumable', 'Service', 'Storable Product', 'All / Deliveries', 'All / Sales', 'All / Purchase', 'All / Expenses', 'All / Saleable', 'All / Consumable', 'All / Service', 'All / Storable Product']), '|', ('parent_id', '=', False), '&', ('parent_id.name', '!=', 'All'), ('parent_id.name', 'not like', 'All /%')]"/>
+                                                       domain="[('name', '!=', 'All'), ('name', 'not like', 'All /%'), ('name', 'not in', ['All', 'Deliveries', 'Sales', 'Purchase', 'Expenses', 'Saleable', 'Consumable', 'Service', 'Storable Product', 'All / Deliveries', 'All / Sales', 'All / Purchase', 'All / Expenses', 'All / Saleable', 'All / Consumable', 'All / Service', 'All / Storable Product']), '|', ('parent_id', '=', False), '&amp;', ('parent_id.name', '!=', 'All'), ('parent_id.name', 'not like', 'All /%')]"/>
                                             </group>
                                             <group>
                                                 <!-- Campos ocultos pero necesarios para el funcionamiento -->

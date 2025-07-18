@@ -527,8 +527,7 @@ class ProductSelectorDialog extends Component {
             loadingProducts: false,
         });
         
-        // Siempre cargar categorías al inicio
-        this.loadCategories();
+        // NO cargar categorías automáticamente - solo cuando el usuario interactúe
         
         // Bind para manejar clicks fuera del dropdown
         this.handleClickOutside = this.handleClickOutside.bind(this);
@@ -549,8 +548,12 @@ class ProductSelectorDialog extends Component {
     }
 
     handleClickOutside(event) {
-        const dropdown = event.target.closest('.dropdown');
-        if (!dropdown) {
+        // Verificar si el clic fue dentro del componente del selector de categorías
+        const categorySelector = event.target.closest('#category-selector, .dropdown-menu');
+        const chevronIcon = event.target.closest('.fa-chevron-down, .fa-chevron-up');
+        
+        // Si el clic no fue en el selector de categorías ni en el icono de chevron, cerrar el dropdown
+        if (!categorySelector && !chevronIcon && this.state.showCategoryDropdown) {
             this.state.showCategoryDropdown = false;
         }
     }
@@ -628,9 +631,28 @@ class ProductSelectorDialog extends Component {
     showCategoryDropdown() {
         this.state.showCategoryDropdown = true;
         this.state.categoryError = null;
+        
         // Focus en el campo de búsqueda después de un pequeño delay
         setTimeout(() => {
-            const searchInput = this.el?.querySelector('[t-ref="categorySearchInput"]');
+            const searchInput = this.el?.querySelector('#category-selector');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }, 100);
+    }
+
+    showCategoryDropdownWithLoad() {
+        this.state.showCategoryDropdown = true;
+        this.state.categoryError = null;
+        
+        // Si no hay categorías cargadas, cargarlas automáticamente
+        if (this.state.categories.length === 0 && !this.state.loadingCategories) {
+            this.loadCategories();
+        }
+        
+        // Focus en el campo de búsqueda después de un pequeño delay
+        setTimeout(() => {
+            const searchInput = this.el?.querySelector('#category-selector');
             if (searchInput) {
                 searchInput.focus();
             }
@@ -645,7 +667,7 @@ class ProductSelectorDialog extends Component {
         if (this.state.showCategoryDropdown) {
             this.hideCategoryDropdown();
         } else {
-            this.showCategoryDropdown();
+            this.showCategoryDropdownWithLoad();
         }
     }
 
@@ -666,10 +688,12 @@ class ProductSelectorDialog extends Component {
         // Debounce la búsqueda
         clearTimeout(this.categorySearchTimeout);
         this.categorySearchTimeout = setTimeout(() => {
-            if (searchTerm.length >= 2) {
-                this.searchCategories(searchTerm);
-            } else if (searchTerm.length === 0) {
+            if (searchTerm.length === 0) {
+                // Si no hay término de búsqueda, cargar todas las categorías
                 this.loadCategories();
+            } else {
+                // Buscar categorías que coincidan con el término
+                this.searchCategories(searchTerm);
             }
         }, 300);
     }
@@ -699,11 +723,19 @@ class ProductSelectorDialog extends Component {
         this.state.selectedCategory = category;
     }
 
-    selectCategoryFromDropdown(category) {
+    async selectCategoryFromDropdown(category) {
         this.state.selectedCategory = category;
         this.state.categorySearchTerm = category.name;
         this.state.showCategoryDropdown = false;
         this.state.categoryError = null;
+        
+        // Limpiar estado de productos y cargar automáticamente los productos de la categoría seleccionada
+        this.state.productSearchTerm = "";
+        this.state.products = [];
+        this.state.selectedProduct = null;
+        
+        // Cargar productos de la categoría seleccionada
+        await this.loadProductsByCategory();
     }
 
     async proceedToProducts() {
