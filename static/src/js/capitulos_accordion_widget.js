@@ -564,13 +564,65 @@ class ProductSelectorDialog extends Component {
                 [[], ['name', 'parent_id', 'product_count']],
                 { limit: 100 }
             );
-            this.state.categories = categories;
+            
+            // Filtrar categorías base de Odoo
+            this.state.categories = this.filterOdooBaseCategories(categories);
         } catch (error) {
             console.error('Error al cargar categorías:', error);
             this.notification.add('Error al cargar las categorías', { type: 'danger' });
         } finally {
             this.state.loadingCategories = false;
         }
+    }
+
+    // Método para filtrar categorías base de Odoo
+    filterOdooBaseCategories(categories) {
+        return categories.filter(category => {
+            // Excluir categorías que sean exactamente "All"
+            if (category.name === 'All') {
+                return false;
+            }
+            
+            // Excluir categorías que empiecen con "All /"
+            if (category.name.startsWith('All /')) {
+                return false;
+            }
+            
+            // Excluir categorías que tengan como padre "All" o cualquier subcategoría de "All"
+            if (category.parent_id) {
+                const parentName = category.parent_id[1];
+                if (parentName === 'All' || parentName.startsWith('All /')) {
+                    return false;
+                }
+            }
+            
+            // Lista específica de categorías base a excluir
+            const baseCategoriesToExclude = [
+                'All',
+                'Deliveries', 
+                'Sales',
+                'Purchase',
+                'Expenses',
+                'Saleable',
+                'Consumable',
+                'Service',
+                'Storable Product',
+                'All / Deliveries',
+                'All / Sales',
+                'All / Purchase',
+                'All / Expenses',
+                'All / Saleable',
+                'All / Consumable',
+                'All / Service',
+                'All / Storable Product'
+            ];
+            
+            if (baseCategoriesToExclude.includes(category.name)) {
+                return false;
+            }
+            
+            return true;
+        });
     }
 
     showCategoryDropdown() {
@@ -601,6 +653,16 @@ class ProductSelectorDialog extends Component {
         const searchTerm = event.target.value;
         this.state.categorySearchTerm = searchTerm;
         
+        // Si hay una categoría seleccionada y el usuario está escribiendo algo diferente, deseleccionarla
+        if (this.state.selectedCategory && searchTerm !== this.state.selectedCategory.name) {
+            this.state.selectedCategory = null;
+        }
+        
+        // Mostrar el dropdown si no está visible
+        if (!this.state.showCategoryDropdown) {
+            this.state.showCategoryDropdown = true;
+        }
+        
         // Debounce la búsqueda
         clearTimeout(this.categorySearchTimeout);
         this.categorySearchTimeout = setTimeout(() => {
@@ -622,7 +684,9 @@ class ProductSelectorDialog extends Component {
                 [domain, ['name', 'parent_id', 'product_count']],
                 { limit: 50 }
             );
-            this.state.categories = categories;
+            
+            // Filtrar categorías base de Odoo
+            this.state.categories = this.filterOdooBaseCategories(categories);
         } catch (error) {
             console.error('Error al buscar categorías:', error);
             this.notification.add('Error al buscar categorías', { type: 'danger' });
@@ -637,9 +701,9 @@ class ProductSelectorDialog extends Component {
 
     selectCategoryFromDropdown(category) {
         this.state.selectedCategory = category;
+        this.state.categorySearchTerm = category.name;
         this.state.showCategoryDropdown = false;
         this.state.categoryError = null;
-        this.state.categorySearchTerm = "";
     }
 
     async proceedToProducts() {

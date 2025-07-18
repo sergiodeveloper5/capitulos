@@ -206,7 +206,7 @@
 
 <!-- Template para el diálogo de selección de productos -->
         <t t-name="capitulos.ProductSelectorDialog" owl="1">
-            <Dialog size="'lg'" title="props.title">
+            <Dialog size="'xl'" title="props.title" contentClass="'product-selector-dialog-content'" modalClass="'product-selector-modal'">
                 <div class="product-selector-dialog">
                     <!-- Paso 1: Selección de Categoría -->
                     <div t-if="state.step === 'category'" class="category-selection">
@@ -219,37 +219,28 @@
                             <label for="category-selector" class="form-label">Categoría de Productos <span class="text-danger">*</span></label>
                             <div class="position-relative">
                                 <div class="dropdown w-100">
-                                    <button 
-                                        type="button"
+                                    <input 
+                                        type="text" 
                                         id="category-selector"
-                                        class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" 
-                                        t-att-class="{'is-invalid': state.categoryError, 'btn-outline-success': state.selectedCategory}"
-                                        t-on-click="toggleCategoryDropdown"
-                                        style="min-height: 38px;">
-                                        <span t-if="state.selectedCategory" t-esc="state.selectedCategory.name"></span>
-                                        <span t-else="" class="text-muted">Seleccione una categoría de productos</span>
-                                        <span class="ms-auto">
-                                            <i t-if="state.loadingCategories" class="fa fa-spinner fa-spin text-muted"></i>
-                                            <i t-else="" class="fa fa-chevron-down text-muted" t-att-class="{'fa-chevron-up': state.showCategoryDropdown}"></i>
-                                        </span>
-                                    </button>
+                                        name="category-selector"
+                                        class="form-control dropdown-toggle" 
+                                        t-att-class="{'is-invalid': state.categoryError, 'border-success': state.selectedCategory}"
+                                        placeholder="Seleccione una categoría de productos..."
+                                        t-att-value="state.selectedCategory ? state.selectedCategory.name : state.categorySearchTerm"
+                                        t-on-input="onCategorySearchInput"
+                                        t-on-focus="showCategoryDropdown"
+                                        t-on-click="showCategoryDropdown"
+                                        autocomplete="off"
+                                        style="cursor: pointer;"
+                                    />
+                                    <div class="position-absolute end-0 top-50 translate-middle-y me-3" style="pointer-events: none;">
+                                        <i t-if="state.loadingCategories" class="fa fa-spinner fa-spin text-muted"></i>
+                                        <i t-else="" class="fa fa-chevron-down text-muted" t-att-class="{'fa-chevron-up': state.showCategoryDropdown}"></i>
+                                    </div>
                                     
                                     <div t-if="state.showCategoryDropdown" 
                                          class="dropdown-menu show w-100 shadow-lg border" 
                                          style="max-height: 300px; overflow-y: auto; z-index: 1050;">
-                                        
-                                        <!-- Campo de búsqueda dentro del dropdown -->
-                                        <div class="p-2 border-bottom bg-light">
-                                            <input 
-                                                type="text" 
-                                                class="form-control form-control-sm" 
-                                                placeholder="Escriba para buscar..."
-                                                t-model="state.categorySearchTerm"
-                                                t-on-input="onCategorySearchInput"
-                                                t-on-click.stop=""
-                                                t-ref="categorySearchInput"
-                                            />
-                                        </div>
                                         
                                         <!-- Lista de categorías -->
                                         <div t-if="state.loadingCategories" class="dropdown-item-text text-center py-3">

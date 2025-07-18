@@ -9,6 +9,38 @@
     box-sizing: border-box;
 }
 
+/* Estilos para el diálogo de selección de productos */
+.product-selector-modal .modal-dialog {
+    max-width: 90vw !important;
+    width: 90vw !important;
+    margin: 1.75rem auto !important;
+}
+
+.product-selector-modal .modal-dialog.modal-xl {
+    max-width: 90vw !important;
+    width: 90vw !important;
+}
+
+.product-selector-dialog-content {
+    min-height: 70vh !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+}
+
+.product-selector-dialog {
+    padding: 1.5rem !important;
+}
+
+.product-selector-dialog .category-selection,
+.product-selector-dialog .product-selection {
+    min-height: 400px;
+}
+
+.product-selector-dialog .dropdown-menu {
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
 /* Asegurar que el widget ocupe el ancho completo del contenedor padre */
 .o_form_view .o_field_widget,
 .o_form_sheet .o_field_widget {
