@@ -1,110 +1,32 @@
-# -*- coding: utf-8 -*-
-
-"""
-WIZARD DE GESTIÓN DE CAPÍTULOS
-=============================
-
-Este módulo contiene los modelos transitorios (wizards) para la gestión
-de capítulos en presupuestos. Permite crear y configurar capítulos de
-forma interactiva con validaciones y controles de integridad.
-
-COMPONENTES PRINCIPALES:
-1. CapituloWizardSeccion: Gestión de secciones dentro del wizard
-2. CapituloWizardLine: Gestión de líneas de producto en secciones
-3. CapituloWizard: Wizard principal para añadir capítulos
-
-FUNCIONALIDADES:
-- Creación de capítulos nuevos o uso de plantillas existentes
-- Gestión dinámica de secciones con categorías de productos
-- Validaciones automáticas de integridad de datos
-- Integración con el modelo de pedidos de venta
-
-@author: Tu Nombre
-@version: 1.0
-@since: 2024
-"""
-
-from odoo import models, fields, api, _
-from odoo.exceptions import UserError, ValidationError
+from odoo import models, fields, api
+from odoo.exceptions import UserError
 import logging
 
 _logger = logging.getLogger(__name__)
 
 class CapituloWizardSeccion(models.TransientModel):
-    """
-    MODELO DE SECCIÓN DEL WIZARD
-    ===========================
-    
-    Representa una sección dentro del wizard de capítulos.
-    Cada sección puede contener múltiples productos y tiene
-    una categoría asociada para filtrar productos válidos.
-    """
     _name = 'capitulo.wizard.seccion'
     _description = 'Sección del Wizard de Capítulo'
     _order = 'sequence, name'
 
-    # ===========================================
-    # CAMPOS DEL MODELO
-    # ===========================================
+    wizard_id = fields.Many2one('capitulo.wizard', ondelete='cascade')
+    name = fields.Char(string='Nombre de la Sección', required=True, default='Nueva Sección')
+    sequence = fields.Integer(string='Secuencia', default=10)
+    es_fija = fields.Boolean(string='Sección Fija', default=False)
+    incluir = fields.Boolean(string='Incluir en Presupuesto', default=False)
+    line_ids = fields.One2many('capitulo.wizard.line', 'seccion_id', string='Productos')
     
-    wizard_id = fields.Many2one(
-        'capitulo.wizard', 
-        ondelete='cascade',
-        help="Wizard padre al que pertenece esta sección"
-    )
-    
-    name = fields.Char(
-        string='Nombre de la Sección', 
-        required=True, 
-        default='Nueva Sección',
-        help="Nombre descriptivo de la sección"
-    )
-    
-    sequence = fields.Integer(
-        string='Secuencia', 
-        default=10,
-        help="Orden de aparición de la sección"
-    )
-    
-    es_fija = fields.Boolean(
-        string='Sección Fija', 
-        default=False,
-        help="Indica si la sección es fija y no se puede eliminar"
-    )
-    
-    incluir = fields.Boolean(
-        string='Incluir en Presupuesto', 
-        default=False,
-        help="Determina si esta sección se incluirá en el presupuesto final"
-    )
-    
-    line_ids = fields.One2many(
-        'capitulo.wizard.line', 
-        'seccion_id', 
-        string='Productos',
-        help="Líneas de producto asociadas a esta sección"
-    )
-    
+    # Campo para filtrar productos por categoría
     product_category_id = fields.Many2one(
         'product.category', 
         string='Categoría de Productos',
         required=True,
         help='Debe seleccionar una categoría para poder añadir productos a esta sección'
     )
-
-    # ===========================================
-    # MÉTODOS DE VALIDACIÓN Y CONTROL
-    # ===========================================
-
+    
     @api.onchange('product_category_id')
     def _onchange_product_category_id(self):
-        """
-        CONTROL DE CAMBIO DE CATEGORÍA
-        =============================
-        
-        Limpia los productos existentes cuando se cambia la categoría
-        para mantener la coherencia de datos.
-        """
+        """Limpiar productos cuando se cambie la categoría"""
         if self.product_category_id:
             # Si hay productos existentes de una categoría diferente, avisar al usuario
             if self.line_ids:
@@ -123,29 +45,19 @@ class CapituloWizardSeccion(models.TransientModel):
     
     @api.constrains('line_ids', 'product_category_id')
     def _check_category_before_products(self):
-        """
-        VALIDADOR DE CATEGORÍA ANTES DE PRODUCTOS
-        ========================================
-        
-        Asegura que se haya seleccionado una categoría antes de añadir productos.
-        """
+        """Valida que se haya seleccionado una categoría antes de añadir productos"""
         for record in self:
             if record.line_ids and not record.product_category_id:
-                raise UserError(_(
+                raise UserError(
                     "Debe seleccionar una categoría de productos antes de añadir productos a la sección.\n\n"
                     "Para añadir productos:\n"
                     "1. Seleccione una categoría de productos\n"
                     "2. Luego podrá añadir productos de esa categoría"
-                ))
+                )
     
     @api.constrains('product_id', 'seccion_id')
     def _check_product_category(self):
-        """
-        VALIDADOR DE CATEGORÍA DE PRODUCTO
-        =================================
-        
-        Valida que el producto pertenezca a la categoría seleccionada en la sección.
-        """
+        """Valida que el producto pertenezca a la categoría seleccionada en la sección"""
         for record in self:
             if record.product_id and record.seccion_id and record.seccion_id.product_category_id:
                 categoria_seccion = record.seccion_id.product_category_id
@@ -153,43 +65,39 @@ class CapituloWizardSeccion(models.TransientModel):
                 
                 # Verificar si el producto pertenece a la categoría o a una subcategoría
                 if categoria_producto.id not in categoria_seccion.child_ids.ids + [categoria_seccion.id]:
-                    raise UserError(_(
-                        "El producto '{}' no pertenece a la categoría '{}' "
-                        "seleccionada para esta sección.\n\n"
-                        "Categoría del producto: {}\n"
-                        "Categoría requerida: {}"
-                    ).format(
-                        record.product_id.name,
-                        categoria_seccion.name,
-                        categoria_producto.name,
-                        categoria_seccion.name
-                    ))
-
-    @api.constrains('name')
-    def _check_name(self):
-        """
-        VALIDADOR DE NOMBRE
-        ==================
-        
-        Valida que el nombre de la sección no esté vacío.
-        """
-        for record in self:
-            if not record.name or not record.name.strip():
-                raise UserError(_("El nombre de la sección es obligatorio y no puede estar vacío."))
-
-    # ===========================================
-    # MÉTODOS DE CICLO DE VIDA
-    # ===========================================
-
+                    raise UserError(
+                        f"El producto '{record.product_id.name}' no pertenece a la categoría '{categoria_seccion.name}' "
+                        f"seleccionada para esta sección.\n\n"
+                        f"Categoría del producto: {categoria_producto.name}\n"
+                        f"Categoría requerida: {categoria_seccion.name}"
+                    )
+    
     @api.model
     def create(self, vals):
-        """
-        CONTROL DE CREACIÓN
-        ==================
-        
-        Asegura que se establezcan valores por defecto apropiados
-        y registra la creación para debugging.
-        """
+        """Asegurar que siempre se cree con un nombre válido"""
+        if not vals.get('name') or not vals.get('name').strip():
+            vals['name'] = 'Nueva Sección'
+        _logger.info(f"Creando sección: {vals.get('name')}")
+        return super().create(vals)
+    
+    def unlink(self):
+        """Permite la eliminación de secciones en el wizard"""
+        return super().unlink()
+    
+    def write(self, vals):
+        """Permite la modificación de secciones en el wizard"""
+        return super().write(vals)
+    
+    @api.constrains('name')
+    def _check_name(self):
+        """Valida que el nombre de la sección no esté vacío"""
+        for record in self:
+            if not record.name or not record.name.strip():
+                raise UserError("El nombre de la sección es obligatorio y no puede estar vacío.")
+    
+    @api.model
+    def create(self, vals):
+        """Asegura que se establezcan valores por defecto apropiados"""
         original_name = vals.get('name')
         _logger.info(f"Creando sección con nombre original: '{original_name}'")
         
@@ -198,7 +106,6 @@ class CapituloWizardSeccion(models.TransientModel):
             vals['name'] = 'Nueva Sección'
             _logger.warning(f"Nombre vacío detectado, estableciendo 'Nueva Sección'. Nombre original: '{original_name}'")
         
-        # Establecer valores por defecto
         if not vals.get('sequence'):
             vals['sequence'] = 10
         if 'incluir' not in vals:
@@ -208,123 +115,28 @@ class CapituloWizardSeccion(models.TransientModel):
             
         _logger.info(f"Creando sección final con nombre: '{vals['name']}', es_fija: {vals['es_fija']}")
         return super().create(vals)
-
-    def write(self, vals):
-        """
-        CONTROL DE MODIFICACIÓN
-        ======================
-        
-        Permite la modificación de secciones en el wizard.
-        """
-        return super().write(vals)
-
-    def unlink(self):
-        """
-        CONTROL DE ELIMINACIÓN
-        =====================
-        
-        Permite la eliminación de secciones en el wizard.
-        """
-        return super().unlink()
-
-    # ===========================================
-    # MÉTODOS DE ACCIÓN
-    # ===========================================
-
+    
     def unlink_seccion(self):
-        """
-        ACCIÓN DE ELIMINACIÓN
-        ====================
-        
-        Método de acción para eliminar la sección desde la interfaz.
-        """
+        """Elimina la sección"""
         return self.unlink()
 
-
 class CapituloWizardLine(models.TransientModel):
-    """
-    MODELO DE LÍNEA DEL WIZARD
-    =========================
-    
-    Representa una línea de producto dentro de una sección del wizard.
-    Cada línea contiene información sobre un producto específico,
-    su cantidad, precio y configuración.
-    """
     _name = 'capitulo.wizard.line'
     _description = 'Línea de Configurador de capítulo'
 
-    # ===========================================
-    # CAMPOS DEL MODELO
-    # ===========================================
-    
-    wizard_id = fields.Many2one(
-        'capitulo.wizard', 
-        ondelete='cascade',
-        help="Wizard padre al que pertenece esta línea"
-    )
-    
-    seccion_id = fields.Many2one(
-        'capitulo.wizard.seccion', 
-        string='Sección', 
-        ondelete='cascade',
-        help="Sección a la que pertenece esta línea"
-    )
-    
-    product_id = fields.Many2one(
-        'product.product', 
-        string='Producto',
-        help="Producto asociado a esta línea"
-    )
-    
-    descripcion_personalizada = fields.Char(
-        string='Descripción Personalizada',
-        help="Descripción personalizada que sobrescribe la del producto"
-    )
-    
-    cantidad = fields.Float(
-        string='Cantidad', 
-        default=1, 
-        required=True,
-        help="Cantidad del producto"
-    )
-    
-    precio_unitario = fields.Float(
-        string='Precio', 
-        default=0.0,
-        help="Precio unitario del producto"
-    )
-    
-    incluir = fields.Boolean(
-        string='Incluir', 
-        default=False,
-        help="Determina si esta línea se incluirá en el presupuesto"
-    )
-    
-    es_opcional = fields.Boolean(
-        string='Opcional', 
-        default=False,
-        help="Indica si este producto es opcional"
-    )
-    
-    sequence = fields.Integer(
-        string='Secuencia', 
-        default=10,
-        help="Orden de aparición de la línea"
-    )
-
-    # ===========================================
-    # MÉTODOS DE CICLO DE VIDA
-    # ===========================================
+    wizard_id = fields.Many2one('capitulo.wizard', ondelete='cascade')
+    seccion_id = fields.Many2one('capitulo.wizard.seccion', string='Sección', ondelete='cascade')
+    product_id = fields.Many2one('product.product', string='Producto')
+    descripcion_personalizada = fields.Char(string='Descripción Personalizada')
+    cantidad = fields.Float(string='Cantidad', default=1, required=True)
+    precio_unitario = fields.Float(string='Precio', default=0.0)
+    incluir = fields.Boolean(string='Incluir', default=False)
+    es_opcional = fields.Boolean(string='Opcional', default=False)
+    sequence = fields.Integer(string='Secuencia', default=10)
     
     @api.model
     def create(self, vals):
-        """
-        CONTROL DE CREACIÓN
-        ==================
-        
-        Asegura que se establezca correctamente la relación con el wizard padre
-        y registra la creación para debugging.
-        """
+        """Asegurar que siempre se establezca la relación wizard_id correctamente"""
         # Si no se proporciona wizard_id pero sí seccion_id, obtenerlo de la sección
         if not vals.get('wizard_id') and vals.get('seccion_id'):
             seccion = self.env['capitulo.wizard.seccion'].browse(vals['seccion_id'])
@@ -335,104 +147,42 @@ class CapituloWizardLine(models.TransientModel):
         line = super().create(vals)
         _logger.info(f"Línea de producto creada: ID={line.id}, Producto={line.product_id.name if line.product_id else 'Sin producto'}, Sección={line.seccion_id.name if line.seccion_id else 'Sin sección'}")
         return line
-
-    # ===========================================
-    # MÉTODOS DE CAMBIO
-    # ===========================================
     
     @api.onchange('product_id')
     def _onchange_product_id(self):
-        """
-        CONTROL DE CAMBIO DE PRODUCTO
-        ============================
-        
-        Actualiza automáticamente el precio unitario cuando se selecciona un producto
-        y marca la línea como incluida.
-        """
+        """Actualiza el precio unitario cuando se selecciona un producto"""
         if self.product_id:
             self.precio_unitario = self.product_id.list_price
-            # Automáticamente marcar como incluido
+            # Automáticamente marcar como incluido (aunque no sea visible en la interfaz)
             self.incluir = True
             _logger.info(f"Producto seleccionado: {self.product_id.name}, Precio: {self.precio_unitario}, Auto-incluido: True")
         else:
             self.precio_unitario = 0.0
             self.incluir = False
 
-
 class CapituloWizard(models.TransientModel):
-    """
-    WIZARD PRINCIPAL DE CAPÍTULOS
-    ============================
-    
-    Wizard principal para la gestión de capítulos en presupuestos.
-    Permite crear nuevos capítulos o usar plantillas existentes,
-    gestionar secciones y productos de forma interactiva.
-    """
     _name = 'capitulo.wizard'
     _description = 'Añadir Capítulo'
-
-    # ===========================================
-    # CAMPOS DEL MODELO
-    # ===========================================
 
     # Modo de operación
     modo_creacion = fields.Selection([
         ('existente', 'Usar Capítulo Existente'),
         ('nuevo', 'Crear Nuevo Capítulo')
-    ], string='Modo de Creación', default='existente', required=True,
-       help="Determina si se usa una plantilla existente o se crea un capítulo nuevo")
+    ], string='Modo de Creación', default='existente', required=True)
     
     # Campos para capítulo existente
-    capitulo_id = fields.Many2one(
-        'capitulo.contrato', 
-        string='Capítulo',
-        help="Plantilla de capítulo existente a utilizar"
-    )
+    capitulo_id = fields.Many2one('capitulo.contrato', string='Capítulo')
     
     # Campos para crear nuevo capítulo
-    nuevo_capitulo_nombre = fields.Char(
-        string='Nombre del Capítulo',
-        help="Nombre para el nuevo capítulo"
-    )
+    nuevo_capitulo_nombre = fields.Char(string='Nombre del Capítulo')
+    nuevo_capitulo_descripcion = fields.Text(string='Descripción del Capítulo')
     
-    nuevo_capitulo_descripcion = fields.Text(
-        string='Descripción del Capítulo',
-        help="Descripción detallada del nuevo capítulo"
-    )
-    
-    # Campos principales
-    order_id = fields.Many2one(
-        'sale.order', 
-        string='Pedido de Venta', 
-        required=True,
-        help="Pedido de venta al que se añadirá el capítulo"
-    )
-    
-    seccion_ids = fields.One2many(
-        'capitulo.wizard.seccion', 
-        'wizard_id', 
-        string='Secciones',
-        help="Secciones que componen el capítulo"
-    )
-    
-    condiciones_particulares = fields.Text(
-        string='Condiciones Particulares',
-        help="Condiciones particulares del capítulo"
-    )
-
-    # ===========================================
-    # MÉTODOS DE INICIALIZACIÓN
-    # ===========================================
+    order_id = fields.Many2one('sale.order', string='Pedido de Venta', required=True)
+    seccion_ids = fields.One2many('capitulo.wizard.seccion', 'wizard_id', string='Secciones')
+    condiciones_particulares = fields.Text(string='Condiciones Particulares')
 
     @api.model
     def default_get(self, fields):
-        """
-        VALORES POR DEFECTO
-        ==================
-        
-        Establece valores por defecto del wizard, especialmente
-        el pedido de venta desde el contexto.
-        """
         res = super().default_get(fields)
         # Obtener el pedido desde el contexto
         order_id = self.env.context.get('default_order_id') or self.env.context.get('active_id')
@@ -444,20 +194,16 @@ class CapituloWizard(models.TransientModel):
     
     @api.model
     def create(self, vals):
-        """
-        CONTROL DE CREACIÓN
-        ==================
-        
-        Sobrescribe create para asegurar que las secciones se inicialicen
-        correctamente según el modo de creación seleccionado.
-        """
+        """Sobrescribir create para asegurar que las secciones se inicialicen correctamente"""
         _logger.info("=== Creando nuevo wizard ===")
         wizard = super().create(vals)
-
+        
         # No crear secciones predefinidas - permitir al usuario añadir secciones manualmente
         _logger.info("Wizard creado sin secciones predefinidas")
         
         return wizard
+    
+
     
 
     
@@ -512,6 +258,8 @@ class CapituloWizard(models.TransientModel):
         if self.capitulo_id.seccion_ids:
             self._cargar_secciones_existentes()
         # Si no hay secciones, dejar el wizard vacío para que el usuario añada secciones manualmente
+    
+
     
 
     
@@ -792,6 +540,7 @@ class CapituloWizard(models.TransientModel):
 
     
 
+    
     def _validate_wizard_data(self):
         """Valida que los datos del wizard sean correctos antes de proceder"""
         if self.modo_creacion == 'existente' and not self.capitulo_id:

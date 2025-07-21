@@ -1,143 +1,51 @@
-<!--
-VISTAS XML PARA PRODUCTOS - EXTENSIÓN CAPÍTULOS TÉCNICOS
-========================================================
-
-Este archivo extiende las vistas estándar de productos de Odoo para
-integrar la funcionalidad de capítulos técnicos, añadiendo campos
-específicos para la clasificación y categorización de productos.
-
-VISTAS EXTENDIDAS:
-1. Vista de búsqueda de productos - Filtros por capítulo y tipo de sección
-2. Vista de lista de productos - Columnas adicionales para capítulos
-3. Vista de formulario de productos - Campos de capítulo y tipo de sección
-
-CAMPOS AÑADIDOS:
-- capitulo_id: Relación con el capítulo técnico
-- tipo_seccion: Tipo de sección dentro del capítulo
-
-FUNCIONALIDADES:
-- Filtrado avanzado por capítulo y tipo de sección
-- Agrupación de productos por capítulo
-- Búsqueda contextual en formularios de productos
-- Integración con el sistema de clasificación técnica
-
-@author: Sergio Vadillo
-@version: 18.0.1.1.0
-@since: 2024
-@license: LGPL-3
--->
-
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data>
-        
-        <!-- ========================================== -->
-        <!-- VISTA DE BÚSQUEDA DE PRODUCTOS EXTENDIDA -->
-        <!-- ========================================== -->
-        
-        <!-- 
-        Extiende la vista de búsqueda estándar de productos para incluir
-        filtros específicos de capítulos técnicos y tipos de sección.
-        
-        Filtros añadidos:
-        - Por capítulo específico
-        - Por tipo de sección
-        - Productos sin capítulo asignado
-        
-        Agrupaciones añadidas:
-        - Por capítulo técnico
-        - Por tipo de sección
-        -->
-        <record id="product_template_search_view_inherit" model="ir.ui.view">
-            <field name="name">product.template.search.inherit.capitulos</field>
-            <field name="model">product.template</field>
-            <field name="inherit_id" ref="product.product_template_search_view"/>
-            <field name="arch" type="xml">
-                <xpath expr="//filter[@name='filter_to_sell']" position="after">
-                    <!-- Filtro por capítulo específico -->
-                    <filter string="Con Capítulo" name="filter_with_capitulo" 
-                            domain="[('capitulo_id', '!=', False)]"/>
-                    <!-- Filtro por productos sin capítulo -->
-                    <filter string="Sin Capítulo" name="filter_without_capitulo" 
-                            domain="[('capitulo_id', '=', False)]"/>
-                </xpath>
-                <xpath expr="//group[@name='group_by']" position="inside">
-                    <!-- Agrupación por capítulo técnico -->
-                    <filter string="Capítulo" name="group_by_capitulo" 
-                            context="{'group_by': 'capitulo_id'}"/>
-                    <!-- Agrupación por tipo de sección -->
-                    <filter string="Tipo de Sección" name="group_by_tipo_seccion" 
-                            context="{'group_by': 'tipo_seccion'}"/>
-                </xpath>
-            </field>
-        </record>
+    <!-- Heredar vista de búsqueda de productos -->
+    <record id="product_template_search_view_inherit" model="ir.ui.view">
+        <field name="name">product.template.search.inherit.capitulos</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_search_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <field name="capitulo_id" string="Capítulo > Tipo de Sección" filter_domain="['|', ('capitulo_id', 'ilike', self), ('tipo_seccion', 'ilike', self)]"/>
+                <field name="tipo_seccion"/>
+                <filter string="Alquiler" name="alquiler" domain="[('tipo_seccion', '=', 'alquiler')]"/>
+                <filter string="Montaje" name="montaje" domain="[('tipo_seccion', '=', 'montaje')]"/>
+                <filter string="Desmontaje" name="desmontaje" domain="[('tipo_seccion', '=', 'desmontaje')]"/>
+                <filter string="Portes" name="portes" domain="[('tipo_seccion', '=', 'portes')]"/>
+                <filter string="Otros" name="otros" domain="[('tipo_seccion', '=', 'otros')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Capítulo" name="capitulo" context="{'group_by': 'capitulo_id'}"/>
+                    <filter string="Tipo de Sección" name="tipo_seccion" context="{'group_by': 'tipo_seccion'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
 
-        <!-- ========================================== -->
-        <!-- VISTA DE LISTA DE PRODUCTOS EXTENDIDA    -->
-        <!-- ========================================== -->
-        
-        <!-- 
-        Extiende la vista de lista estándar de productos para mostrar
-        información relacionada con capítulos técnicos.
-        
-        Columnas añadidas:
-        - Capítulo técnico asociado
-        - Tipo de sección del producto
-        
-        Características:
-        - Columnas opcionales (pueden ocultarse)
-        - Ordenación por capítulo y tipo de sección
-        - Integración con filtros de búsqueda
-        -->
-        <record id="product_template_tree_view_inherit" model="ir.ui.view">
-            <field name="name">product.template.tree.inherit.capitulos</field>
-            <field name="model">product.template</field>
-            <field name="inherit_id" ref="product.product_template_tree_view"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='list_price']" position="after">
-                    <!-- Campo de capítulo técnico -->
-                    <field name="capitulo_id" optional="hide"/>
-                    <!-- Campo de tipo de sección -->
-                    <field name="tipo_seccion" optional="hide"/>
-                </xpath>
+    <!-- Heredar vista de lista de productos -->
+    <record id="product_template_tree_view_inherit" model="ir.ui.view">
+        <field name="name">product.template.tree.inherit.capitulos</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_tree_view"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="tipo_seccion"/>
             </field>
-        </record>
+        </field>
+    </record>
 
-        <!-- ========================================== -->
-        <!-- VISTA DE FORMULARIO DE PRODUCTOS EXTENDIDA -->
-        <!-- ========================================== -->
-        
-        <!-- 
-        Extiende la vista de formulario estándar de productos para incluir
-        campos de clasificación por capítulos técnicos.
-        
-        Campos añadidos:
-        - Selector de capítulo técnico
-        - Selector de tipo de sección
-        
-        Ubicación:
-        - Pestaña "Información General"
-        - Después de los campos de categoría estándar
-        
-        Funcionalidades:
-        - Selección de capítulo desde lista desplegable
-        - Selección de tipo de sección con opciones predefinidas
-        - Validación de coherencia entre capítulo y tipo de sección
-        -->
-        <record id="product_template_form_view_inherit" model="ir.ui.view">
-            <field name="name">product.template.form.inherit.capitulos</field>
-            <field name="model">product.template</field>
-            <field name="inherit_id" ref="product.product_template_form_view"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='categ_id']" position="after">
-                    <!-- Campo de selección de capítulo técnico -->
-                    <field name="capitulo_id" 
-                           options="{'no_create': True, 'no_create_edit': True}"/>
-                    <!-- Campo de selección de tipo de sección -->
+    <!-- Heredar vista de formulario de productos -->
+    <record id="product_template_form_view_inherit" model="ir.ui.view">
+        <field name="name">product.template.form.inherit.capitulos</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='general_information']//group" position="inside">
+                <group string="Capítulos y Secciones">
+                    <field name="capitulo_id"/>
                     <field name="tipo_seccion"/>
-                </xpath>
-            </field>
-        </record>
-
-    </data>
+                </group>
+            </xpath>
+        </field>
+    </record>
 </odoo>

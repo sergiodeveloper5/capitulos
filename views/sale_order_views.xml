@@ -1,244 +1,45 @@
-<!--
-VISTAS XML PARA PEDIDOS DE VENTA - EXTENSIÓN CAPÍTULOS TÉCNICOS
-===============================================================
-
-Este archivo extiende las vistas estándar de pedidos de venta de Odoo para
-integrar la funcionalidad de capítulos técnicos, proporcionando una interfaz
-avanzada para la gestión de presupuestos estructurados por capítulos.
-
-VISTAS EXTENDIDAS:
-1. Vista de formulario de pedidos de venta - Interfaz de capítulos
-
-FUNCIONALIDADES PRINCIPALES:
-- Botón "Gestionar Capítulos" para abrir el wizard de gestión
-- Widget acordeón para visualizar capítulos estructurados
-- Alternancia entre vista tradicional y vista por capítulos
-- Campos computados para control de visualización
-
-COMPONENTES CLAVE:
-- Botón de gestión de capítulos en la cabecera
-- Widget capitulos_accordion para mostrar estructura jerárquica
-- Campos invisibles para control de estado
-- Lógica condicional para mostrar vista apropiada
-
-INTEGRACIÓN:
-- Compatible con flujo estándar de pedidos de venta
-- Mantiene funcionalidad original de Odoo
-- Añade capacidades avanzadas de estructuración
-
-@author: Sergio Vadillo
-@version: 18.0.1.1.0
-@since: 2024
-@license: LGPL-3
--->
-
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data>
-        
-        <!-- ========================================== -->
-        <!-- VISTA DE FORMULARIO DE PEDIDO EXTENDIDA  -->
-        <!-- ========================================== -->
-        
-        <!-- 
-        Extiende la vista de formulario estándar de pedidos de venta para
-        integrar la gestión avanzada de capítulos técnicos.
-        
-        MODIFICACIONES REALIZADAS:
-        1. Botón "Gestionar Capítulos" en la cabecera del formulario
-        2. Reemplazo condicional de líneas de pedido por widget acordeón
-        3. Campos invisibles para control de estado
-        4. Lógica de visualización dinámica
-        
-        COMPORTAMIENTO:
-        - Si tiene_multiples_capitulos = True: Muestra widget acordeón
-        - Si tiene_multiples_capitulos = False: Muestra vista tradicional
-        - El botón "Gestionar Capítulos" siempre está disponible
-        
-        WIDGET ACORDEÓN:
-        - Muestra estructura jerárquica de capítulos
-        - Permite colapsar/expandir capítulos
-        - Integra funcionalidad de añadir productos
-        - Mantiene sincronización con líneas de pedido
-        -->
-        <record id="view_order_form_inherit_capitulos" model="ir.ui.view">
-            <field name="name">sale.order.form.inherit.capitulos</field>
-            <field name="model">sale.order</field>
-            <field name="inherit_id" ref="sale.sale_view_order_form"/>
-            <field name="arch" type="xml">
-                
-                <!-- ========================================== -->
-                <!-- BOTÓN GESTIONAR CAPÍTULOS EN CABECERA    -->
-                <!-- ========================================== -->
-                
-                <!-- 
-                Añade el botón "Gestionar Capítulos" en la cabecera del formulario,
-                junto a los botones estándar de Odoo (Confirmar, Enviar por email, etc.)
-                
-                Características del botón:
-                - Tipo: object (llama a método Python)
-                - Método: action_add_capitulo
-                - Clase CSS: btn-primary (botón azul destacado)
-                - Disponible en estados: draft, sent
-                -->
-                <xpath expr="//button[@name='action_confirm']" position="before">
-                    <button name="action_add_capitulo" 
-                            type="object" 
-                            string="Gestionar Capítulos" 
-                            class="btn-primary"
-                            states="draft,sent"/>
-                </xpath>
-                
-                <!-- ========================================== -->
-                <!-- REEMPLAZO DE LÍNEAS DE PEDIDO            -->
-                <!-- ========================================== -->
-                
-                <!-- 
-                Reemplaza la página estándar de líneas de pedido con una
-                implementación condicional que muestra:
-                
-                1. Widget acordeón (si tiene múltiples capítulos)
-                2. Vista tradicional de líneas (si no tiene múltiples capítulos)
-                
-                El widget acordeón:
-                - Utiliza el campo computado 'capitulos_agrupados'
-                - Implementa funcionalidad de colapso/expansión
-                - Permite añadir productos directamente a secciones
-                - Mantiene sincronización automática con order_line
-                -->
-                <xpath expr="//page[@name='order_lines']" position="replace">
-                    <page string="Líneas del Pedido" name="order_lines">
-                        
-                        <!-- ========================================== -->
-                        <!-- CONTENEDOR CONDICIONAL                   -->
-                        <!-- ========================================== -->
-                        
-                        <!-- 
-                        Contenedor que decide qué vista mostrar basándose
-                        en el campo computado 'tiene_multiples_capitulos'
-                        -->
-                        <div>
-                            
-                            <!-- ========================================== -->
-                            <!-- VISTA POR CAPÍTULOS (ACORDEÓN)           -->
-                            <!-- ========================================== -->
-                            
-                            <!-- 
-                            Se muestra cuando tiene_multiples_capitulos = True
-                            
-                            Utiliza el widget personalizado 'capitulos_accordion'
-                            que renderiza la estructura jerárquica de capítulos
-                            con funcionalidades interactivas.
-                            
-                            Datos del widget:
-                            - Campo: capitulos_agrupados (JSON con estructura)
-                            - Funciones: colapsar, expandir, añadir productos
-                            - Sincronización: automática con order_line
-                            -->
-                            <div attrs="{'invisible': [('tiene_multiples_capitulos', '=', False)]}">
-                                <field name="capitulos_agrupados" widget="capitulos_accordion"/>
-                            </div>
-                            
-                            <!-- ========================================== -->
-                            <!-- VISTA TRADICIONAL DE LÍNEAS             -->
-                            <!-- ========================================== -->
-                            
-                            <!-- 
-                            Se muestra cuando tiene_multiples_capitulos = False
-                            
-                            Mantiene la funcionalidad estándar de Odoo para
-                            pedidos sin estructura de capítulos o con un
-                            solo capítulo.
-                            
-                            Características:
-                            - Vista de lista editable
-                            - Campos estándar de líneas de pedido
-                            - Funcionalidad completa de Odoo
-                            -->
-                            <div attrs="{'invisible': [('tiene_multiples_capitulos', '=', True)]}">
-                                <field name="order_line" 
-                                       widget="section_and_note_one2many" 
-                                       mode="tree,kanban">
-                                    <form>
-                                        <!-- Formulario estándar de líneas de pedido -->
-                                        <group>
-                                            <group>
-                                                <field name="product_uom_category_id" invisible="1"/>
-                                                <field name="product_id" 
-                                                       context="{'partner_id': parent.partner_id, 'quantity': product_uom_qty, 'pricelist': parent.pricelist_id, 'uom':product_uom, 'company_id': parent.company_id}"
-                                                       force_save="1"
-                                                       domain="[('sale_ok', '=', True), '|', ('company_id', '=', False), ('company_id', '=', parent.company_id)]"
-                                                       widget="product_configurator"/>
-                                                <field name="product_uom_qty" context="{'partner_id': parent.partner_id, 'quantity': product_uom_qty, 'pricelist': parent.pricelist_id, 'uom': product_uom, 'company_id': parent.company_id}"/>
-                                                <field name="product_uom" 
-                                                       force_save="1"
-                                                       string="Unidad de Medida"
-                                                       context="{'company_id': parent.company_id}"
-                                                       groups="uom.group_uom"
-                                                       options="{'no_open': True, 'no_create': True}"
-                                                       domain="[('category_id', '=', product_uom_category_id)]"/>
-                                                <field name="price_unit"/>
-                                            </group>
-                                            <group>
-                                                <field name="tax_id" widget="many2many_tags" options="{'no_create': True}" domain="[('type_tax_use','=','sale'),('company_id','=',parent.company_id)]" context="{'default_type_tax_use': 'sale'}"/>
-                                                <field name="discount" groups="product.group_discount_per_so_line"/>
-                                            </group>
-                                        </group>
-                                        <label for="name"/>
-                                        <field name="name"/>
-                                    </form>
-                                    <tree string="Líneas del Pedido de Venta" editable="bottom">
-                                        <!-- Campos de la vista de lista de líneas -->
-                                        <control>
-                                            <create name="add_product_control" string="Añadir un producto"/>
-                                            <create name="add_section_control" string="Añadir una sección" context="{'default_display_type': 'line_section'}"/>
-                                            <create name="add_note_control" string="Añadir una nota" context="{'default_display_type': 'line_note'}"/>
-                                        </control>
-                                        
-                                        <!-- Campos principales de líneas de pedido -->
-                                        <field name="sequence" widget="handle"/>
-                                        <field name="product_id" 
-                                               readonly="0"
-                                               force_save="1"
-                                               context="{'partner_id': parent.partner_id, 'quantity': product_uom_qty, 'pricelist': parent.pricelist_id, 'uom':product_uom, 'company_id': parent.company_id}"
-                                               domain="[('sale_ok', '=', True), '|', ('company_id', '=', False), ('company_id', '=', parent.company_id)]"
-                                               widget="product_configurator"/>
-                                        <field name="name" widget="section_and_note_text"/>
-                                        <field name="product_uom_qty" context="{'partner_id': parent.partner_id, 'quantity': product_uom_qty, 'pricelist': parent.pricelist_id, 'uom': product_uom, 'company_id': parent.company_id}"/>
-                                        <field name="product_uom" 
-                                               force_save="1"
-                                               string="UdM"
-                                               context="{'company_id': parent.company_id}"
-                                               groups="uom.group_uom"
-                                               options="{'no_open': True, 'no_create': True}"/>
-                                        <field name="price_unit"/>
-                                        <field name="tax_id" widget="many2many_tags" options="{'no_create': True}" domain="[('type_tax_use','=','sale'),('company_id','=',parent.company_id)]" optional="show"/>
-                                        <field name="discount" groups="product.group_discount_per_so_line" optional="show"/>
-                                        <field name="price_subtotal" widget="monetary"/>
-                                    </tree>
-                                </field>
-                            </div>
-                        </div>
-                        
-                        <!-- ========================================== -->
-                        <!-- CAMPOS INVISIBLES DE CONTROL            -->
-                        <!-- ========================================== -->
-                        
-                        <!-- 
-                        Campos necesarios para el funcionamiento del widget
-                        y la lógica condicional, pero que no se muestran
-                        en la interfaz de usuario.
-                        
-                        Campos incluidos:
-                        - capitulo_ids: Lista de capítulos asociados
-                        - tiene_multiples_capitulos: Flag para mostrar acordeón
-                        -->
-                        <field name="capitulo_ids" invisible="1"/>
-                        <field name="tiene_multiples_capitulos" invisible="1"/>
-                    </page>
-                </xpath>
-            </field>
-        </record>
+    <!-- Heredar vista de pedido de ventas -->
+    <record id="view_order_form_inherit_capitulo" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.capitulo</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_quotation_send']" position="after">
+                <button name="action_add_capitulo" string="Gestionar Capítulos" type="object" class="btn-secondary" groups="sales_team.group_sale_salesman" invisible="state not in ['draft', 'sent']"/>
+            </xpath>
+            <xpath expr="//field[@name='order_line']" position="replace">
+                <div class="capitulos-container">
+                    <!-- Mostrar capítulos en acordeón cuando hay capítulos estructurados -->
+                    <div invisible="not tiene_multiples_capitulos">
+                        <h4 style="margin-bottom: 15px; color: #007bff;">📋 Capítulos del Presupuesto</h4>
+                        <field name="capitulos_agrupados" widget="capitulos_accordion" nolabel="1"/>
+                    </div>
+                    
+                    <!-- Vista tradicional cuando no hay capítulos estructurados -->
+                    <div invisible="tiene_multiples_capitulos">
+                        <field name="order_line" widget="section_and_note_one2many">
+                            <list decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" editable="bottom">
+                                <field name="sequence" widget="handle"/>
+                                <field name="product_id" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="name" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="product_uom_qty" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="product_uom" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="price_unit" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="price_subtotal"/>
+                                <field name="es_encabezado_capitulo" invisible="1"/>
+                                <field name="es_encabezado_seccion" invisible="1"/>
+                            </list>
+                        </field>
+                    </div>
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='order_line']" position="after">
+                <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
+                <field name="tiene_multiples_capitulos" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
 
-    </data>
 </odoo>

@@ -1,543 +1,520 @@
-# -*- coding: utf-8 -*-
-
-"""
-MÓDULO DE GESTIÓN DE CAPÍTULOS EN PRESUPUESTOS
-==============================================
-
-Este módulo extiende el modelo sale.order de Odoo para añadir funcionalidad
-de gestión de capítulos estructurados en presupuestos de construcción.
-
-CARACTERÍSTICAS PRINCIPALES:
-1. Organización jerárquica: Capítulos > Secciones > Líneas de producto
-2. Agrupación automática de líneas por capítulos
-3. Interfaz de acordeón para visualización
-4. Gestión de condiciones particulares por sección
-5. Control de estructura para evitar modificaciones manuales
-
-ESTRUCTURA DE DATOS:
-- Capítulos: Agrupaciones principales (ej: "Obra Civil", "Instalaciones")
-- Secciones: Subdivisiones dentro de cada capítulo (ej: "Cimentación", "Estructura")
-- Líneas: Productos individuales con cantidad, precio y descripción
-
-@author: Tu Nombre
-@version: 1.0
-@since: 2024
-"""
-
-from odoo import models, fields, api, _
-from odoo.exceptions import UserError, ValidationError
-import json
-import logging
-
-_logger = logging.getLogger(__name__)
+from odoo import models, fields, api
+from odoo.exceptions import UserError
 
 class SaleOrder(models.Model):
-    """
-    MODELO EXTENDIDO DE PEDIDO DE VENTA
-    ==================================
-    
-    Extiende sale.order para añadir funcionalidad de capítulos estructurados.
-    Permite organizar las líneas del presupuesto en una jerarquía de capítulos
-    y secciones para una mejor gestión y presentación.
-    """
     _inherit = 'sale.order'
 
-    # ===========================================
-    # CAMPOS DEL MODELO
-    # ===========================================
-    
-    capitulo_ids = fields.One2many(
-        'sale.order.capitulo', 
-        'order_id', 
-        string='Capítulos',
-        help="Capítulos asociados a este presupuesto"
+    capitulo_ids = fields.Many2many(
+        'capitulo.contrato', 
+        string='Capítulos Aplicados',
+        help="Capítulos técnicos aplicados a este pedido de venta"
     )
     
     capitulos_agrupados = fields.Text(
         string='Capítulos Agrupados',
         compute='_compute_capitulos_agrupados',
-        store=False,
-        help="JSON con la estructura de capítulos, secciones y líneas para el widget"
+        help="JSON con las líneas agrupadas por capítulo para el widget acordeón"
     )
     
     tiene_multiples_capitulos = fields.Boolean(
-        string='Tiene Múltiples Capítulos',
+        string='Mostrar Acordeón de Capítulos',
         compute='_compute_tiene_multiples_capitulos',
-        store=False,
-        help="Indica si el presupuesto tiene múltiples capítulos para mostrar el acordeón"
+        help="Indica si el pedido tiene capítulos para mostrar en acordeón"
     )
 
-    # ===========================================
-    # MÉTODOS COMPUTADOS
-    # ===========================================
-
-    def _get_base_name(self, name):
-        """
-        EXTRACTOR DE NOMBRE BASE
-        =======================
-        
-        Extrae el nombre base de un capítulo o sección eliminando prefijos numéricos.
-        
-        Args:
-            name (str): Nombre completo con posible prefijo numérico
-            
-        Returns:
-            str: Nombre base sin prefijo numérico
-            
-        Ejemplo:
-            "01. Obra Civil" -> "Obra Civil"
-            "1.1 Cimentación" -> "Cimentación"
-        """
-        if not name:
-            return name
-        
-        # Eliminar prefijos como "01. ", "1.1 ", etc.
+    def _get_base_name(self, decorated_name):
+        """Extrae el nombre base de un capítulo o sección decorado."""
         import re
-        pattern = r'^\d+(\.\d+)*\.\s*'
-        return re.sub(pattern, '', name).strip()
-
-    @api.depends('order_line')
+        name = str(decorated_name)
+        # 1. Eliminar sufijos como (SECCIÓN FIJA) o contadores
+        name = re.sub(r'\s*\((SECCIÓN FIJA|\d+)\)$', '', name).strip()
+        # 2. Eliminar caracteres decorativos de los extremos
+        decorative_chars = ' \t\n\r=═🔒📋'
+        name = name.strip(decorative_chars)
+        return name
+    
+    @api.depends('order_line', 'order_line.es_encabezado_capitulo', 'order_line.es_encabezado_seccion', 
+                 'order_line.name', 'order_line.product_id', 'order_line.product_uom_qty', 
+                 'order_line.product_uom', 'order_line.price_unit', 'order_line.price_subtotal', 'order_line.sequence')
     def _compute_capitulos_agrupados(self):
-        """
-        COMPUTADOR DE CAPÍTULOS AGRUPADOS
-        ================================
+        """Agrupa las líneas del pedido por capítulos para mostrar en acordeón"""
+        import json
+        import logging
+        _logger = logging.getLogger(__name__)
         
-        Organiza las líneas del pedido en una estructura jerárquica de capítulos
-        y secciones, generando un JSON que será utilizado por el widget frontend.
-        
-        Estructura del JSON generado:
-        {
-            "Capítulo 1": {
-                "sections": {
-                    "Sección 1": {
-                        "lines": [...],
-                        "category_id": 123,
-                        "condiciones_particulares": "texto..."
+        for order in self:
+            _logger.info(f"DEBUG COMPUTE: Procesando pedido {order.id} con {len(order.order_line)} líneas")
+            
+            capitulos_dict = {}
+            current_capitulo_key = None
+            current_seccion_name = None
+            capitulo_counter = {}
+            
+            for line in order.order_line.sorted('sequence'):
+                if line.es_encabezado_capitulo:
+                    # Nuevo capítulo - crear clave única para permitir duplicados
+                    base_name = line.name
+                    if base_name not in capitulo_counter:
+                        capitulo_counter[base_name] = 0
+                    capitulo_counter[base_name] += 1
+                    
+                    # Crear clave única: nombre + contador si hay duplicados
+                    if capitulo_counter[base_name] == 1:
+                        current_capitulo_key = base_name
+                    else:
+                        current_capitulo_key = f"{base_name} ({capitulo_counter[base_name]})"
+                    
+                    capitulos_dict[current_capitulo_key] = {
+                        'sections': {},
+                        'total': 0.0
                     }
-                }
-            }
-        }
-        """
-        for order in self:
-            try:
-                capitulos_data = {}
-                current_chapter = None
-                current_section = None
-                
-                # Procesar cada línea del pedido en orden
-                for line in order.order_line:
-                    # Detectar encabezados de capítulo
-                    if line.es_encabezado_capitulo:
-                        current_chapter = self._get_base_name(line.name)
-                        current_section = None
-                        
-                        # Inicializar estructura del capítulo
-                        if current_chapter not in capitulos_data:
-                            capitulos_data[current_chapter] = {
-                                'sections': {}
-                            }
+                    current_seccion_name = None
                     
-                    # Detectar encabezados de sección
-                    elif line.es_encabezado_seccion:
-                        if current_chapter:
-                            current_section = self._get_base_name(line.name)
+                elif line.es_encabezado_seccion and current_capitulo_key:
+                    # Nueva sección dentro del capítulo actual
+                    current_seccion_name = line.name
+                    
+                    # Buscar la categoría de productos de esta sección
+                    category_id = None
+                    category_name = None
+                    
+                    # Buscar en los capítulos aplicados la sección correspondiente
+                    for capitulo in order.capitulo_ids:
+                        for seccion in capitulo.seccion_ids:
+                            # Comparar nombres de sección (normalizado)
+                            seccion_base_name = self._get_base_name(seccion.name)
+                            line_base_name = self._get_base_name(current_seccion_name)
                             
-                            # Inicializar estructura de la sección
-                            if current_section not in capitulos_data[current_chapter]['sections']:
-                                capitulos_data[current_chapter]['sections'][current_section] = {
-                                    'lines': [],
-                                    'category_id': line.product_id.categ_id.id if line.product_id else None,
-                                    'condiciones_particulares': line.condiciones_particulares or ''
-                                }
+                            if seccion_base_name.upper() == line_base_name.upper():
+                                if seccion.product_category_id:
+                                    category_id = seccion.product_category_id.id
+                                    category_name = seccion.product_category_id.name
+                                break
+                        if category_id:
+                            break
                     
-                    # Procesar líneas de producto normales
-                    elif current_chapter and current_section:
-                        # Añadir línea a la sección actual
-                        line_data = {
-                            'id': line.id,
-                            'product_name': line.product_id.name if line.product_id else line.name,
-                            'description': line.name,
-                            'quantity': line.product_uom_qty,
-                            'price_unit': line.price_unit,
-                            'price_subtotal': line.price_subtotal,
-                            'product_uom': line.product_uom.name if line.product_uom else '',
-                        }
-                        capitulos_data[current_chapter]['sections'][current_section]['lines'].append(line_data)
-                
-                # Convertir a JSON para el widget
-                order.capitulos_agrupados = json.dumps(capitulos_data, ensure_ascii=False)
-                
-            except Exception as e:
-                _logger.error(f"Error computing capitulos_agrupados for order {order.id}: {str(e)}")
-                order.capitulos_agrupados = '{}'
-
-    @api.depends('order_line')
+                    capitulos_dict[current_capitulo_key]['sections'][current_seccion_name] = {
+                        'lines': [],
+                        'condiciones_particulares': line.condiciones_particulares or '',
+                        'category_id': category_id,
+                        'category_name': category_name
+                    }
+                    
+                elif current_capitulo_key and current_seccion_name:
+                    # Producto dentro de la sección actual
+                    line_data = {
+                        'id': line.id,  # Añadir ID para edición
+                        'sequence': line.sequence,
+                        'product_name': line.product_id.name if line.product_id else '',
+                        'name': line.name,
+                        'product_uom_qty': line.product_uom_qty,
+                        'product_uom': line.product_uom.name if line.product_uom else '',
+                        'price_unit': line.price_unit,
+                        'price_subtotal': line.price_subtotal
+                    }
+                    capitulos_dict[current_capitulo_key]['sections'][current_seccion_name]['lines'].append(line_data)
+                    capitulos_dict[current_capitulo_key]['total'] += line.price_subtotal
+            
+            result_json = json.dumps(capitulos_dict) if capitulos_dict else '{}'
+            order.capitulos_agrupados = result_json
+            
+            _logger.info(f"DEBUG COMPUTE: Pedido {order.id} - Resultado final:")
+            _logger.info(f"DEBUG COMPUTE: - Capítulos encontrados: {len(capitulos_dict)}")
+            _logger.info(f"DEBUG COMPUTE: - JSON generado: {len(result_json)} caracteres")
+            
+            if capitulos_dict:
+                for cap_name, cap_data in capitulos_dict.items():
+                    sections_count = len(cap_data.get('sections', {}))
+                    total_lines = sum(len(sec.get('lines', [])) for sec in cap_data.get('sections', {}).values())
+                    _logger.info(f"DEBUG COMPUTE: - Capítulo '{cap_name}': {sections_count} secciones, {total_lines} productos")
+            else:
+                _logger.info(f"DEBUG COMPUTE: - ❌ No se generaron capítulos")
+    
+    @api.depends('order_line', 'order_line.es_encabezado_capitulo')
     def _compute_tiene_multiples_capitulos(self):
-        """
-        DETECTOR DE MÚLTIPLES CAPÍTULOS
-        ==============================
-        
-        Determina si el presupuesto tiene múltiples capítulos para decidir
-        si mostrar la interfaz de acordeón o la vista tradicional.
-        """
+        """Calcula si el pedido tiene capítulos para mostrar el acordeón"""
         for order in self:
-            # Contar encabezados de capítulo
-            chapter_count = len(order.order_line.filtered('es_encabezado_capitulo'))
-            order.tiene_multiples_capitulos = chapter_count > 1
-
-    # ===========================================
-    # MÉTODOS DE ACCIÓN
-    # ===========================================
-
+            capitulos_count = len(order.order_line.filtered('es_encabezado_capitulo'))
+            order.tiene_multiples_capitulos = capitulos_count >= 1
+    
     def action_add_capitulo(self):
-        """
-        ACCIÓN PARA AÑADIR CAPÍTULO
-        ==========================
+        """Acción para abrir el wizard de capítulos"""
+        self.ensure_one()
         
-        Abre el asistente para gestionar capítulos del presupuesto.
-        
-        Returns:
-            dict: Acción de ventana para abrir el asistente
-        """
         return {
             'type': 'ir.actions.act_window',
-            'name': _('Gestionar Capítulos'),
-            'res_model': 'sale.order.capitulo.wizard',
+            'name': 'Gestionar Capítulos del Presupuesto',
+            'res_model': 'capitulo.wizard',
             'view_mode': 'form',
             'target': 'new',
             'context': {
                 'default_order_id': self.id,
                 'active_id': self.id,
-                'active_model': 'sale.order',
+                'active_model': 'sale.order'
             }
         }
-
-    def toggle_capitulo_collapse(self, capitulo_name):
-        """
-        ALTERNADOR DE ESTADO DE CAPÍTULO
-        ===============================
+    
+    def toggle_capitulo_collapse(self, capitulo_index):
+        """Alterna el estado colapsado/expandido de un capítulo"""
+        import json
         
-        Alterna el estado expandido/colapsado de un capítulo específico.
+        self.ensure_one()
+        capitulos = json.loads(self.capitulos_agrupados or '[]')
         
-        Args:
-            capitulo_name (str): Nombre del capítulo a alternar
-            
-        Returns:
-            dict: Resultado de la operación
-        """
+        if 0 <= capitulo_index < len(capitulos):
+            capitulos[capitulo_index]['collapsed'] = not capitulos[capitulo_index].get('collapsed', True)
+            self.capitulos_agrupados = json.dumps(capitulos)
+        
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
+    
+    @api.model
+    def add_product_to_section(self, order_id, capitulo_name, seccion_name, product_id, quantity=1.0):
+        """Añade un producto a una sección específica de un capítulo"""
+        import logging
+        _logger = logging.getLogger(__name__)
+        
+        _logger.info(f"DEBUG ADD_PRODUCT: Iniciando adición de producto {product_id} a capítulo '{capitulo_name}', sección '{seccion_name}'")
+        
+        order = self.browse(order_id)
+        order.ensure_one()
+        
+        _logger.info(f"DEBUG ADD_PRODUCT: Pedido {order.id} tiene {len(order.order_line)} líneas antes de añadir")
+        
         try:
-            # Buscar el capítulo por nombre
-            capitulo = self.capitulo_ids.filtered(
-                lambda c: self._get_base_name(c.name) == capitulo_name
-            )
+            if not product_id:
+                _logger.error(f"DEBUG ADD_PRODUCT: ❌ No se proporcionó product_id")
+                raise UserError("Debe seleccionar un producto")
             
-            if capitulo:
-                # Alternar estado
-                capitulo.collapsed = not capitulo.collapsed
-                return {'success': True}
-            else:
-                return {'success': False, 'error': _('Capítulo no encontrado')}
-                
-        except Exception as e:
-            _logger.error(f"Error toggling chapter collapse: {str(e)}")
-            return {'success': False, 'error': str(e)}
-
-    def add_product_to_section(self, chapter_name, section_name, product_id, quantity=1.0):
-        """
-        AÑADIR PRODUCTO A SECCIÓN
-        ========================
-        
-        Añade un producto específico a una sección dentro de un capítulo,
-        manteniendo la estructura jerárquica del presupuesto.
-        
-        Args:
-            chapter_name (str): Nombre del capítulo destino
-            section_name (str): Nombre de la sección destino
-            product_id (int): ID del producto a añadir
-            quantity (float): Cantidad del producto (por defecto 1.0)
-            
-        Returns:
-            dict: Resultado de la operación con éxito/error
-            
-        Proceso:
-        1. Busca el capítulo y sección especificados
-        2. Valida que la sección permita productos
-        3. Calcula la posición de inserción
-        4. Crea la nueva línea de producto
-        5. Recalcula los campos computados
-        """
-        try:
-            _logger.info(f"Añadiendo producto {product_id} a {chapter_name}/{section_name}")
-            
-            # ===================================
-            # BÚSQUEDA DE CAPÍTULO Y SECCIÓN
-            # ===================================
-            
-            chapter_line = None
-            section_line = None
-            insert_position = 0
-            
-            # Buscar líneas de encabezado
-            for i, line in enumerate(self.order_line):
-                if line.es_encabezado_capitulo and self._get_base_name(line.name) == chapter_name:
-                    chapter_line = line
-                    _logger.info(f"Capítulo encontrado: {line.name}")
-                    
-                elif (chapter_line and line.es_encabezado_seccion and 
-                      self._get_base_name(line.name) == section_name):
-                    section_line = line
-                    insert_position = i + 1
-                    _logger.info(f"Sección encontrada: {line.name} en posición {insert_position}")
-                    break
-            
-            # Validaciones
-            if not chapter_line:
-                return {
-                    'success': False,
-                    'error': f'Capítulo "{chapter_name}" no encontrado'
-                }
-            
-            if not section_line:
-                return {
-                    'success': False,
-                    'error': f'Sección "{section_name}" no encontrada en el capítulo "{chapter_name}"'
-                }
-            
-            # ===================================
-            # VALIDACIÓN DE SECCIÓN
-            # ===================================
-            
-            # Verificar que la sección no sea de solo texto
-            if section_line.condiciones_particulares and not section_line.product_id:
-                return {
-                    'success': False,
-                    'error': 'No se pueden añadir productos a secciones de condiciones particulares'
-                }
-            
-            # ===================================
-            # CÁLCULO DE POSICIÓN DE INSERCIÓN
-            # ===================================
-            
-            # Buscar la posición correcta después de las líneas existentes de la sección
-            for i in range(insert_position, len(self.order_line)):
-                line = self.order_line[i]
-                
-                # Si encontramos otro encabezado, insertar antes
-                if line.es_encabezado_capitulo or line.es_encabezado_seccion:
-                    insert_position = i
-                    break
-                else:
-                    # Continuar después de las líneas existentes
-                    insert_position = i + 1
-            
-            # ===================================
-            # DESPLAZAMIENTO DE LÍNEAS EXISTENTES
-            # ===================================
-            
-            # Incrementar la secuencia de las líneas posteriores
-            lines_to_update = self.order_line.filtered(
-                lambda l: l.sequence >= insert_position * 10
-            )
-            for line in lines_to_update:
-                line.sequence += 10
-            
-            # ===================================
-            # CREACIÓN DE LA NUEVA LÍNEA
-            # ===================================
-            
-            # Obtener información del producto
             product = self.env['product.product'].browse(product_id)
             if not product.exists():
-                return {
-                    'success': False,
-                    'error': f'Producto con ID {product_id} no encontrado'
-                }
+                _logger.error(f"DEBUG ADD_PRODUCT: ❌ Producto {product_id} no existe")
+                raise UserError("El producto seleccionado no existe")
+                
+            _logger.info(f"DEBUG ADD_PRODUCT: ✅ Producto encontrado: {product.name} (ID: {product.id})")
+        except Exception as e:
+            _logger.error(f"DEBUG ADD_PRODUCT: ❌ Error al validar producto: {str(e)}")
+            raise e
+        
+        _logger.info(f"DEBUG ADD_PRODUCT: Producto encontrado: {product.name}")
+        
+        # Buscar la línea de encabezado del capítulo
+        capitulo_line = None
+        seccion_line = None
+        
+        _logger.info(f"DEBUG ADD_PRODUCT: Buscando capítulo '{capitulo_name}' y sección '{seccion_name}'")
+        _logger.info(f"DEBUG ADD_PRODUCT: Líneas en el pedido:")
+        for line in order.order_line.sorted('sequence'):
+            _logger.info(f"DEBUG ADD_PRODUCT: - Línea {line.sequence}: '{line.name}' (Capítulo: {line.es_encabezado_capitulo}, Sección: {line.es_encabezado_seccion})")
+        
+        for line in order.order_line.sorted('sequence'):
+            if line.es_encabezado_capitulo:
+                line_base_name = self._get_base_name(line.name)
+                capitulo_base_name = self._get_base_name(capitulo_name)
+                
+                _logger.info(f"DEBUG ADD_PRODUCT: Comparando capítulo base '{line_base_name}' con '{capitulo_base_name}'")
+                
+                if line_base_name.upper() == capitulo_base_name.upper():
+                    capitulo_line = line
+                    _logger.info(f"DEBUG ADD_PRODUCT: ✅ Capítulo encontrado: {line.name}")
+                    break
+        
+        if capitulo_line:
+            _logger.info(f"DEBUG ADD_PRODUCT: Buscando sección '{seccion_name}' después del capítulo '{capitulo_line.name}'")
+            _logger.info(f"DEBUG ADD_PRODUCT: Capítulo encontrado en secuencia: {capitulo_line.sequence}")
             
-            # Crear la nueva línea de producto
+            # Obtener todas las líneas después del capítulo
+            # Si todas las líneas tienen la misma secuencia, usar el ID para ordenar
+            all_lines = order.order_line.sorted(lambda l: (l.sequence, l.id))
+            capitulo_index = None
+            for i, line in enumerate(all_lines):
+                if line.id == capitulo_line.id:
+                    capitulo_index = i
+                    break
+            
+            if capitulo_index is not None:
+                lines_after_chapter = all_lines[capitulo_index + 1:]
+            else:
+                lines_after_chapter = order.order_line.filtered(lambda l: l.sequence > capitulo_line.sequence).sorted('sequence')
+            
+            _logger.info(f"DEBUG ADD_PRODUCT: Líneas después del capítulo: {len(lines_after_chapter)}")
+            
+            for line in lines_after_chapter:
+                _logger.info(f"DEBUG ADD_PRODUCT: Revisando línea {line.sequence}: '{line.name}' (Capítulo: {line.es_encabezado_capitulo}, Sección: {line.es_encabezado_seccion})")
+                
+                if line.es_encabezado_capitulo:
+                    # Si encontramos otro capítulo, paramos la búsqueda
+                    _logger.info(f"DEBUG ADD_PRODUCT: Encontrado otro capítulo, parando búsqueda")
+                    break
+                elif line.es_encabezado_seccion:
+                    line_base_name = self._get_base_name(line.name)
+                    seccion_base_name = self._get_base_name(seccion_name)
+                    
+                    _logger.info(f"DEBUG ADD_PRODUCT: Comparando sección base '{line_base_name}' con '{seccion_base_name}'")
+                    
+                    if line_base_name.upper() == seccion_base_name.upper():
+                        seccion_line = line
+                        _logger.info(f"DEBUG ADD_PRODUCT: ✅ Sección encontrada: {line.name}")
+                        break
+                else:
+                    _logger.info(f"DEBUG ADD_PRODUCT: Línea de producto: '{line.name}' (secuencia: {line.sequence})")
+        else:
+            _logger.error(f"DEBUG ADD_PRODUCT: ❌ No se encontró el capítulo '{capitulo_name}'")
+        
+        if not capitulo_line:
+            raise UserError(f"No se encontró el capítulo: {capitulo_name}")
+        
+        if not seccion_line:
+            raise UserError(f"No se encontró la sección: {seccion_name} en el capítulo: {capitulo_name}")
+        
+        # VALIDACIÓN: Verificar si es una sección de solo texto (condiciones particulares)
+        seccion_name_lower = seccion_name.lower().strip()
+        if 'condiciones particulares' in seccion_name_lower:
+            _logger.warning(f"DEBUG ADD_PRODUCT: ❌ Intento de añadir producto a sección de solo texto: '{seccion_name}'")
+            raise UserError(f"No se pueden añadir productos a la sección '{seccion_name}'. Esta sección es solo para texto editable.")
+        
+        # Estrategia simplificada: insertar inmediatamente después del encabezado de sección
+        # Esto garantiza que el producto aparezca en la sección correcta
+        insert_sequence = seccion_line.sequence + 1
+        _logger.info(f"DEBUG: Insertando producto inmediatamente después de la sección '{seccion_line.name}' (seq: {seccion_line.sequence})")
+        _logger.info(f"DEBUG: Secuencia de inserción: {insert_sequence}")
+
+        # Desplazar todas las líneas que tengan secuencia >= insert_sequence
+        lines_to_shift = order.order_line.filtered(lambda l: l.sequence >= insert_sequence)
+        _logger.info(f"DEBUG: {len(lines_to_shift)} líneas para desplazar.")
+
+        # Ordenamos de forma descendente para evitar conflictos de clave única al actualizar
+        for line_to_shift in lines_to_shift.sorted(key=lambda r: r.sequence, reverse=True):
+            new_seq = line_to_shift.sequence + 1
+            _logger.info(f"DEBUG: Desplazando línea '{line_to_shift.name}' de {line_to_shift.sequence} a {new_seq}.")
+            # Usamos el contexto para saltar la validación de escritura en encabezados
+            line_to_shift.with_context(from_capitulo_wizard=True).sequence = new_seq
+        
+        _logger.info(f"DEBUG: Secuencia de inserción final: {insert_sequence}")
+        
+        # Crear la nueva línea de producto
+        try:
             new_line_vals = {
-                'order_id': self.id,
-                'product_id': product_id,
+                'order_id': order.id,
+                'product_id': product.id,
                 'name': product.name,
                 'product_uom_qty': quantity,
                 'product_uom': product.uom_id.id,
                 'price_unit': product.list_price,
-                'sequence': insert_position * 10,
+                'sequence': insert_sequence,
                 'es_encabezado_capitulo': False,
                 'es_encabezado_seccion': False,
             }
             
-            new_line = self.env['sale.order.line'].create(new_line_vals)
-            _logger.info(f"Nueva línea creada: {new_line.id}")
+            _logger.info(f"DEBUG ADD_PRODUCT: Valores para nueva línea: {new_line_vals}")
             
-            # ===================================
-            # RECÁLCULO Y FINALIZACIÓN
-            # ===================================
+            # Crear la línea con contexto especial para evitar restricciones
+            _logger.info(f"DEBUG ADD_PRODUCT: Creando línea con contexto from_capitulo_wizard=True")
+            new_line = self.env['sale.order.line'].with_context(
+                from_capitulo_wizard=True
+            ).create(new_line_vals)
             
-            # Forzar recálculo de campos computados
-            self._compute_capitulos_agrupados()
-            self._compute_tiene_multiples_capitulos()
-            
-            return {
-                'success': True,
-                'message': f'Producto "{product.name}" añadido correctamente a {section_name}',
-                'line_id': new_line.id
-            }
+            _logger.info(f"DEBUG ADD_PRODUCT: ✅ Línea creada exitosamente con ID: {new_line.id}")
             
         except Exception as e:
-            _logger.error(f"Error añadiendo producto a sección: {str(e)}")
-            return {
-                'success': False,
-                'error': f'Error interno: {str(e)}'
-            }
-
-    def save_condiciones_particulares(self, chapter_name, section_name, text):
-        """
-        GUARDAR CONDICIONES PARTICULARES
-        ===============================
+            _logger.error(f"DEBUG ADD_PRODUCT: ❌ Error al crear línea: {str(e)}")
+            import traceback
+            _logger.error(f"DEBUG ADD_PRODUCT: Traceback completo: {traceback.format_exc()}")
+            raise UserError(f"Error al crear la línea de producto: {str(e)}")
         
-        Guarda el texto de condiciones particulares en una sección específica.
+        # Forzar la escritura de los datos pendientes sin commit
+        self.env.cr.flush()
         
-        Args:
-            chapter_name (str): Nombre del capítulo
-            section_name (str): Nombre de la sección
-            text (str): Texto de las condiciones particulares
-            
-        Returns:
-            dict: Resultado de la operación
-        """
-        try:
-            # Buscar la línea de encabezado de sección
-            section_line = None
-            chapter_found = False
-            
-            for line in self.order_line:
-                if line.es_encabezado_capitulo and self._get_base_name(line.name) == chapter_name:
-                    chapter_found = True
-                elif (chapter_found and line.es_encabezado_seccion and 
-                      self._get_base_name(line.name) == section_name):
-                    section_line = line
+        # Refrescar el record completo desde la base de datos
+        order.invalidate_recordset()
+        # Forzar el recálculo del campo computed
+        order._compute_capitulos_agrupados()
+        
+        _logger.info(f"DEBUG: Producto añadido exitosamente. ID de nueva línea: {new_line.id}")
+        _logger.info(f"DEBUG: Secuencia de nueva línea: {new_line.sequence}")
+        _logger.info(f"DEBUG: Total de líneas en el pedido: {len(order.order_line)}")
+        _logger.info(f"DEBUG: Campo capitulos_agrupados recalculado: {len(order.capitulos_agrupados)} caracteres")
+        
+        # Verificar que la nueva línea está en order_line
+        if new_line.id in order.order_line.ids:
+            _logger.info(f"DEBUG: ✓ Nueva línea confirmada en order_line")
+        else:
+            _logger.error(f"DEBUG: ✗ Nueva línea NO encontrada en order_line")
+        
+        return {
+            'success': True,
+            'message': f'Producto {product.name} añadido a {seccion_name}',
+            'line_id': new_line.id
+        }
+    
+    @api.model
+    def save_condiciones_particulares(self, order_id, capitulo_name, seccion_name, condiciones_text):
+        """Guarda las condiciones particulares de una sección específica"""
+        import logging
+        _logger = logging.getLogger(__name__)
+        
+        _logger.info(f"DEBUG SAVE_CONDICIONES: Guardando condiciones para capítulo '{capitulo_name}', sección '{seccion_name}'")
+        _logger.info(f"DEBUG SAVE_CONDICIONES: Texto: {condiciones_text[:100]}...")
+        
+        order = self.browse(order_id)
+        order.ensure_one()
+        
+        # Buscar la línea de la sección específica
+        seccion_line = None
+        for line in order.order_line.sorted('sequence'):
+            if line.es_encabezado_seccion:
+                line_base_name = self._get_base_name(line.name)
+                seccion_base_name = self._get_base_name(seccion_name)
+                
+                if line_base_name.upper() == seccion_base_name.upper():
+                    seccion_line = line
                     break
-            
-            if not section_line:
-                return {
-                    'success': False,
-                    'error': f'Sección "{section_name}" no encontrada'
-                }
-            
-            # Actualizar las condiciones particulares
-            section_line.condiciones_particulares = text
-            
-            # Recalcular campos computados
-            self._compute_capitulos_agrupados()
+        
+        if not seccion_line:
+            _logger.error(f"DEBUG SAVE_CONDICIONES: ❌ No se encontró la sección '{seccion_name}'")
+            raise UserError(f"No se encontró la sección: {seccion_name}")
+        
+        try:
+            # Guardar las condiciones particulares en la línea de sección
+            seccion_line.with_context(from_capitulo_wizard=True).condiciones_particulares = condiciones_text
+            _logger.info(f"DEBUG SAVE_CONDICIONES: ✅ Condiciones guardadas en línea {seccion_line.id}")
             
             return {
                 'success': True,
-                'message': 'Condiciones particulares guardadas correctamente'
+                'message': f'Condiciones particulares guardadas para {seccion_name}'
             }
             
         except Exception as e:
-            _logger.error(f"Error guardando condiciones particulares: {str(e)}")
-            return {
-                'success': False,
-                'error': f'Error interno: {str(e)}'
-            }
-
+            _logger.error(f"DEBUG SAVE_CONDICIONES: ❌ Error al guardar: {str(e)}")
+            raise UserError(f"Error al guardar las condiciones particulares: {str(e)}")
 
 class SaleOrderLine(models.Model):
-    """
-    MODELO EXTENDIDO DE LÍNEA DE PEDIDO
-    ==================================
-    
-    Extiende sale.order.line para añadir campos específicos de la estructura
-    de capítulos y controlar la integridad de los datos.
-    """
     _inherit = 'sale.order.line'
-
-    # ===========================================
-    # CAMPOS ADICIONALES
-    # ===========================================
     
     es_encabezado_capitulo = fields.Boolean(
         string='Es Encabezado de Capítulo',
         default=False,
-        help="Indica si esta línea es un encabezado de capítulo"
+        help="Indica si esta línea es un encabezado de capítulo (no modificable)"
     )
     
     es_encabezado_seccion = fields.Boolean(
         string='Es Encabezado de Sección',
         default=False,
-        help="Indica si esta línea es un encabezado de sección"
+        help="Indica si esta línea es un encabezado de sección (no modificable)"
     )
     
     condiciones_particulares = fields.Text(
         string='Condiciones Particulares',
-        help="Texto libre para condiciones particulares de la sección"
+        help="Texto libre para condiciones particulares de esta sección"
     )
-
-    # ===========================================
-    # MÉTODOS DE CONTROL DE INTEGRIDAD
-    # ===========================================
-
+    
     def unlink(self):
-        """
-        CONTROL DE ELIMINACIÓN
-        =====================
+        """Previene la eliminación de encabezados de capítulos y secciones"""
+        import logging
+        _logger = logging.getLogger(__name__)
         
-        Previene la eliminación manual de encabezados de capítulos y secciones
-        para mantener la integridad de la estructura.
-        """
-        # Verificar si alguna línea es encabezado
-        headers = self.filtered(lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion)
+        _logger.info(f"DEBUG UNLINK: Intentando eliminar {len(self)} líneas")
+        _logger.info(f"DEBUG UNLINK: Contexto completo: {dict(self.env.context)}")
+        _logger.info(f"DEBUG UNLINK: from_capitulo_widget: {self.env.context.get('from_capitulo_widget')}")
         
-        if headers:
-            raise UserError(_(
-                'No se pueden eliminar encabezados de capítulos o secciones manualmente. '
-                'Use el asistente de gestión de capítulos.'
-            ))
+        for line in self:
+            _logger.info(f"DEBUG UNLINK: Línea {line.id} - '{line.name}' - Capítulo: {line.es_encabezado_capitulo}, Sección: {line.es_encabezado_seccion}")
         
-        return super().unlink()
-
+        # Verificar si alguna línea es un encabezado
+        headers_to_delete = self.filtered(lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion)
+        
+        if headers_to_delete:
+            header_names = ', '.join(headers_to_delete.mapped('name'))
+            _logger.error(f"DEBUG UNLINK: Intentando eliminar encabezados: {header_names}")
+            raise UserError(
+                f"No se pueden eliminar los siguientes encabezados: {header_names}\n"
+                "Los encabezados de capítulos y secciones son elementos estructurales del presupuesto."
+            )
+        
+        # Si llegamos aquí, todas las líneas son productos normales
+        _logger.info("DEBUG UNLINK: Todas las líneas son productos normales, procediendo con eliminación")
+        
+        try:
+            result = super().unlink()
+            _logger.info("DEBUG UNLINK: Eliminación exitosa")
+            return result
+        except Exception as e:
+            _logger.error(f"DEBUG UNLINK: Error durante eliminación: {str(e)}")
+            raise e
+    
     def write(self, vals):
-        """
-        CONTROL DE MODIFICACIÓN
-        ======================
+        """Previene la modificación de campos críticos en encabezados"""
+        # Si se está modificando desde el wizard de capítulos, permitir la modificación
+        if self.env.context.get('from_capitulo_wizard'):
+            return super().write(vals)
+            
+        protected_fields = ['name', 'product_id', 'product_uom_qty', 'price_unit', 'sequence', 'display_type']
         
-        Controla las modificaciones en líneas de encabezado para prevenir
-        cambios que rompan la estructura.
-        """
-        # Verificar modificaciones en encabezados
-        headers = self.filtered(lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion)
-        
-        if headers and any(key in vals for key in ['product_id', 'product_uom_qty', 'price_unit']):
-            raise UserError(_(
-                'No se pueden modificar los campos de producto en encabezados de capítulos o secciones.'
-            ))
+        for line in self:
+            if (line.es_encabezado_capitulo or line.es_encabezado_seccion):
+                # Verificar si se está intentando modificar campos protegidos
+                for field in protected_fields:
+                    if field in vals:
+                        tipo = "capítulo" if line.es_encabezado_capitulo else "sección"
+                        raise UserError(
+                            f"No se puede modificar el encabezado de {tipo}: {line.name}\n"
+                            f"Los encabezados son elementos estructurales del presupuesto y no se pueden editar."
+                        )
         
         return super().write(vals)
-
+    
     @api.model
     def create(self, vals):
-        """
-        CONTROL DE CREACIÓN
-        ==================
+        """Controla la creación de nuevas líneas cuando hay capítulos estructurados"""
+        import logging
+        _logger = logging.getLogger(__name__)
         
-        Controla la creación de nuevas líneas en pedidos con estructura de capítulos.
-        """
-        # Si el pedido tiene capítulos estructurados, validar la creación
-        if vals.get('order_id'):
-            order = self.env['sale.order'].browse(vals['order_id'])
-            
-            # Si tiene capítulos y no es un encabezado, verificar contexto
-            if (order.tiene_multiples_capitulos and 
-                not vals.get('es_encabezado_capitulo') and 
-                not vals.get('es_encabezado_seccion') and
-                not self.env.context.get('skip_structure_validation')):
-                
-                # Permitir solo si se está usando el método add_product_to_section
-                if not self.env.context.get('adding_to_section'):
-                    raise UserError(_(
-                        'En presupuestos con capítulos estructurados, use el botón "Añadir Producto" '
-                        'para mantener la organización correcta.'
-                    ))
+        _logger.info(f"DEBUG CREATE: Creando línea con valores: {vals}")
+        _logger.info(f"DEBUG CREATE: Contexto: {dict(self.env.context)}")
+        _logger.info(f"DEBUG CREATE: from_capitulo_wizard: {self.env.context.get('from_capitulo_wizard')}")
         
-        return super().create(vals)
+        # Si se está creando desde el wizard de capítulos, permitir la creación
+        if self.env.context.get('from_capitulo_wizard'):
+            _logger.info(f"DEBUG CREATE: ✅ Creación permitida por contexto from_capitulo_wizard")
+            try:
+                result = super().create(vals)
+                _logger.info(f"DEBUG CREATE: ✅ Línea creada exitosamente con ID: {result.id}")
+                return result
+            except Exception as e:
+                _logger.error(f"DEBUG CREATE: ❌ Error en super().create(): {str(e)}")
+                import traceback
+                _logger.error(f"DEBUG CREATE: Traceback: {traceback.format_exc()}")
+                raise e
+        
+        # Bloquear la creación manual de encabezados de capítulos y secciones
+        if vals.get('es_encabezado_capitulo') or vals.get('es_encabezado_seccion'):
+            _logger.error(f"DEBUG CREATE: ❌ Intento de crear encabezado manualmente")
+            raise UserError(
+                "No se pueden crear encabezados de capítulos o secciones manualmente.\n"
+                "Use el botón 'Gestionar Capítulos' para añadir capítulos estructurados."
+            )
+        
+        # Bloquear la creación de líneas de tipo 'line_section' que no sean productos normales
+        if vals.get('display_type') in ['line_section', 'line_note'] and not vals.get('product_id'):
+            order_id = vals.get('order_id')
+            if order_id:
+                order = self.env['sale.order'].browse(order_id)
+                existing_headers = order.order_line.filtered(
+                    lambda l: l.es_encabezado_capitulo or l.es_encabezado_seccion
+                )
+                if existing_headers:
+                    _logger.error(f"DEBUG CREATE: ❌ Intento de crear sección/nota con capítulos estructurados")
+                    raise UserError(
+                        "No se pueden añadir secciones o notas manualmente cuando el presupuesto tiene capítulos estructurados.\n"
+                        "Use el botón 'Gestionar Capítulos' para gestionar la estructura."
+                    )
+        
+        _logger.info(f"DEBUG CREATE: ✅ Validaciones pasadas, creando línea normal")
+        try:
+            result = super().create(vals)
+            _logger.info(f"DEBUG CREATE: ✅ Línea normal creada exitosamente con ID: {result.id}")
+            return result
+        except Exception as e:
+            _logger.error(f"DEBUG CREATE: ❌ Error en super().create() para línea normal: {str(e)}")
+            import traceback
+            _logger.error(f"DEBUG CREATE: Traceback: {traceback.format_exc()}")
+            raise e
