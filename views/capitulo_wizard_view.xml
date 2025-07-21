@@ -1,130 +1,356 @@
+<!-- 
+VISTAS XML PARA EL WIZARD DE CAPÍTULOS TÉCNICOS
+==============================================
+
+Este archivo define la vista del wizard para gestionar capítulos técnicos,
+permitiendo crear capítulos nuevos o seleccionar existentes, gestionar
+secciones y productos, y añadir todo al pedido de venta.
+
+FUNCIONALIDADES DEL WIZARD:
+- Selección entre capítulo existente o nuevo
+- Gestión dinámica de secciones y productos
+- Validación de categorías de productos
+- Integración con pedidos de venta
+- Interfaz intuitiva con campos condicionales
+
+COMPONENTES PRINCIPALES:
+- Formulario principal del wizard
+- Gestión de secciones con productos
+- Validaciones en tiempo real
+- Botones de acción contextuales
+
+@author: Sergio Vadillo
+@version: 18.0.1.1.0
+@since: 2024
+@license: LGPL-3
+-->
+
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="capitulo_wizard_form_view" model="ir.ui.view">
-        <field name="name">capitulo.wizard.form</field>
-        <field name="model">capitulo.wizard</field>
-        <field name="arch" type="xml">
-            <form>
-                <sheet>
-                    <div class="alert alert-info" role="alert">
-                        <strong>Gestión de Capítulos:</strong> Puede usar un capítulo existente o crear uno nuevo desde cero.
-                    </div>
+    <data>
+        
+        <!-- ========================================== -->
+        <!-- VISTA DE FORMULARIO DEL WIZARD            -->
+        <!-- ========================================== -->
+        
+        <!-- 
+        Vista principal del wizard para gestionar capítulos técnicos.
+        Permite seleccionar entre capítulo existente o crear uno nuevo,
+        gestionar secciones y productos, y añadir todo al pedido de venta.
+        -->
+        <record id="view_capitulo_wizard_form" model="ir.ui.view">
+            <field name="name">capitulo.wizard.form</field>
+            <field name="model">capitulo.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Gestión de Capítulos Técnicos">
                     
-                    <group>
-                        <field name="modo_creacion" widget="radio" options="{'horizontal': true}"/>
-                    </group>
-                    
-                    <!-- Campos para capítulo existente -->
-                    <group invisible="modo_creacion != 'existente'">
-                        <field name="capitulo_id" options="{'no_create': True, 'no_edit': True}" 
-                               placeholder="Seleccione un capítulo existente..." 
-                               help="Seleccione un capítulo ya creado para aplicar al presupuesto"
-                               required="modo_creacion == 'existente'"/>
-                    </group>
-                    
-
-                    
-                    <!-- Campos para nuevo capítulo -->
-                    <group invisible="modo_creacion != 'nuevo'">
-                        <field name="nuevo_capitulo_nombre" placeholder="Nombre del nuevo capítulo..." 
-                               help="Especifique el nombre para el nuevo capítulo"
-                               required="modo_creacion == 'nuevo'"/>
-                        <field name="nuevo_capitulo_descripcion" placeholder="Descripción del capítulo..."/>
-                    </group>
-                    
-
-                    
-                    <notebook>
-                        <page string="Secciones y Productos">
-                            <!-- Título prominente del capítulo -->
-                            <div invisible="modo_creacion != 'existente' or not capitulo_id" class="alert alert-primary" role="alert" style="margin-bottom: 15px; text-align: center; font-size: 18px; border: 2px solid #007bff;">
-                                <strong>📋 CAPÍTULO: </strong><field name="capitulo_id" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
-                            </div>
+                    <!-- Contenido principal del wizard -->
+                    <sheet>
+                        
+                        <!-- Título del wizard -->
+                        <div class="oe_title">
+                            <h1>
+                                <field name="sale_order_id" invisible="1"/>
+                                Gestión de Capítulos Técnicos
+                            </h1>
+                            <p class="text-muted">
+                                Selecciona un capítulo existente o crea uno nuevo para añadir al presupuesto
+                            </p>
+                        </div>
+                        
+                        <!-- Separador visual -->
+                        <div class="o_horizontal_separator mt16 mb16">Configuración del Capítulo</div>
+                        
+                        <!-- Selección del modo de creación -->
+                        <group name="creation_mode">
+                            <group name="mode_selection" string="Modo de Creación">
+                                <!-- Selector de modo: existente o nuevo -->
+                                <field name="creation_mode" 
+                                       widget="radio" 
+                                       options="{'horizontal': true}"
+                                       help="Selecciona si quieres usar un capítulo existente o crear uno nuevo"/>
+                            </group>
+                        </group>
+                        
+                        <!-- Campos condicionales según el modo seleccionado -->
+                        <group name="chapter_selection">
                             
-                            <div invisible="modo_creacion != 'nuevo' or not nuevo_capitulo_nombre" class="alert alert-primary" role="alert" style="margin-bottom: 15px; text-align: center; font-size: 18px; border: 2px solid #007bff;">
-                                <strong>📋 NUEVO CAPÍTULO: </strong><field name="nuevo_capitulo_nombre" readonly="1" nolabel="1" style="display: inline; font-weight: bold; font-size: 20px; color: #007bff;"/>
-                            </div>
+                            <!-- Modo: Capítulo Existente -->
+                            <group name="existing_chapter" 
+                                   string="Capítulo Existente" 
+                                   invisible="creation_mode != 'existing'">
+                                
+                                <!-- Selector de capítulo existente -->
+                                <field name="existing_capitulo_id" 
+                                       string="Seleccionar Capítulo"
+                                       domain="[('es_plantilla', '=', False)]"
+                                       required="creation_mode == 'existing'"
+                                       options="{'no_create': True, 'no_edit': True}"
+                                       help="Selecciona un capítulo existente para añadir al presupuesto"/>
+                            </group>
                             
-                            <div class="alert alert-info" role="alert" style="margin-bottom: 15px;">
-                                <strong>📋 Instrucciones:</strong><br/>
-                                <strong>1.</strong> Marque las secciones que desea incluir<br/>
-                                <strong>2.</strong> Añada productos a cada sección marcada<br/>
-                                <strong>3.</strong> Haga clic en "Añadir al Presupuesto"
-                            </div>
-                            
-                            <field name="seccion_ids">
-                                <list create="true" delete="true" edit="false">
-                                    <field name="sequence" widget="handle"/>
-                                    <field name="name" string="Sección" decoration-bf="1" style="font-weight: bold; font-size: 14px;"/>
-                                    <field name="incluir" string="Incluir" widget="boolean_toggle"/>
-                                    <field name="es_fija" string="Fija" widget="boolean_toggle" readonly="1"/>
-                                </list>
-                                <form>
-                                    <sheet>
-                                        <div class="oe_title">
-                                            <h1>
-                                                <field name="name" placeholder="Nombre de la sección..." required="1" style="font-size: 18px; font-weight: bold;"/>
-                                            </h1>
-                                        </div>
+                            <!-- Modo: Nuevo Capítulo -->
+                            <group name="new_chapter" 
+                                   string="Nuevo Capítulo" 
+                                   invisible="creation_mode != 'new'">
+                                
+                                <!-- Nombre del nuevo capítulo -->
+                                <field name="new_capitulo_name" 
+                                       string="Nombre del Capítulo"
+                                       required="creation_mode == 'new'"
+                                       placeholder="Introduce el nombre del nuevo capítulo..."
+                                       help="Nombre descriptivo para el nuevo capítulo"/>
+                                
+                                <!-- Descripción del nuevo capítulo -->
+                                <field name="new_capitulo_description" 
+                                       string="Descripción"
+                                       placeholder="Descripción detallada del capítulo..."
+                                       help="Descripción completa del nuevo capítulo"/>
+                                
+                                <!-- Plantilla base (opcional) -->
+                                <field name="plantilla_id" 
+                                       string="Basado en Plantilla"
+                                       domain="[('es_plantilla', '=', True)]"
+                                       options="{'no_create': True}"
+                                       help="Opcionalmente, selecciona una plantilla como base"/>
+                            </group>
+                        </group>
+                        
+                        <!-- Separador para secciones -->
+                        <div class="o_horizontal_separator mt16 mb16">Gestión de Secciones y Productos</div>
+                        
+                        <!-- Gestión de secciones y productos -->
+                        <notebook>
+                            <page string="Secciones y Productos" name="secciones_productos">
+                                
+                                <!-- Lista de secciones del wizard -->
+                                <field name="seccion_ids" 
+                                       context="{'default_wizard_id': active_id}"
+                                       help="Secciones disponibles para este capítulo">
+                                    
+                                    <!-- Vista de árbol para secciones -->
+                                    <tree string="Secciones del Capítulo" 
+                                          editable="bottom" 
+                                          decoration-success="incluir"
+                                          decoration-muted="not incluir">
                                         
+                                        <!-- Checkbox para incluir la sección -->
+                                        <field name="incluir" 
+                                               string="Incluir"
+                                               widget="boolean_toggle"
+                                               help="Marca para incluir esta sección en el presupuesto"/>
+                                        
+                                        <!-- Nombre de la sección -->
+                                        <field name="name" 
+                                               string="Nombre de Sección"
+                                               required="1"
+                                               help="Nombre descriptivo de la sección"/>
+                                        
+                                        <!-- Orden de la sección -->
+                                        <field name="sequence" 
+                                               string="Orden"
+                                               help="Orden de aparición en el presupuesto"/>
+                                        
+                                        <!-- Indicador de sección fija -->
+                                        <field name="es_fija" 
+                                               string="Fija"
+                                               readonly="1"
+                                               help="Las secciones fijas no pueden ser modificadas"/>
+                                        
+                                        <!-- Categoría de productos -->
+                                        <field name="product_category_id" 
+                                               string="Categoría de Productos"
+                                               help="Categoría de productos permitidos en esta sección"/>
+                                    </tree>
+                                    
+                                    <!-- Vista de formulario para secciones -->
+                                    <form string="Configuración de Sección">
+                                        
+                                        <!-- Información básica de la sección -->
                                         <group>
-                                            <group>
-                                                <field name="incluir" string="Incluir en Presupuesto" widget="boolean_toggle"/>
-                                                <field name="product_category_id" required="1" placeholder="Seleccione una categoría de productos..."
-                                                       domain="[('name', '!=', 'All'), ('name', 'not like', 'All /%'), ('name', 'not in', ['All', 'Deliveries', 'Sales', 'Purchase', 'Expenses', 'Saleable', 'Consumable', 'Service', 'Storable Product', 'All / Deliveries', 'All / Sales', 'All / Purchase', 'All / Expenses', 'All / Saleable', 'All / Consumable', 'All / Service', 'All / Storable Product']), '|', ('parent_id', '=', False), '&amp;', ('parent_id.name', '!=', 'All'), ('parent_id.name', 'not like', 'All /%')]"/>
+                                            <group name="section_basic" string="Información Básica">
+                                                <field name="incluir" 
+                                                       widget="boolean_toggle"
+                                                       help="Incluir esta sección en el presupuesto"/>
+                                                <field name="name" required="1"/>
+                                                <field name="sequence"/>
+                                                <field name="es_fija" readonly="1"/>
                                             </group>
-                                            <group>
-                                                <!-- Campos ocultos pero necesarios para el funcionamiento -->
-                                                <field name="sequence" invisible="1"/>
-                                                <field name="es_fija" invisible="1"/>
+                                            
+                                            <group name="section_category" string="Configuración de Productos">
+                                                <field name="product_category_id" 
+                                                       help="Selecciona la categoría de productos permitidos"/>
                                             </group>
                                         </group>
                                         
+                                        <!-- Productos de la sección -->
                                         <notebook>
-                                            <page string="Productos">
-                                                <div class="alert alert-warning" role="alert" style="margin-bottom: 10px;">
-                                                    <strong>⚠️ Importante:</strong> Debe seleccionar una <strong>Categoría de Productos</strong> antes de poder añadir productos a esta sección.
+                                            <page string="Productos" name="productos_seccion">
+                                                
+                                                <!-- Mensaje informativo sobre categoría -->
+                                                <div class="alert alert-info" 
+                                                     role="alert" 
+                                                     invisible="product_category_id">
+                                                    <strong>Información:</strong> 
+                                                    Selecciona una categoría de productos para filtrar los productos disponibles.
                                                 </div>
-                                                <field name="line_ids">
-                                                    <list editable="bottom">
-                                                        <field name="sequence" widget="handle"/>
-                                                        <field name="product_id" string="Producto" required="1" 
-                                                               domain="[('sale_ok', '=', True), ('categ_id', 'child_of', parent.product_category_id)]"
-                                                               readonly="not parent.product_category_id"
-                                                               placeholder="Primero seleccione una categoría de productos"/>
-                                                        <field name="descripcion_personalizada" string="Descripción"/>
-                                                        <field name="cantidad" string="Cantidad" sum="Total"/>
-                                                        <field name="precio_unitario" string="Precio Unitario"/>
-                                                        <field name="incluir" string="Incluir" widget="boolean_toggle"/>
-                                                        <field name="es_opcional" string="Opcional" widget="boolean_toggle"/>
-                                                    </list>
+                                                
+                                                <!-- Lista de productos de la sección -->
+                                                <field name="line_ids" 
+                                                       context="{'default_seccion_id': active_id}"
+                                                       help="Productos incluidos en esta sección">
+                                                    
+                                                    <!-- Vista de árbol para productos -->
+                                                    <tree string="Productos de la Sección" 
+                                                          editable="bottom"
+                                                          decoration-success="incluir"
+                                                          decoration-muted="not incluir">
+                                                        
+                                                        <!-- Checkbox para incluir el producto -->
+                                                        <field name="incluir" 
+                                                               string="Incluir"
+                                                               widget="boolean_toggle"
+                                                               help="Incluir este producto en el presupuesto"/>
+                                                        
+                                                        <!-- Producto -->
+                                                        <field name="product_id" 
+                                                               string="Producto"
+                                                               required="1"
+                                                               domain="[('sale_ok', '=', True)] if not parent.product_category_id else [('sale_ok', '=', True), ('categ_id', 'child_of', parent.product_category_id)]"
+                                                               help="Selecciona el producto"/>
+                                                        
+                                                        <!-- Descripción personalizada -->
+                                                        <field name="descripcion_personalizada" 
+                                                               string="Descripción Personalizada"
+                                                               help="Descripción específica para este presupuesto"/>
+                                                        
+                                                        <!-- Cantidad -->
+                                                        <field name="cantidad" 
+                                                               string="Cantidad"
+                                                               required="1"
+                                                               help="Cantidad del producto"/>
+                                                        
+                                                        <!-- Precio unitario -->
+                                                        <field name="precio_unitario" 
+                                                               string="Precio Unitario"
+                                                               help="Precio unitario del producto"/>
+                                                        
+                                                        <!-- Indicador de producto opcional -->
+                                                        <field name="es_opcional" 
+                                                               string="Opcional"
+                                                               help="Marca si este producto es opcional"/>
+                                                    </tree>
+                                                    
+                                                    <!-- Vista de formulario para productos -->
+                                                    <form string="Configuración de Producto">
+                                                        <group>
+                                                            <group name="product_basic" string="Información del Producto">
+                                                                <field name="incluir" widget="boolean_toggle"/>
+                                                                <field name="product_id" required="1"/>
+                                                                <field name="descripcion_personalizada"/>
+                                                                <field name="es_opcional"/>
+                                                            </group>
+                                                            
+                                                            <group name="product_pricing" string="Precios y Cantidades">
+                                                                <field name="cantidad" required="1"/>
+                                                                <field name="precio_unitario"/>
+                                                            </group>
+                                                        </group>
+                                                    </form>
                                                 </field>
                                             </page>
                                         </notebook>
-                                    </sheet>
-                                </form>
-                            </field>
-                        </page>
-                        
-                        <page string="Condiciones Particulares">
-                            <field name="condiciones_particulares" placeholder="Escriba aquí las condiciones particulares para este presupuesto..."/>
-                        </page>
-                    </notebook>
-                </sheet>
-                <footer>
-                        <button name="add_to_order" string="Añadir al Presupuesto" type="object" class="btn-primary"/>
-                        <button name="add_seccion" string="Añadir Sección" type="object" class="btn-secondary"/>
-                        <button name="add_another_chapter" string="Añadir Otro Capítulo" type="object" class="btn-secondary"/>
-                        <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                                    </form>
+                                </field>
+                            </page>
+                            
+                            <!-- Pestaña de condiciones particulares -->
+                            <page string="Condiciones Particulares" name="condiciones">
+                                <field name="condiciones_particulares" 
+                                       placeholder="Condiciones específicas para este presupuesto..."
+                                       help="Condiciones particulares que se aplicarán a este capítulo en el presupuesto"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    
+                    <!-- Botones de acción del wizard -->
+                    <footer>
+                        <div class="d-flex justify-content-between">
+                            
+                            <!-- Botones principales -->
+                            <div>
+                                <!-- Botón para añadir al presupuesto -->
+                                <button name="add_to_order" 
+                                        type="object" 
+                                        string="Añadir al Presupuesto" 
+                                        class="btn-primary"
+                                        help="Añade el capítulo configurado al pedido de venta"/>
+                                
+                                <!-- Botón para añadir sección -->
+                                <button name="add_seccion" 
+                                        type="object" 
+                                        string="Añadir Sección" 
+                                        class="btn-secondary"
+                                        help="Añade una nueva sección al capítulo"/>
+                            </div>
+                            
+                            <!-- Botones secundarios -->
+                            <div>
+                                <!-- Botón para añadir otro capítulo -->
+                                <button name="add_another_chapter" 
+                                        type="object" 
+                                        string="Añadir Otro Capítulo" 
+                                        class="btn-link"
+                                        help="Añade este capítulo y permite configurar otro"/>
+                                
+                                <!-- Botón para cancelar -->
+                                <button string="Cancelar" 
+                                        class="btn-secondary" 
+                                        special="cancel"
+                                        help="Cancela la operación sin guardar cambios"/>
+                            </div>
+                        </div>
                     </footer>
-            </form>
-        </field>
-    </record>
+                </form>
+            </field>
+        </record>
 
-    <record id="capitulo_wizard_action" model="ir.actions.act_window">
-        <field name="name">Gestionar Capítulos del Presupuesto</field>
-        <field name="res_model">capitulo.wizard</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
+        <!-- ========================================== -->
+        <!-- ACCIÓN DEL WIZARD                          -->
+        <!-- ========================================== -->
+        
+        <!-- 
+        Acción para abrir el wizard de gestión de capítulos.
+        Se utiliza desde los pedidos de venta para añadir capítulos.
+        -->
+        <record id="action_capitulo_wizard" model="ir.actions.act_window">
+            <field name="name">Gestión de Capítulos Técnicos</field>
+            <field name="res_model">capitulo.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="context">{
+                'default_sale_order_id': active_id,
+                'default_creation_mode': 'existing'
+            }</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    ¡Configura tu capítulo técnico!
+                </p>
+                <p>
+                    Este wizard te permite añadir capítulos técnicos estructurados
+                    a tu pedido de venta de forma rápida y organizada.
+                </p>
+                <p>
+                    <strong>Opciones disponibles:</strong>
+                </p>
+                <ul>
+                    <li>Seleccionar un capítulo existente</li>
+                    <li>Crear un nuevo capítulo desde cero</li>
+                    <li>Usar una plantilla como base</li>
+                    <li>Configurar secciones y productos</li>
+                </ul>
+            </field>
+        </record>
+
+    </data>
 </odoo>

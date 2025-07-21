@@ -1,157 +1,434 @@
+<!-- 
+VISTAS XML PARA EL MÓDULO DE CAPÍTULOS TÉCNICOS
+==============================================
+
+Este archivo define todas las vistas XML para el modelo capitulo.contrato,
+incluyendo formularios, listas, búsquedas, acciones y elementos de menú.
+
+VISTAS INCLUIDAS:
+- Vista de formulario: Gestión completa de capítulos y plantillas
+- Vista de lista: Listado con información resumida
+- Vista de búsqueda: Filtros y agrupaciones avanzadas
+- Acciones de ventana: Navegación entre capítulos y plantillas
+- Elementos de menú: Integración en la interfaz de Odoo
+
+FUNCIONALIDADES DE LA VISTA:
+- Gestión de plantillas con sistema de dependencias
+- Creación de capítulos desde plantillas existentes
+- Gestión de secciones con productos configurables
+- Validaciones y controles de integridad
+- Interfaz intuitiva para usuarios finales
+
+@author: Sergio Vadillo
+@version: 18.0.1.1.0
+@since: 2024
+@license: LGPL-3
+-->
+
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <data>
+        
+        <!-- ========================================== -->
+        <!-- VISTA DE FORMULARIO PARA CAPÍTULOS        -->
+        <!-- ========================================== -->
+        
+        <!-- 
+        Vista principal de formulario para gestionar capítulos técnicos.
+        Incluye funcionalidades para:
+        - Crear capítulos desde plantillas
+        - Gestionar dependencias entre plantillas
+        - Configurar secciones y productos
+        - Eliminar plantillas con validaciones
+        -->
         <record id="view_capitulo_contrato_form" model="ir.ui.view">
             <field name="name">capitulo.contrato.form</field>
             <field name="model">capitulo.contrato</field>
             <field name="arch" type="xml">
-                <form>
+                <form string="Capítulo Contrato">
+                    
+                    <!-- Barra de botones de acción -->
+                    <header>
+                        <!-- Botón para crear capítulo desde plantilla -->
+                        <button name="action_crear_desde_plantilla" 
+                                type="object" 
+                                string="Crear desde Plantilla" 
+                                class="btn-primary"
+                                invisible="not es_plantilla"
+                                help="Crea un nuevo capítulo basado en esta plantilla"/>
+                        
+                        <!-- Botón para ver capítulos dependientes -->
+                        <button name="action_mostrar_dependencias" 
+                                type="object" 
+                                string="Ver Dependencias" 
+                                class="btn-secondary"
+                                invisible="not es_plantilla or capitulos_dependientes_count == 0"
+                                help="Muestra los capítulos que dependen de esta plantilla"/>
+                        
+                        <!-- Botón para eliminar plantilla (con validaciones) -->
+                        <button name="action_eliminar_plantilla_forzado" 
+                                type="object" 
+                                string="Eliminar Plantilla" 
+                                class="btn-danger"
+                                invisible="not es_plantilla"
+                                confirm="¿Está seguro de que desea eliminar esta plantilla? Esta acción desvinculará todos los capítulos dependientes."
+                                help="Elimina la plantilla y desvíncula capítulos dependientes"/>
+                    </header>
+                    
+                    <!-- Contenido principal del formulario -->
                     <sheet>
-                        <div class="oe_button_box" name="button_box">
-                            <button name="action_crear_desde_plantilla" type="object" 
-                                    class="oe_stat_button" icon="fa-copy"
-                                    string="Crear desde Plantilla"
-                                    invisible="not id"/>
-                            <button name="action_mostrar_dependencias" type="object" 
-                                    class="oe_stat_button" icon="fa-search"
-                                    string="Ver Dependencias"
-                                    invisible="not es_plantilla or not id"/>
-                            <button name="action_eliminar_plantilla_forzado" type="object" 
-                                    class="oe_stat_button" icon="fa-trash"
-                                    string="Eliminar Plantilla"
-                                    invisible="not es_plantilla or not id"
-                                    confirm="¿Está seguro de que desea eliminar esta plantilla? Se desvinculará de todos los capítulos que la utilicen."/>
-                        </div>
+                        
+                        <!-- Información básica del capítulo -->
                         <group>
-                            <group>
-                                <field name="name"/>
-                                <field name="es_plantilla"/>
+                            <group name="basic_info" string="Información Básica">
+                                <!-- Nombre del capítulo (obligatorio) -->
+                                <field name="name" 
+                                       placeholder="Nombre del capítulo..."
+                                       required="1"
+                                       help="Nombre descriptivo del capítulo técnico"/>
+                                
+                                <!-- Descripción detallada -->
+                                <field name="description" 
+                                       placeholder="Descripción detallada del capítulo..."
+                                       help="Descripción completa del capítulo y sus servicios"/>
                             </group>
-                            <group>
-                                <field name="plantilla_id" domain="[('es_plantilla', '=', True), ('id', '!=', id)]"
-                                       options="{'no_create': True}"
-                                       invisible="context.get('default_plantilla_id', False)"/>
-                                <field name="description"/>
+                            
+                            <!-- Sistema de plantillas -->
+                            <group name="template_system" string="Sistema de Plantillas">
+                                <!-- Indicador de plantilla -->
+                                <field name="es_plantilla" 
+                                       help="Marca este capítulo como plantilla reutilizable"/>
+                                
+                                <!-- Plantilla base (solo para capítulos no plantilla) -->
+                                <field name="plantilla_id" 
+                                       invisible="es_plantilla"
+                                       domain="[('es_plantilla', '=', True)]"
+                                       help="Plantilla base utilizada para crear este capítulo"/>
+                                
+                                <!-- Contador de dependencias (solo para plantillas) -->
+                                <field name="capitulos_dependientes_count" 
+                                       invisible="not es_plantilla"
+                                       string="Capítulos Dependientes"
+                                       help="Número de capítulos que utilizan esta plantilla"/>
                             </group>
                         </group>
+                        
+                        <!-- Pestaña de secciones y productos -->
                         <notebook>
-                            <page string="Secciones">
-                                <field name="seccion_ids">
-                                    <list>
-                                        <field name="sequence" widget="handle"/>
-                                        <field name="name"/>
-                                        <field name="es_fija"/>
-                                        <field name="descripcion"/>
-                                    </list>
-                                    <form>
-                                        <sheet>
-                                            <group>
-                                                <field name="name"/>
+                            <page string="Secciones y Productos" name="secciones">
+                                <!-- 
+                                Lista editable de secciones del capítulo.
+                                Cada sección puede contener múltiples productos.
+                                -->
+                                <field name="seccion_ids" 
+                                       context="{'default_capitulo_id': active_id}"
+                                       help="Secciones que componen este capítulo técnico">
+                                    
+                                    <!-- Vista de árbol para secciones -->
+                                    <tree string="Secciones del Capítulo" editable="bottom">
+                                        <!-- Nombre de la sección -->
+                                        <field name="name" 
+                                               string="Nombre de Sección"
+                                               required="1"
+                                               help="Nombre descriptivo de la sección"/>
+                                        
+                                        <!-- Orden de la sección -->
+                                        <field name="sequence" 
+                                               string="Secuencia"
+                                               help="Orden de aparición de la sección"/>
+                                        
+                                        <!-- Indicador de sección fija -->
+                                        <field name="es_fija" 
+                                               string="Sección Fija"
+                                               help="Las secciones fijas no pueden ser modificadas"/>
+                                        
+                                        <!-- Descripción de la sección -->
+                                        <field name="descripcion" 
+                                               string="Descripción"
+                                               help="Descripción detallada de la sección"/>
+                                        
+                                        <!-- Categoría de productos permitidos -->
+                                        <field name="product_category_id" 
+                                               string="Categoría de Productos"
+                                               help="Categoría de productos permitidos en esta sección"/>
+                                    </tree>
+                                    
+                                    <!-- Vista de formulario para secciones -->
+                                    <form string="Detalle de Sección">
+                                        <group>
+                                            <group name="section_basic">
+                                                <field name="name" required="1"/>
                                                 <field name="sequence"/>
                                                 <field name="es_fija"/>
                                                 <field name="product_category_id"/>
-                                                <field name="descripcion"/>
                                             </group>
-                                            <notebook>
-                                                <page string="Productos">
-                                                    <field name="product_line_ids">
-                                                        <list editable="bottom">
-                                                            <field name="sequence" widget="handle"/>
-                                                            <field name="product_id" domain="[('sale_ok', '=', True)] if not parent.product_category_id else [('sale_ok', '=', True), ('categ_id', 'child_of', parent.product_category_id)]"/>
-                                                            <field name="descripcion_personalizada"/>
-                                                            <field name="cantidad"/>
-                                                            <field name="precio_unitario"/>
-                                                            <field name="subtotal"/>
-                                                            <field name="es_opcional"/>
-                                                        </list>
-                                                    </field>
-                                                </page>
-                                            </notebook>
-                                        </sheet>
+                                            <group name="section_description">
+                                                <field name="descripcion" nolabel="1"/>
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Productos de la sección -->
+                                        <notebook>
+                                            <page string="Productos" name="productos">
+                                                <field name="line_ids" 
+                                                       context="{'default_seccion_id': active_id}">
+                                                    <tree string="Productos de la Sección" editable="bottom">
+                                                        <field name="product_id" 
+                                                               string="Producto"
+                                                               required="1"
+                                                               domain="[('capitulo_id', '!=', False)]"/>
+                                                        <field name="cantidad" 
+                                                               string="Cantidad"
+                                                               required="1"/>
+                                                        <field name="precio_unitario" 
+                                                               string="Precio Unitario"/>
+                                                        <field name="subtotal" 
+                                                               string="Subtotal"
+                                                               readonly="1"/>
+                                                        <field name="descripcion_personalizada" 
+                                                               string="Descripción Personalizada"/>
+                                                        <field name="es_opcional" 
+                                                               string="Opcional"/>
+                                                        <field name="sequence" 
+                                                               string="Secuencia"/>
+                                                    </tree>
+                                                </field>
+                                            </page>
+                                        </notebook>
                                     </form>
                                 </field>
                             </page>
-                            <page string="Condiciones Legales">
-                                <field name="condiciones_legales" nolabel="1"/>
+                            
+                            <!-- Pestaña de condiciones legales -->
+                            <page string="Condiciones Legales" name="condiciones">
+                                <field name="condiciones_legales" 
+                                       placeholder="Condiciones legales y términos específicos del capítulo..."
+                                       help="Condiciones legales, términos y cláusulas específicas"/>
                             </page>
                         </notebook>
                     </sheet>
+                    
+                    <!-- Panel de mensajes y actividades -->
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids"/>
+                        <field name="activity_ids"/>
+                        <field name="message_ids"/>
+                    </div>
                 </form>
             </field>
         </record>
 
+        <!-- ========================================== -->
+        <!-- VISTA DE LISTA PARA CAPÍTULOS             -->
+        <!-- ========================================== -->
+        
+        <!-- 
+        Vista de lista que muestra información resumida de capítulos.
+        Incluye filtros visuales y acceso rápido a funcionalidades.
+        -->
         <record id="view_capitulo_contrato_list" model="ir.ui.view">
             <field name="name">capitulo.contrato.list</field>
             <field name="model">capitulo.contrato</field>
             <field name="arch" type="xml">
-                <list>
-                    <field name="name"/>
-                    <field name="description"/>
-                    <field name="es_plantilla" widget="boolean_toggle"/>
-                    <field name="plantilla_id" optional="hide"/>
-                    <field name="capitulos_dependientes_count" string="Dependencias" invisible="not es_plantilla"/>
-                    <button name="action_mostrar_dependencias" type="object" 
-                            string="Ver Dependencias" 
-                            icon="fa-search" 
-                            invisible="not es_plantilla or capitulos_dependientes_count == 0"/>
-                    <button name="action_eliminar_plantilla_forzado" type="object" 
-                            string="Eliminar Plantilla" 
-                            icon="fa-trash" 
-                            invisible="not es_plantilla"
-                            confirm="¿Está seguro de que desea eliminar esta plantilla? Se desvinculará de todos los capítulos que la utilicen."/>
-                </list>
+                <tree string="Capítulos Contrato" 
+                      decoration-info="es_plantilla" 
+                      decoration-muted="not es_plantilla">
+                    
+                    <!-- Nombre del capítulo -->
+                    <field name="name" 
+                           string="Nombre del Capítulo"
+                           help="Nombre descriptivo del capítulo"/>
+                    
+                    <!-- Descripción resumida -->
+                    <field name="description" 
+                           string="Descripción"
+                           help="Descripción del capítulo"/>
+                    
+                    <!-- Indicador de plantilla -->
+                    <field name="es_plantilla" 
+                           string="Es Plantilla"
+                           widget="boolean_toggle"
+                           help="Indica si es una plantilla reutilizable"/>
+                    
+                    <!-- Número de dependencias (solo plantillas) -->
+                    <field name="capitulos_dependientes_count" 
+                           string="Dependencias"
+                           invisible="not context.get('show_dependencies', False)"
+                           help="Número de capítulos que usan esta plantilla"/>
+                    
+                    <!-- Plantilla base -->
+                    <field name="plantilla_id" 
+                           string="Plantilla Base"
+                           invisible="context.get('hide_template_ref', False)"
+                           help="Plantilla utilizada para crear este capítulo"/>
+                </tree>
             </field>
         </record>
 
+        <!-- ========================================== -->
+        <!-- VISTA DE BÚSQUEDA Y FILTROS               -->
+        <!-- ========================================== -->
+        
+        <!-- 
+        Vista de búsqueda con filtros avanzados y agrupaciones.
+        Permite filtrar por tipo, plantilla y otros criterios.
+        -->
         <record id="view_capitulo_contrato_search" model="ir.ui.view">
             <field name="name">capitulo.contrato.search</field>
             <field name="model">capitulo.contrato</field>
             <field name="arch" type="xml">
-                <search>
-                    <field name="name"/>
-                    <field name="description"/>
-                    <field name="plantilla_id"/>
-                    <filter string="Plantillas" name="es_plantilla" domain="[('es_plantilla', '=', True)]"/>
-                    <filter string="Capítulos Normales" name="no_plantilla" domain="[('es_plantilla', '=', False)]"/>
+                <search string="Buscar Capítulos">
+                    
+                    <!-- Campo de búsqueda principal -->
+                    <field name="name" 
+                           string="Nombre"
+                           filter_domain="[('name', 'ilike', self)]"
+                           help="Buscar por nombre del capítulo"/>
+                    
+                    <!-- Búsqueda por descripción -->
+                    <field name="description" 
+                           string="Descripción"
+                           filter_domain="[('description', 'ilike', self)]"
+                           help="Buscar en la descripción"/>
+                    
+                    <!-- Búsqueda por plantilla -->
+                    <field name="plantilla_id" 
+                           string="Plantilla"
+                           help="Buscar por plantilla base"/>
+                    
+                    <!-- Separador visual -->
                     <separator/>
-                    <filter string="Basados en Plantilla" name="con_plantilla" domain="[('plantilla_id', '!=', False)]"/>
-                    <group expand="0" string="Agrupar por">
-                        <filter string="Tipo" name="group_by_tipo" context="{'group_by': 'es_plantilla'}"/>
-                        <filter string="Plantilla Base" name="group_by_plantilla" context="{'group_by': 'plantilla_id'}"/>
+                    
+                    <!-- Filtros predefinidos -->
+                    <filter name="filter_plantillas" 
+                            string="Solo Plantillas" 
+                            domain="[('es_plantilla', '=', True)]"
+                            help="Mostrar solo las plantillas"/>
+                    
+                    <filter name="filter_capitulos" 
+                            string="Solo Capítulos" 
+                            domain="[('es_plantilla', '=', False)]"
+                            help="Mostrar solo los capítulos (no plantillas)"/>
+                    
+                    <filter name="filter_con_plantilla" 
+                            string="Con Plantilla Base" 
+                            domain="[('plantilla_id', '!=', False)]"
+                            help="Capítulos creados desde plantilla"/>
+                    
+                    <!-- Separador para agrupaciones -->
+                    <separator/>
+                    
+                    <!-- Opciones de agrupación -->
+                    <group expand="0" string="Agrupar Por">
+                        <filter name="group_by_tipo" 
+                                string="Tipo (Plantilla/Capítulo)" 
+                                context="{'group_by': 'es_plantilla'}"
+                                help="Agrupar por tipo de elemento"/>
+                        
+                        <filter name="group_by_plantilla" 
+                                string="Plantilla Base" 
+                                context="{'group_by': 'plantilla_id'}"
+                                help="Agrupar por plantilla utilizada"/>
                     </group>
                 </search>
             </field>
         </record>
 
+        <!-- ========================================== -->
+        <!-- ACCIONES DE VENTANA                       -->
+        <!-- ========================================== -->
+        
+        <!-- 
+        Acción principal para gestionar todos los capítulos.
+        Incluye vista de lista, formulario y búsqueda.
+        -->
         <record id="action_capitulo_contrato" model="ir.actions.act_window">
-            <field name="name">Capítulos de Contrato</field>
+            <field name="name">Capítulos Técnicos</field>
             <field name="res_model">capitulo.contrato</field>
-            <field name="view_mode">list,form</field>
-            <field name="context">{'search_default_no_plantilla': 1}</field>
+            <field name="view_mode">tree,form</field>
+            <field name="context">{
+                'default_es_plantilla': False,
+                'hide_template_ref': False
+            }</field>
+            <field name="domain">[]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
-                    Crea tu primer Capítulo de Contrato
+                    ¡Crea tu primer capítulo técnico!
                 </p>
                 <p>
-                    Los capítulos te permiten agrupar productos relacionados para crear presupuestos más organizados.
-                    Puedes crear un capítulo desde cero o basarte en una plantilla existente.
+                    Los capítulos técnicos te permiten organizar servicios complejos
+                    en secciones estructuradas con productos configurables.
                 </p>
+                <p>
+                    <strong>Funcionalidades principales:</strong>
+                </p>
+                <ul>
+                    <li>Organización jerárquica en secciones</li>
+                    <li>Sistema de plantillas reutilizables</li>
+                    <li>Integración con pedidos de venta</li>
+                    <li>Gestión de productos opcionales</li>
+                </ul>
             </field>
         </record>
 
+        <!-- 
+        Acción específica para gestionar plantillas.
+        Vista optimizada para el trabajo con plantillas.
+        -->
         <record id="action_capitulo_plantillas" model="ir.actions.act_window">
             <field name="name">Plantillas de Capítulos</field>
             <field name="res_model">capitulo.contrato</field>
-            <field name="view_mode">list,form</field>
-            <field name="context">{'search_default_es_plantilla': 1}</field>
+            <field name="view_mode">tree,form</field>
+            <field name="context">{
+                'default_es_plantilla': True,
+                'show_dependencies': True,
+                'hide_template_ref': True
+            }</field>
+            <field name="domain">[('es_plantilla', '=', True)]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
-                    Crea tu primera Plantilla de Capítulo
+                    ¡Crea tu primera plantilla de capítulo!
                 </p>
                 <p>
-                    Las plantillas te permiten crear capítulos reutilizables con configuraciones predefinidas.
-                    Puedes crear, editar y eliminar plantillas según tus necesidades.
+                    Las plantillas te permiten estandarizar capítulos técnicos
+                    para reutilizarlos en múltiples presupuestos.
                 </p>
+                <p>
+                    <strong>Ventajas de las plantillas:</strong>
+                </p>
+                <ul>
+                    <li>Estandarización de servicios</li>
+                    <li>Reutilización eficiente</li>
+                    <li>Mantenimiento centralizado</li>
+                    <li>Consistencia en presupuestos</li>
+                </ul>
             </field>
         </record>
 
+        <!-- ========================================== -->
+        <!-- ELEMENTOS DE MENÚ                         -->
+        <!-- ========================================== -->
+        
+        <!-- 
+        Integración en el menú principal de Odoo.
+        Ubicado en el módulo de Ventas para fácil acceso.
+        -->
+        
+        <!-- Menú principal de capítulos -->
+        <menuitem id="menu_capitulo_contrato" 
+                  name="Capítulos Técnicos" 
+                  parent="sale.sale_menu_root" 
+                  action="action_capitulo_contrato" 
+                  sequence="20"
+                  groups="base.group_user"/>
+
+        <!-- Submenú para plantillas -->
+        <menuitem id="menu_capitulo_plantillas" 
+                  name="Plantillas" 
+                  parent="menu_capitulo_contrato" 
+                  action="action_capitulo_plantillas" 
+                  sequence="10"
+                  groups="base.group_user"/>
+
+    </data>
 </odoo>

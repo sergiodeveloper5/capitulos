@@ -444,3 +444,597 @@
             </Dialog>
         </t>
      </templates>
+
+<!--
+PLANTILLAS XML PARA EL WIDGET ACORDEÓN DE CAPÍTULOS TÉCNICOS
+============================================================
+
+Este archivo contiene todas las plantillas XML necesarias para el widget
+de acordeón de capítulos técnicos, incluyendo:
+
+PLANTILLAS PRINCIPALES:
+- CapitulosAccordionWidget: Plantilla principal del acordeón
+- ProductSelectorModal: Modal para selección de productos
+- CategorySelector: Selector de categorías con autocompletado
+- ProductList: Lista de productos filtrados por categoría
+
+COMPONENTES DE INTERFAZ:
+- Acordeón expandible/colapsable por capítulos
+- Tablas de líneas con edición inline
+- Modal de dos pasos (categoría → producto)
+- Campos de búsqueda con debouncing
+- Botones de acción contextuales
+- Indicadores de carga y estados
+
+FUNCIONALIDADES VISUALES:
+- Iconos Font Awesome para navegación
+- Estilos Bootstrap para consistencia
+- Animaciones CSS para transiciones
+- Estados de carga y error
+- Validaciones visuales
+- Tooltips informativos
+
+ESTRUCTURA JERÁRQUICA:
+Capítulo (expandible)
+├── Sección A
+│   ├── Línea 1 (editable)
+│   ├── Línea 2 (editable)
+│   └── [Botón añadir producto]
+└── Sección B
+    ├── Línea 3 (editable)
+    └── [Botón añadir producto]
+
+EVENTOS MANEJADOS:
+- Click en cabecera de capítulo (toggle)
+- Click en botón editar línea
+- Click en botón eliminar línea
+- Click en botón añadir producto
+- Entrada de texto en búsquedas
+- Selección de categorías y productos
+
+@author: Sergio Vadillo
+@version: 18.0.1.1.0
+@since: 2024
+@license: LGPL-3
+-->
+
+<templates>
+    <!-- 
+    PLANTILLA PRINCIPAL DEL WIDGET ACORDEÓN
+    ======================================
+    
+    Plantilla raíz que renderiza todo el acordeón de capítulos.
+    Incluye la estructura principal y maneja el estado de carga.
+    -->
+    <t t-name="capitulos.CapitulosAccordionWidget" owl="1">
+        <div class="capitulos-accordion-widget">
+            <!-- ENCABEZADO DEL WIDGET -->
+            <div class="widget-header mb-3">
+                <h5 class="mb-0">
+                    <i class="fa fa-list-alt me-2"></i>
+                    Capítulos del Presupuesto
+                </h5>
+                <small class="text-muted">
+                    Gestión organizada por capítulos y secciones técnicas
+                </small>
+            </div>
+
+            <!-- CONTENIDO PRINCIPAL -->
+            <div class="accordion" id="capitulosAccordion">
+                <!-- ITERACIÓN POR CAPÍTULOS -->
+                <t t-foreach="chapters" t-as="chapter" t-key="chapter.id">
+                    <div class="accordion-item mb-2">
+                        <!-- CABECERA DEL CAPÍTULO (CLICKEABLE) -->
+                        <h2 class="accordion-header" t-att-id="'heading-' + chapter.id">
+                            <button 
+                                class="accordion-button fw-bold"
+                                t-att-class="isChapterCollapsed(chapter.name) ? 'collapsed' : ''"
+                                type="button"
+                                t-on-click="() => this.toggleChapter(chapter.name)"
+                                t-att-aria-expanded="!isChapterCollapsed(chapter.name)"
+                                t-att-aria-controls="'collapse-' + chapter.id">
+                                
+                                <!-- ICONO Y NOMBRE DEL CAPÍTULO -->
+                                <i class="fa fa-folder-open me-2 text-primary"></i>
+                                <span t-esc="chapter.name"></span>
+                                
+                                <!-- CONTADOR DE SECCIONES -->
+                                <span class="badge bg-secondary ms-auto me-2">
+                                    <t t-esc="getSections(chapter.data).length"/> secciones
+                                </span>
+                            </button>
+                        </h2>
+
+                        <!-- CONTENIDO DEL CAPÍTULO (COLAPSABLE) -->
+                        <div 
+                            t-att-id="'collapse-' + chapter.id"
+                            class="accordion-collapse collapse"
+                            t-att-class="!isChapterCollapsed(chapter.name) ? 'show' : ''"
+                            t-att-aria-labelledby="'heading-' + chapter.id">
+                            
+                            <div class="accordion-body p-0">
+                                <!-- ITERACIÓN POR SECCIONES -->
+                                <t t-foreach="getSections(chapter.data)" t-as="section" t-key="section.name">
+                                    <div class="section-container border-bottom">
+                                        <!-- CABECERA DE LA SECCIÓN -->
+                                        <div class="section-header bg-light p-3">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1 fw-semibold">
+                                                        <i class="fa fa-cogs me-2 text-info"></i>
+                                                        <span t-esc="section.name"></span>
+                                                    </h6>
+                                                    <small class="text-muted">
+                                                        <t t-esc="section.lines.length"/> líneas
+                                                    </small>
+                                                </div>
+                                                
+                                                <!-- BOTÓN AÑADIR PRODUCTO -->
+                                                <button 
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    t-on-click="() => this.openProductModal(chapter.name, section.name)"
+                                                    title="Añadir producto a esta sección">
+                                                    <i class="fa fa-plus me-1"></i>
+                                                    Añadir Producto
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- TABLA DE LÍNEAS DE LA SECCIÓN -->
+                                        <div class="section-lines">
+                                            <t t-if="section.lines.length > 0">
+                                                <table class="table table-sm table-hover mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th width="40%">Producto</th>
+                                                            <th width="15%" class="text-center">Cantidad</th>
+                                                            <th width="15%" class="text-end">Precio Unit.</th>
+                                                            <th width="15%" class="text-end">Subtotal</th>
+                                                            <th width="15%" class="text-center">Acciones</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <!-- ITERACIÓN POR LÍNEAS -->
+                                                        <t t-foreach="section.lines" t-as="line" t-key="line.id">
+                                                            <tr class="line-row">
+                                                                <!-- NOMBRE DEL PRODUCTO -->
+                                                                <td class="align-middle">
+                                                                    <div class="product-info">
+                                                                        <span class="fw-medium" t-esc="line.name"></span>
+                                                                        <t t-if="line.default_code">
+                                                                            <br/>
+                                                                            <small class="text-muted">
+                                                                                Ref: <span t-esc="line.default_code"></span>
+                                                                            </small>
+                                                                        </t>
+                                                                    </div>
+                                                                </td>
+
+                                                                <!-- CANTIDAD (EDITABLE) -->
+                                                                <td class="text-center align-middle">
+                                                                    <t t-if="state.editingLine === line.id">
+                                                                        <input 
+                                                                            type="number"
+                                                                            class="form-control form-control-sm text-center"
+                                                                            t-att-value="state.editingData.quantity"
+                                                                            t-on-input="(ev) => this.updateEditData('quantity', ev.target.value)"
+                                                                            step="0.01"
+                                                                            min="0"/>
+                                                                    </t>
+                                                                    <t t-else="">
+                                                                        <span t-esc="line.quantity || line.product_uom_qty || 0"></span>
+                                                                    </t>
+                                                                </td>
+
+                                                                <!-- PRECIO UNITARIO (EDITABLE) -->
+                                                                <td class="text-end align-middle">
+                                                                    <t t-if="state.editingLine === line.id">
+                                                                        <input 
+                                                                            type="number"
+                                                                            class="form-control form-control-sm text-end"
+                                                                            t-att-value="state.editingData.price_unit"
+                                                                            t-on-input="(ev) => this.updateEditData('price_unit', ev.target.value)"
+                                                                            step="0.01"
+                                                                            min="0"/>
+                                                                    </t>
+                                                                    <t t-else="">
+                                                                        <span t-esc="(line.price_unit || 0).toFixed(2)"></span> €
+                                                                    </t>
+                                                                </td>
+
+                                                                <!-- SUBTOTAL (CALCULADO) -->
+                                                                <td class="text-end align-middle fw-medium">
+                                                                    <t t-if="state.editingLine === line.id">
+                                                                        <span t-esc="(state.editingData.quantity * state.editingData.price_unit).toFixed(2)"></span> €
+                                                                    </t>
+                                                                    <t t-else="">
+                                                                        <span t-esc="(line.price_subtotal || 0).toFixed(2)"></span> €
+                                                                    </t>
+                                                                </td>
+
+                                                                <!-- BOTONES DE ACCIÓN -->
+                                                                <td class="text-center align-middle">
+                                                                    <div class="btn-group btn-group-sm" role="group">
+                                                                        <!-- MODO EDICIÓN -->
+                                                                        <t t-if="state.editingLine === line.id">
+                                                                            <button 
+                                                                                type="button"
+                                                                                class="btn btn-success btn-sm"
+                                                                                t-on-click="() => this.saveEdit()"
+                                                                                title="Guardar cambios">
+                                                                                <i class="fa fa-check"></i>
+                                                                            </button>
+                                                                            <button 
+                                                                                type="button"
+                                                                                class="btn btn-secondary btn-sm"
+                                                                                t-on-click="() => this.cancelEdit()"
+                                                                                title="Cancelar edición">
+                                                                                <i class="fa fa-times"></i>
+                                                                            </button>
+                                                                        </t>
+                                                                        
+                                                                        <!-- MODO NORMAL -->
+                                                                        <t t-else="">
+                                                                            <button 
+                                                                                type="button"
+                                                                                class="btn btn-outline-primary btn-sm"
+                                                                                t-on-click="() => this.startEdit(line.id)"
+                                                                                title="Editar línea">
+                                                                                <i class="fa fa-edit"></i>
+                                                                            </button>
+                                                                            <button 
+                                                                                type="button"
+                                                                                class="btn btn-outline-danger btn-sm"
+                                                                                t-on-click="() => this.deleteLine(line.id)"
+                                                                                title="Eliminar línea">
+                                                                                <i class="fa fa-trash"></i>
+                                                                            </button>
+                                                                        </t>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        </t>
+                                                    </tbody>
+                                                </table>
+                                            </t>
+                                            
+                                            <!-- MENSAJE CUANDO NO HAY LÍNEAS -->
+                                            <t t-else="">
+                                                <div class="text-center py-4 text-muted">
+                                                    <i class="fa fa-inbox fa-2x mb-2"></i>
+                                                    <p class="mb-0">No hay productos en esta sección</p>
+                                                    <small>Haz clic en "Añadir Producto" para comenzar</small>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </div>
+
+            <!-- MENSAJE CUANDO NO HAY CAPÍTULOS -->
+            <t t-if="chapters.length === 0">
+                <div class="text-center py-5">
+                    <i class="fa fa-folder-open fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No hay capítulos configurados</h5>
+                    <p class="text-muted mb-0">
+                        Utiliza el botón "Gestionar Capítulos" para crear la estructura de tu presupuesto
+                    </p>
+                </div>
+            </t>
+
+            <!-- MODAL DE SELECCIÓN DE PRODUCTOS -->
+            <t t-if="state.showProductModal">
+                <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <!-- CABECERA DEL MODAL -->
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="fa fa-plus-circle me-2"></i>
+                                    Añadir Producto
+                                </h5>
+                                <button 
+                                    type="button" 
+                                    class="btn-close" 
+                                    t-on-click="() => this.closeProductModal()">
+                                </button>
+                            </div>
+
+                            <!-- CUERPO DEL MODAL -->
+                            <div class="modal-body">
+                                <!-- INFORMACIÓN DE CONTEXTO -->
+                                <div class="alert alert-info mb-3">
+                                    <strong>Añadiendo a:</strong>
+                                    <span t-esc="state.currentChapter"></span> → 
+                                    <span t-esc="state.currentSection"></span>
+                                </div>
+
+                                <!-- PASO 1: SELECCIÓN DE CATEGORÍA -->
+                                <t t-if="state.step === 'category'">
+                                    <div class="category-selection">
+                                        <h6 class="mb-3">
+                                            <i class="fa fa-tags me-2"></i>
+                                            Paso 1: Seleccionar Categoría
+                                        </h6>
+                                        
+                                        <!-- CAMPO DE BÚSQUEDA DE CATEGORÍAS -->
+                                        <div class="mb-3">
+                                            <label class="form-label">Buscar categoría:</label>
+                                            <div class="input-group">
+                                                <input 
+                                                    type="text"
+                                                    class="form-control"
+                                                    placeholder="Escriba para buscar categorías..."
+                                                    t-att-value="state.categorySearchTerm"
+                                                    t-on-input="(ev) => this.onCategorySearchInput(ev)"
+                                                    t-on-focus="() => this.showCategoryDropdownWithLoad()"/>
+                                                <button 
+                                                    class="btn btn-outline-secondary"
+                                                    type="button"
+                                                    t-on-click="() => this.showCategoryDropdownWithLoad()">
+                                                    <i class="fa fa-chevron-down"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- DROPDOWN DE CATEGORÍAS -->
+                                        <t t-if="state.showCategoryDropdown">
+                                            <div class="dropdown-menu show w-100 max-height-200 overflow-auto">
+                                                <!-- INDICADOR DE CARGA -->
+                                                <t t-if="state.loadingCategories">
+                                                    <div class="dropdown-item text-center">
+                                                        <i class="fa fa-spinner fa-spin me-2"></i>
+                                                        Cargando categorías...
+                                                    </div>
+                                                </t>
+                                                
+                                                <!-- LISTA DE CATEGORÍAS -->
+                                                <t t-else="">
+                                                    <t t-if="state.categories.length > 0">
+                                                        <t t-foreach="state.categories" t-as="category" t-key="category.id">
+                                                            <a 
+                                                                href="#"
+                                                                class="dropdown-item"
+                                                                t-on-click.prevent="() => this.selectCategory(category)">
+                                                                <i class="fa fa-tag me-2"></i>
+                                                                <span t-esc="category.name"></span>
+                                                                <small class="text-muted ms-auto">
+                                                                    (<span t-esc="category.product_count || 0"></span> productos)
+                                                                </small>
+                                                            </a>
+                                                        </t>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <div class="dropdown-item text-muted">
+                                                            No se encontraron categorías
+                                                        </div>
+                                                    </t>
+                                                </t>
+                                            </div>
+                                        </t>
+
+                                        <!-- CATEGORÍA SELECCIONADA -->
+                                        <t t-if="state.selectedCategory">
+                                            <div class="alert alert-success">
+                                                <i class="fa fa-check-circle me-2"></i>
+                                                Categoría seleccionada: <strong t-esc="state.selectedCategory.name"></strong>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </t>
+
+                                <!-- PASO 2: SELECCIÓN DE PRODUCTO -->
+                                <t t-if="state.step === 'product'">
+                                    <div class="product-selection">
+                                        <h6 class="mb-3">
+                                            <i class="fa fa-cube me-2"></i>
+                                            Paso 2: Seleccionar Producto
+                                        </h6>
+                                        
+                                        <!-- INFORMACIÓN DE CATEGORÍA -->
+                                        <div class="alert alert-info mb-3">
+                                            <strong>Categoría:</strong> <span t-esc="state.selectedCategory.name"></span>
+                                        </div>
+
+                                        <!-- CAMPO DE BÚSQUEDA DE PRODUCTOS -->
+                                        <div class="mb-3">
+                                            <label class="form-label">Buscar producto:</label>
+                                            <input 
+                                                type="text"
+                                                class="form-control"
+                                                placeholder="Escriba para buscar productos..."
+                                                t-att-value="state.productSearchTerm"
+                                                t-on-input="(ev) => this.onProductSearchInput(ev)"/>
+                                        </div>
+
+                                        <!-- LISTA DE PRODUCTOS -->
+                                        <div class="products-list">
+                                            <!-- INDICADOR DE CARGA -->
+                                            <t t-if="state.loadingProducts">
+                                                <div class="text-center py-3">
+                                                    <i class="fa fa-spinner fa-spin me-2"></i>
+                                                    Cargando productos...
+                                                </div>
+                                            </t>
+                                            
+                                            <!-- PRODUCTOS ENCONTRADOS -->
+                                            <t t-else="">
+                                                <t t-if="state.products.length > 0">
+                                                    <div class="row">
+                                                        <t t-foreach="state.products" t-as="product" t-key="product.id">
+                                                            <div class="col-12 mb-2">
+                                                                <div 
+                                                                    class="card product-card h-100 cursor-pointer"
+                                                                    t-on-click="() => this.addProductToSection(product)">
+                                                                    <div class="card-body p-3">
+                                                                        <div class="d-flex justify-content-between align-items-start">
+                                                                            <div class="flex-grow-1">
+                                                                                <h6 class="card-title mb-1" t-esc="product.name"></h6>
+                                                                                <t t-if="product.default_code">
+                                                                                    <p class="card-text text-muted small mb-1">
+                                                                                        Ref: <span t-esc="product.default_code"></span>
+                                                                                    </p>
+                                                                                </t>
+                                                                                <p class="card-text">
+                                                                                    <strong t-esc="(product.list_price || 0).toFixed(2)"></strong> €
+                                                                                </p>
+                                                                            </div>
+                                                                            <div class="text-end">
+                                                                                <i class="fa fa-plus-circle text-primary fa-lg"></i>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </t>
+                                                    </div>
+                                                </t>
+                                                <t t-else="">
+                                                    <div class="text-center py-4 text-muted">
+                                                        <i class="fa fa-search fa-2x mb-2"></i>
+                                                        <p class="mb-0">No se encontraron productos</p>
+                                                        <small>Intente con otros términos de búsqueda</small>
+                                                    </div>
+                                                </t>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+
+                            <!-- PIE DEL MODAL -->
+                            <div class="modal-footer">
+                                <!-- BOTONES DEL PASO DE CATEGORÍA -->
+                                <t t-if="state.step === 'category'">
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-secondary"
+                                        t-on-click="() => this.closeProductModal()">
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-primary"
+                                        t-att-disabled="!state.selectedCategory"
+                                        t-on-click="() => this.proceedToProducts()">
+                                        Siguiente
+                                        <i class="fa fa-arrow-right ms-1"></i>
+                                    </button>
+                                </t>
+                                
+                                <!-- BOTONES DEL PASO DE PRODUCTO -->
+                                <t t-if="state.step === 'product'">
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-secondary"
+                                        t-on-click="() => this.goBackToCategories()">
+                                        <i class="fa fa-arrow-left me-1"></i>
+                                        Volver
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-secondary"
+                                        t-on-click="() => this.closeProductModal()">
+                                        Cancelar
+                                    </button>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>
+
+<!-- 
+ESTILOS CSS ADICIONALES
+=======================
+
+Estilos específicos para mejorar la apariencia y usabilidad del widget.
+Estos estilos complementan las clases de Bootstrap utilizadas.
+-->
+<style>
+    /* ESTILOS GENERALES DEL WIDGET */
+    .capitulos-accordion-widget {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* ESTILOS DEL ACORDEÓN */
+    .accordion-button:not(.collapsed) {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+    }
+
+    .accordion-button:focus {
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    /* ESTILOS DE SECCIONES */
+    .section-container {
+        transition: all 0.2s ease;
+    }
+
+    .section-container:hover {
+        background-color: #f8f9fa;
+    }
+
+    .section-header {
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    /* ESTILOS DE LÍNEAS */
+    .line-row:hover {
+        background-color: #f8f9fa;
+    }
+
+    .product-info {
+        line-height: 1.4;
+    }
+
+    /* ESTILOS DEL MODAL */
+    .product-card {
+        transition: all 0.2s ease;
+        border: 1px solid #dee2e6;
+    }
+
+    .product-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transform: translateY(-1px);
+    }
+
+    .cursor-pointer {
+        cursor: pointer;
+    }
+
+    /* UTILIDADES */
+    .max-height-200 {
+        max-height: 200px;
+    }
+
+    .fw-medium {
+        font-weight: 500;
+    }
+
+    .fw-semibold {
+        font-weight: 600;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .table-responsive {
+            font-size: 0.875rem;
+        }
+    }
+</style>

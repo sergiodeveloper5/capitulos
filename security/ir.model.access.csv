@@ -1,8 +1,55 @@
+# -*- coding: utf-8 -*-
+
+# ============================================================================
+# ARCHIVO DE CONTROL DE ACCESO PARA EL MÓDULO DE CAPÍTULOS TÉCNICOS
+# ============================================================================
+#
+# Este archivo define los permisos de acceso para todos los modelos del módulo
+# de capítulos técnicos. Establece qué grupos de usuarios pueden realizar
+# qué operaciones (leer, escribir, crear, eliminar) en cada modelo.
+#
+# ESTRUCTURA DEL ARCHIVO:
+# - id: Identificador único del permiso
+# - name: Nombre descriptivo del permiso
+# - model_id:id: Referencia al modelo de datos
+# - group_id:id: Grupo de usuarios al que se aplica
+# - perm_read: Permiso de lectura (1=sí, 0=no)
+# - perm_write: Permiso de escritura (1=sí, 0=no)
+# - perm_create: Permiso de creación (1=sí, 0=no)
+# - perm_unlink: Permiso de eliminación (1=sí, 0=no)
+#
+# GRUPOS DE USUARIOS:
+# - base.group_user: Usuarios internos (empleados)
+# - sales_team.group_sale_salesman: Vendedores
+# - sales_team.group_sale_manager: Gerentes de ventas
+#
+# MODELOS INCLUIDOS:
+# - capitulo.contrato: Capítulos y plantillas técnicas
+# - capitulo.seccion: Secciones dentro de capítulos
+# - capitulo.seccion.line: Líneas de producto en secciones
+# - capitulo.wizard: Asistente de gestión de capítulos
+# - capitulo.wizard.seccion: Secciones del wizard
+# - capitulo.wizard.line: Líneas del wizard
+# - product.category: Categorías de productos (solo lectura)
+#
+# @author: Sergio Vadillo
+# @version: 18.0.1.1.0
+# @since: 2024
+# @license: LGPL-3
+# ============================================================================
+
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+# Permisos para el modelo principal de capítulos
 access_capitulo_user,capitulo.contrato,model_capitulo_contrato,base.group_user,1,1,1,1
+# Permisos para secciones de capítulos
 access_capitulo_seccion_user,capitulo.seccion,model_capitulo_seccion,base.group_user,1,1,1,1
+# Permisos para líneas de sección
 access_capitulo_seccion_line_user,capitulo.seccion.line,model_capitulo_seccion_line,base.group_user,1,1,1,1
+# Permisos para el wizard principal
 access_wizard_user,capitulo.wizard,model_capitulo_wizard,base.group_user,1,1,1,1
+# Permisos para secciones del wizard
 access_wizard_seccion_user,capitulo.wizard.seccion,model_capitulo_wizard_seccion,base.group_user,1,1,1,1
+# Permisos para líneas del wizard
 access_wizard_line_user,capitulo.wizard.line,model_capitulo_wizard_line,base.group_user,1,1,1,1
+# Permisos de solo lectura para categorías de productos
 access_product_category_user,product.category,product.model_product_category,base.group_user,1,0,0,0
