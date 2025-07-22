@@ -1,32 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Extensión de vistas de pedidos de venta para capítulos técnicos -->
+    <!-- Heredar vista de pedido de ventas -->
     <record id="view_order_form_inherit_capitulo" model="ir.ui.view">
         <field name="name">sale.order.form.inherit.capitulo</field>
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <!-- Botón de gestión de capítulos -->
             <xpath expr="//button[@name='action_quotation_send']" position="after">
-                <button name="action_add_capitulo" string="Gestionar Capítulos" type="object" 
-                        class="btn-secondary" groups="sales_team.group_sale_salesman" 
-                        invisible="state not in ['draft', 'sent']"/>
+                <button name="action_add_capitulo" string="Gestionar Capítulos" type="object" class="btn-secondary" groups="sales_team.group_sale_salesman" invisible="state not in ['draft', 'sent']"/>
             </xpath>
-            
-            <!-- Vista de acordeón antes del campo order_line -->
-            <xpath expr="//field[@name='order_line']" position="before">
-                <div class="capitulos-container" invisible="not tiene_multiples_capitulos">
-                    <h4 style="margin-bottom: 15px; color: #007bff;">📋 Capítulos del Presupuesto</h4>
-                    <field name="capitulos_agrupados" widget="capitulos_accordion" nolabel="1"/>
+            <xpath expr="//field[@name='order_line']" position="replace">
+                <div class="capitulos-container">
+                    <!-- Mostrar capítulos en acordeón cuando hay capítulos estructurados -->
+                    <div invisible="not tiene_multiples_capitulos">
+                        <h4 style="margin-bottom: 15px; color: #007bff;">📋 Capítulos del Presupuesto</h4>
+                        <field name="capitulos_agrupados" widget="capitulos_accordion" nolabel="1"/>
+                    </div>
+                    
+                    <!-- Vista tradicional cuando no hay capítulos estructurados -->
+                    <div invisible="tiene_multiples_capitulos">
+                        <field name="order_line" widget="section_and_note_one2many">
+                            <list decoration-info="es_encabezado_capitulo" decoration-warning="es_encabezado_seccion" editable="bottom">
+                                <field name="sequence" widget="handle"/>
+                                <field name="product_id" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="name" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="product_uom_qty" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="product_uom" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="price_unit" readonly="es_encabezado_capitulo or es_encabezado_seccion"/>
+                                <field name="price_subtotal"/>
+                                <field name="es_encabezado_capitulo" invisible="1"/>
+                                <field name="es_encabezado_seccion" invisible="1"/>
+                            </list>
+                        </field>
+                    </div>
                 </div>
             </xpath>
-            
-            <!-- Ocultar vista tradicional cuando hay capítulos (mantiene compatibilidad PDF) -->
-            <xpath expr="//field[@name='order_line']" position="attributes">
-                <attribute name="invisible">tiene_multiples_capitulos</attribute>
-            </xpath>
-            
-            <!-- Campos de control -->
             <xpath expr="//field[@name='order_line']" position="after">
                 <field name="capitulo_ids" invisible="not capitulo_ids" widget="many2many_tags"/>
                 <field name="tiene_multiples_capitulos" invisible="1"/>
